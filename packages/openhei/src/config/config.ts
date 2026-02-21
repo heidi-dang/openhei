@@ -714,7 +714,6 @@ export namespace Config {
         .positive()
         .optional()
         .describe("Maximum number of agentic iterations before forcing text-only response"),
-      maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
       permission: Permission.optional(),
     })
     .catchall(z.any())
@@ -731,7 +730,6 @@ export namespace Config {
         "hidden",
         "color",
         "steps",
-        "maxSteps",
         "options",
         "permission",
         "disable",
@@ -741,7 +739,7 @@ export namespace Config {
       // Extract unknown properties into options
       const options: Record<string, unknown> = { ...agent.options }
       for (const [key, value] of Object.entries(agent)) {
-        if (!knownKeys.has(key)) options[key] = value
+        if (!knownKeys.has(key) && key !== "maxSteps") options[key] = value
       }
 
       // Convert legacy tools config to permissions
@@ -758,7 +756,8 @@ export namespace Config {
       Object.assign(permission, agent.permission)
 
       // Convert legacy maxSteps to steps
-      const steps = agent.steps ?? agent.maxSteps
+      const maxSteps = agent.maxSteps
+      const steps = agent.steps ?? maxSteps
 
       return { ...agent, options, permission, steps } as typeof agent & {
         options?: Record<string, unknown>

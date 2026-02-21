@@ -1472,10 +1472,6 @@ export type AgentConfig = {
    * Maximum number of agentic iterations before forcing text-only response
    */
   steps?: number
-  /**
-   * @deprecated Use 'steps' field instead.
-   */
-  maxSteps?: number
   permission?: PermissionConfig
   [key: string]:
     | unknown
