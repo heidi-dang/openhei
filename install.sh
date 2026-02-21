@@ -10,6 +10,23 @@ RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
 NC='\033[0m' # No Color
 
+show_logo() {
+    echo -e ""
+    echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█░░█ █▀▀▀ ░█░░"
+    echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█▀▀█ █▀▀▀ ░█░░"
+    echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀  ▀ ▀▀▀▀ ▀▀▀▀"
+    echo -e ""
+    echo -e ""
+    echo -e "${MUTED}OpenHei includes free models, to start:${NC}"
+    echo -e ""
+    echo -e "cd <project>  ${MUTED}# Open directory${NC}"
+    echo -e "openhei      ${MUTED}# Run command${NC}"
+    echo -e ""
+    echo -e "${MUTED}For more information visit ${NC}https://openhei.ai/docs"
+    echo -e ""
+    echo -e ""
+}
+
 usage() {
     cat <<EOF
 OpenHei Installer
@@ -29,7 +46,6 @@ Examples:
 EOF
 }
 
-requested_version=${VERSION:-}
 no_modify_path=false
 binary_path=""
 
@@ -71,7 +87,6 @@ done
 INSTALL_DIR=$HOME/.openhei/bin
 mkdir -p "$INSTALL_DIR"
 
-# If --binary is provided, skip all download/detection logic
 if [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
         echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
@@ -170,7 +185,6 @@ else
 
     filename="$APP-$target$archive_ext"
 
-
     if [ "$os" = "linux" ]; then
         if ! command -v tar >/dev/null 2>&1; then
              echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
@@ -184,9 +198,7 @@ else
     fi
 
     if [ -z "$requested_version" ]; then
-        url="https://github.com/heidi-dang/openhei/releases/latest/download/$filename"
-        
-        # Enhanced fetching with error check
+        # Fetch latest version from API
         response=$(curl -s https://api.github.com/repos/heidi-dang/openhei/releases/latest)
         specific_version=$(echo "$response" | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
 
@@ -196,15 +208,7 @@ else
             echo -e "${MUTED}For more info: https://github.com/heidi-dang/openhei/releases${NC}"
             exit 1
         fi
-
-        # Verify asset exists before attempting download
-        asset_check=$(curl -sI "$url" | head -n 1 | awk '{print $2}')
-        if [ "$asset_check" != "200" ] && [ "$asset_check" != "302" ]; then
-            echo -e "${RED}Error: Binary asset '$filename' not found in release v$specific_version${NC}"
-            echo -e "${ORANGE}The release exists, but it seems there are no binaries uploaded yet.${NC}"
-            echo -e "${MUTED}Make sure you upload the .zip and .tar.gz files to the v$specific_version release on GitHub.${NC}"
-            exit 1
-        fi
+        url="https://github.com/heidi-dang/openhei/releases/download/v${specific_version}/$filename"
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
@@ -219,32 +223,34 @@ else
             exit 1
         fi
     fi
+
+    # Verify asset exists before attempting download - use -L to follow redirects if necessary
+    asset_check=$(curl -sLI "$url" | grep -Ei "^HTTP/" | awk '{print $2}' | tail -n 1 || echo "failed")
+    if [ "$asset_check" != "200" ]; then
+        echo -e "${RED}Error: Binary asset '$filename' not found at $url (Status: $asset_check)${NC}"
+        echo -e "${ORANGE}Please check that the binaries are correctly uploaded to the release.${NC}"
+        exit 1
+    fi
 fi
 
 print_message() {
     local level=$1
     local message=$2
     local color=""
-
     case $level in
         info) color="${NC}" ;;
         warning) color="${NC}" ;;
         error) color="${RED}" ;;
     esac
-
     echo -e "${color}${message}${NC}"
 }
 
 check_version() {
     if command -v openhei >/dev/null 2>&1; then
         openhei_path=$(which openhei)
-
-        ## Check the installed version
         installed_version=$(openhei --version 2>/dev/null || echo "")
-
         if [[ "$installed_version" == "$specific_version" ]]; then
             echo -e "${NC}Version $specific_version already installed at $openhei_path${NC}"
-            # Still show the logo even if already installed
             show_logo
             exit 0
         fi
@@ -266,48 +272,37 @@ print_progress() {
     local bytes="$1"
     local length="$2"
     [ "$length" -gt 0 ] || return 0
-
     local width=50
     local percent=$(( bytes * 100 / length ))
     [ "$percent" -gt 100 ] && percent=100
     local on=$(( percent * width / 100 ))
     local off=$(( width - on ))
-
     local filled=$(printf "%*s" "$on" "")
     filled=${filled// /■}
     local empty=$(printf "%*s" "$off" "")
     empty=${empty// /･}
-
     printf "\r${ORANGE}%s%s %3d%%${NC}" "$filled" "$empty" "$percent" >&4
 }
 
 download_with_progress() {
     local url="$1"
     local output="$2"
-
     if [ -t 2 ]; then
         exec 4>&2
     else
         exec 4>/dev/null
     fi
-
     local tmp_dir=${TMPDIR:-/tmp}
     local basename="${tmp_dir}/openhei_install_$$"
     local tracefile="${basename}.trace"
-
     rm -f "$tracefile"
     mkfifo "$tracefile"
-
-    # Hide cursor
     printf "\033[?25l" >&4
-
     trap "trap - RETURN; rm -f \"$tracefile\"; printf '\033[?25h' >&4; exec 4>&-" RETURN
-
     (
         curl --trace-ascii "$tracefile" -s -L -o "$output" "$url"
     ) &
     local curl_pid=$!
-
     unbuffered_sed \
         -e 'y/ACDEGHLNORTV/acdeghlnortv/' \
         -e '/^0000: content-length:/p' \
@@ -316,11 +311,9 @@ download_with_progress() {
     {
         local length=0
         local bytes=0
-
         while IFS=" " read -r -a line; do
             [ "${#line[@]}" -lt 2 ] && continue
             local tag="${line[0]} ${line[1]}"
-
             if [ "$tag" = "0000: content-length:" ]; then
                 length="${line[2]}"
                 length=$(echo "$length" | tr -d '\r')
@@ -334,7 +327,6 @@ download_with_progress() {
             fi
         done
     }
-
     wait $curl_pid
     local ret=$?
     echo "" >&4
@@ -345,18 +337,14 @@ download_and_install() {
     print_message info "\n${MUTED}Installing ${NC}openhei ${MUTED}version: ${NC}$specific_version"
     local tmp_dir="${TMPDIR:-/tmp}/openhei_install_$$"
     mkdir -p "$tmp_dir"
-
     if [[ "$os" == "windows" ]] || ! [ -t 2 ] || ! download_with_progress "$url" "$tmp_dir/$filename"; then
-        # Fallback to standard curl on Windows, non-TTY environments, or if custom progress fails
         curl -# -L -o "$tmp_dir/$filename" "$url"
     fi
-
     if [ "$os" = "linux" ]; then
         tar -xzf "$tmp_dir/$filename" -C "$tmp_dir"
     else
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
-
     mv "$tmp_dir/openhei" "$INSTALL_DIR"
     chmod 755 "${INSTALL_DIR}/openhei"
     rm -rf "$tmp_dir"
@@ -375,11 +363,9 @@ else
     download_and_install
 fi
 
-
 add_to_path() {
     local config_file=$1
     local command=$2
-
     if grep -Fxq "$command" "$config_file"; then
         print_message info "Command already exists in $config_file, skipping write."
     elif [[ -w $config_file ]]; then
@@ -393,28 +379,13 @@ add_to_path() {
 }
 
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
-
 current_shell=$(basename "$SHELL")
 case $current_shell in
-    fish)
-        config_files="$HOME/.config/fish/config.fish"
-    ;;
-    zsh)
-        config_files="${ZDOTDIR:-$HOME}/.zshrc ${ZDOTDIR:-$HOME}/.zshenv $XDG_CONFIG_HOME/zsh/.zshrc $XDG_CONFIG_HOME/zsh/.zshenv"
-    ;;
-    bash)
-        config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
-    ;;
-    ash)
-        config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
-    ;;
-    sh)
-        config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
-    ;;
-    *)
-        # Default case if none of the above matches
-        config_files="$HOME/.bashrc $HOME/.bash_profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
-    ;;
+    fish) config_files="$HOME/.config/fish/config.fish" ;;
+    zsh) config_files="${ZDOTDIR:-$HOME}/.zshrc ${ZDOTDIR:-$HOME}/.zshenv $XDG_CONFIG_HOME/zsh/.zshrc $XDG_CONFIG_HOME/zsh/.zshenv" ;;
+    bash) config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile" ;;
+    ash|sh) config_files="$HOME/.ashrc $HOME/.profile /etc/profile" ;;
+    *) config_files="$HOME/.bashrc $HOME/.bash_profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile" ;;
 esac
 
 if [[ "$no_modify_path" != "true" ]]; then
@@ -425,27 +396,13 @@ if [[ "$no_modify_path" != "true" ]]; then
             break
         fi
     done
-
     if [[ -z $config_file ]]; then
         print_message warning "No config file found for $current_shell. You may need to manually add to PATH:"
         print_message info "  export PATH=$INSTALL_DIR:\$PATH"
     elif [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
         case $current_shell in
-            fish)
-                add_to_path "$config_file" "fish_add_path $INSTALL_DIR"
-            ;;
-            zsh)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            bash)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            ash)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            sh)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
+            fish) add_to_path "$config_file" "fish_add_path $INSTALL_DIR" ;;
+            zsh|bash|ash|sh) add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH" ;;
             *)
                 export PATH=$INSTALL_DIR:$PATH
                 print_message warning "Manually add the directory to $config_file (or similar):"
@@ -459,22 +416,5 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
     echo "$INSTALL_DIR" >> $GITHUB_PATH
     print_message info "Added $INSTALL_DIR to \$GITHUB_PATH"
 fi
-
-show_logo() {
-    echo -e ""
-    echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█░░█ █▀▀▀ ░█░░"
-    echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█▀▀█ █▀▀▀ ░█░░"
-    echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀  ▀ ▀▀▀▀ ▀▀▀▀"
-    echo -e ""
-    echo -e ""
-    echo -e "${MUTED}OpenHei includes free models, to start:${NC}"
-    echo -e ""
-    echo -e "cd <project>  ${MUTED}# Open directory${NC}"
-    echo -e "openhei      ${MUTED}# Run command${NC}"
-    echo -e ""
-    echo -e "${MUTED}For more information visit ${NC}https://openhei.ai/docs"
-    echo -e ""
-    echo -e ""
-}
 
 show_logo
