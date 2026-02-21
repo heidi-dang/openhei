@@ -189,8 +189,8 @@ else
 
         if [ -z "$specific_version" ]; then
             echo -e "${RED}Error: No releases found for heidi-dang/openhei${NC}"
-            echo -e "${ORANGE}Since this is a new rebrand, you need to create your first GitHub Release with the tag v$(cat package.json | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[", ]//g') and upload the binaries.${NC}"
-            echo -e "${MUTED}For now, you can run 'openhei' directly from the source if you have it installed locally.${NC}"
+            echo -e "${ORANGE}Since this is a new repo, you need to create your first GitHub Release.${NC}"
+            echo -e "${MUTED}For more info: https://github.com/heidi-dang/openhei/releases${NC}"
             exit 1
         fi
 
