@@ -734,7 +734,7 @@ export const dict = {
   "settings.models.title": "Models",
   "settings.models.description": "Model settings will be configurable here.",
   "settings.agents.title": "Agents",
-  "settings.agents.description": "Agent settings will be configurable here.",
+  "settings.agents.description": "Create and manage custom agents with specialized prompts and permissions.",
   "settings.commands.title": "Commands",
   "settings.commands.description": "Command settings will be configurable here.",
   "settings.mcp.title": "MCP",

@@ -649,6 +649,10 @@ export namespace SessionPrompt {
 
       // Build system prompt, adding structured output instruction if needed
       const system = [...(await SystemPrompt.environment(model)), ...(await InstructionPrompt.system())]
+
+      // Multi-agent collaboration prompt
+      system.push("You can collaborate with other agents by mentioning them using @name (e.g., @build, @plan). When you mention another agent, they will be automatically triggered to respond after you finish your current message. Use this to delegate tasks or ask for specialized help.")
+
       const format = lastUser.format ?? { type: "text" }
       if (format.type === "json_schema") {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
@@ -664,11 +668,11 @@ export namespace SessionPrompt {
           ...MessageV2.toModelMessages(msgs, model),
           ...(isLastStep
             ? [
-                {
-                  role: "assistant" as const,
-                  content: MAX_STEPS,
-                },
-              ]
+              {
+                role: "assistant" as const,
+                content: MAX_STEPS,
+              },
+            ]
             : []),
         ],
         tools,
@@ -700,7 +704,40 @@ export namespace SessionPrompt {
         }
       }
 
-      if (result === "stop") break
+      if (result === "stop") {
+        // Detect agent mentions in assistant response to allow agent-to-agent talk
+        const assistantParts = await MessageV2.parts(processor.message.id)
+        const mentionPart = assistantParts.find((p) => p.type === "text" && !p.synthetic && /@(\w+)/.test(p.text))
+        if (mentionPart && mentionPart.type === "text") {
+          const match = mentionPart.text.match(/@(\w+)/)
+          const mentionedAgentName = match?.[1]
+          if (mentionedAgentName) {
+            const mentionedAgent = await Agent.get(mentionedAgentName).catch(() => undefined)
+            // Prevent self-mentions or mentions of non-existent agents causing infinite loops
+            if (mentionedAgent && mentionedAgent.name !== agent.name && step < 10) {
+              const nextUserMsg: MessageV2.User = {
+                id: Identifier.ascending("message"),
+                sessionID,
+                role: "user",
+                time: { created: Date.now() },
+                agent: mentionedAgent.name,
+                model: lastUser.model,
+              }
+              await Session.updateMessage(nextUserMsg)
+              await Session.updatePart({
+                id: Identifier.ascending("part"),
+                messageID: nextUserMsg.id,
+                sessionID,
+                type: "text",
+                text: `Handover to @${mentionedAgent.name}`,
+                synthetic: true,
+              })
+              continue
+            }
+          }
+        }
+        break
+      }
       if (result === "compact") {
         await SessionCompaction.create({
           sessionID,
@@ -1148,8 +1185,8 @@ export namespace SessionPrompt {
                       messageID: info.id,
                       extra: { bypassCwdCheck: true, model },
                       messages: [],
-                      metadata: async () => {},
-                      ask: async () => {},
+                      metadata: async () => { },
+                      ask: async () => { },
                     }
                     const result = await t.execute(args, readCtx)
                     pieces.push({
@@ -1207,8 +1244,8 @@ export namespace SessionPrompt {
                   messageID: info.id,
                   extra: { bypassCwdCheck: true },
                   messages: [],
-                  metadata: async () => {},
-                  ask: async () => {},
+                  metadata: async () => { },
+                  ask: async () => { },
                 }
                 const result = await ReadTool.init().then((t) => t.execute(args, listCtx))
                 return [
@@ -1834,19 +1871,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
     const parts = isSubtask
       ? [
-          {
-            type: "subtask" as const,
-            agent: agent.name,
-            description: command.description ?? "",
-            command: input.command,
-            model: {
-              providerID: taskModel.providerID,
-              modelID: taskModel.modelID,
-            },
-            // TODO: how can we make task tool accept a more complex input?
-            prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
+        {
+          type: "subtask" as const,
+          agent: agent.name,
+          description: command.description ?? "",
+          command: input.command,
+          model: {
+            providerID: taskModel.providerID,
+            modelID: taskModel.modelID,
           },
-        ]
+          // TODO: how can we make task tool accept a more complex input?
+          prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
+        },
+      ]
       : [...templateParts, ...(input.parts ?? [])]
 
     const userAgent = isSubtask ? (input.agent ?? (await Agent.defaultAgent())) : agentName

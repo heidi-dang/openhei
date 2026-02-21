@@ -89,8 +89,62 @@ const forward: Platform["forward"] = () => {
   window.history.forward()
 }
 
+const defaultUrl = iife(() => {
+  const lsDefault = readDefaultServerUrl()
+  if (lsDefault) return lsDefault
+  if (location.hostname.includes("openhei.ai")) return "http://localhost:4096"
+  if (import.meta.env.DEV)
+    return `http://${import.meta.env.VITE_OPENHEI_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENHEI_SERVER_PORT ?? "4096"}`
+  return location.origin
+})
+
 const restart: Platform["restart"] = async () => {
+  // Try to ping the server until it's back
+  const ping = async () => {
+    try {
+      const res = await fetch(`${defaultUrl}/health`)
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
+  // Wait a bit before starting to ping
+  await new Promise((resolve) => setTimeout(resolve, 2000))
+
+  for (let i = 0; i < 30; i++) {
+    if (await ping()) {
+      window.location.reload()
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
   window.location.reload()
+}
+
+const checkUpdate: Platform["checkUpdate"] = async () => {
+  try {
+    const res = await fetch(`${defaultUrl}/update/check`)
+    if (!res.ok) throw new Error(res.statusText)
+    const data = await res.json()
+    return {
+      updateAvailable: data.version !== data.latest,
+      version: data.latest,
+    }
+  } catch (err) {
+    console.error("Failed to check for updates:", err)
+    return { updateAvailable: false }
+  }
+}
+
+const update: Platform["update"] = async () => {
+  try {
+    const res = await fetch(`${defaultUrl}/update`, { method: "POST" })
+    if (!res.ok) throw new Error(res.statusText)
+  } catch (err) {
+    console.error("Failed to install update:", err)
+    throw err
+  }
 }
 
 const root = document.getElementById("root")
@@ -106,18 +160,11 @@ const platform: Platform = {
   forward,
   restart,
   notify,
+  checkUpdate,
+  update,
   getDefaultServerUrl: async () => readDefaultServerUrl(),
   setDefaultServerUrl: writeDefaultServerUrl,
 }
-
-const defaultUrl = iife(() => {
-  const lsDefault = readDefaultServerUrl()
-  if (lsDefault) return lsDefault
-  if (location.hostname.includes("openhei.ai")) return "http://localhost:4096"
-  if (import.meta.env.DEV)
-    return `http://${import.meta.env.VITE_OPENHEI_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENHEI_SERVER_PORT ?? "4096"}`
-  return location.origin
-})
 
 if (root instanceof HTMLElement) {
   const server: ServerConnection.Http = { type: "http", http: { url: defaultUrl } }

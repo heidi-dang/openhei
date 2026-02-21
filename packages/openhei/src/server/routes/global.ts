@@ -181,5 +181,56 @@ export const GlobalRoutes = lazy(() =>
         })
         return c.json(true)
       },
+    )
+    .get(
+      "/update/check",
+      describeRoute({
+        summary: "Check for updates",
+        description: "Check if a new version of OpenHei is available.",
+        operationId: "global.update.check",
+        responses: {
+          200: {
+            description: "Update information",
+            content: {
+              "application/json": {
+                schema: resolver(Installation.Info),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(await Installation.info())
+      },
+    )
+    .post(
+      "/update",
+      describeRoute({
+        summary: "Install update",
+        description: "Download and install the latest version of OpenHei.",
+        operationId: "global.update.install",
+        responses: {
+          200: {
+            description: "Update started",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        const info = await Installation.info()
+        if (info.version !== info.latest) {
+          const method = await Installation.method()
+          // We don't await this because it will likely kill the server
+          void Installation.upgrade(method, info.latest).catch((err) => {
+            log.error("Update failed", { error: err })
+          })
+        }
+        return c.json(true)
+      },
     ),
 )
