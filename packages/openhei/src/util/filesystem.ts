@@ -120,7 +120,35 @@ export namespace Filesystem {
   }
 
   export function contains(parent: string, child: string) {
-    return !relative(parent, child).startsWith("..")
+    let resolvedParent: string
+    try {
+      resolvedParent = realpathSync(parent)
+    } catch {
+      return false
+    }
+
+    let resolvedChild: string
+    try {
+      resolvedChild = realpathSync(child)
+    } catch {
+      let current = child
+      while (true) {
+        const dir = dirname(current)
+        if (dir === current) {
+          resolvedChild = child
+          break
+        }
+        try {
+          const resolved = realpathSync(dir)
+          resolvedChild = join(resolved, relative(dir, child))
+          break
+        } catch {
+          current = dir
+        }
+      }
+    }
+
+    return !relative(resolvedParent, resolvedChild).startsWith("..")
   }
 
   export async function findUp(target: string, start: string, stop?: string) {
