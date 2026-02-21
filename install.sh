@@ -182,10 +182,15 @@ else
 
     if [ -z "$requested_version" ]; then
         url="https://github.com/heidi-dang/openhei/releases/latest/download/$filename"
-        specific_version=$(curl -s https://api.github.com/repos/heidi-dang/openhei/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+        
+        # Enhanced fetching with error check
+        response=$(curl -s https://api.github.com/repos/heidi-dang/openhei/releases/latest)
+        specific_version=$(echo "$response" | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
 
-        if [[ $? -ne 0 || -z "$specific_version" ]]; then
-            echo -e "${RED}Failed to fetch version information${NC}"
+        if [ -z "$specific_version" ]; then
+            echo -e "${RED}Error: No releases found for heidi-dang/openhei${NC}"
+            echo -e "${ORANGE}Since this is a new rebrand, you need to create your first GitHub Release with the tag v$(cat package.json | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[", ]//g') and upload the binaries.${NC}"
+            echo -e "${MUTED}For now, you can run 'openhei' directly from the source if you have it installed locally.${NC}"
             exit 1
         fi
     else
