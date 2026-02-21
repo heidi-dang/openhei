@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, writeFile } from "fs/promises"
 import { createWriteStream, existsSync, statSync } from "fs"
 import { lookup } from "mime-types"
 import { realpathSync } from "fs"
-import { dirname, join, relative } from "path"
+import { basename, dirname, isAbsolute, join, relative } from "path"
 import { Readable } from "stream"
 import { pipeline } from "stream/promises"
 import { Glob } from "./glob"
@@ -119,8 +119,21 @@ export namespace Filesystem {
     return !relA || !relA.startsWith("..") || !relB || !relB.startsWith("..")
   }
 
+  function resolvePath(p: string): string {
+    try {
+      return realpathSync.native(p)
+    } catch {
+      const dir = dirname(p)
+      if (dir === p) return p
+      return join(resolvePath(dir), basename(p))
+    }
+  }
+
   export function contains(parent: string, child: string) {
-    return !relative(parent, child).startsWith("..")
+    const parentResolved = resolvePath(parent)
+    const childResolved = resolvePath(child)
+    const rel = relative(parentResolved, childResolved)
+    return !rel.startsWith("..") && !isAbsolute(rel)
   }
 
   export async function findUp(target: string, start: string, stop?: string) {
