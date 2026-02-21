@@ -91,12 +91,19 @@ await Database.transaction(async (tx) => {
     .where(eq(BillingTable.workspaceID, workspaceID))
 
   // Create a row in subscription table
-  for (const user of users) {
-    await tx.insert(SubscriptionTable).values({
-      workspaceID,
-      id: Identifier.create("subscription"),
-      userID: user.id,
-    })
+  const chunks = []
+  const chunkSize = 1000
+  for (let i = 0; i < users.length; i += chunkSize) {
+    chunks.push(users.slice(i, i + chunkSize))
+  }
+  for (const chunk of chunks) {
+    await tx.insert(SubscriptionTable).values(
+      chunk.map((user) => ({
+        workspaceID,
+        id: Identifier.create("subscription"),
+        userID: user.id,
+      })),
+    )
   }
   //
   //  // Create a row in payments table
