@@ -1,0 +1,68 @@
+{
+    "$schema": "https://openhei.ai/desktop-theme.json",
+    "name": "Hei-1",
+    "id": "hei-1",
+    "light": {
+        "seeds": {
+            "neutral": "#8e8b8b",
+            "primary": "#dcde8d",
+            "success": "#12c905",
+            "warning": "#ffdc17",
+            "error": "#fc533a",
+            "info": "#a753ae",
+            "interactive": "#034cff",
+            "diffAdd": "#9ff29a",
+            "diffDelete": "#fc533a"
+        },
+        "overrides": {
+            "background-base": "#f8f7f7",
+            "text-base": "#1a1a1a"
+        }
+    },
+    "dark": {
+        "seeds": {
+            "neutral": "#716c6b",
+            "primary": "#00aaff",
+            "success": "#00ff88",
+            "warning": "#ffcc00",
+            "error": "#ff4444",
+            "info": "#00ccff",
+            "interactive": "#00aaff",
+            "diffAdd": "#00ff88",
+            "diffDelete": "#ff4444"
+        },
+        "overrides": {
+            "background-base": "#0a0a0a",
+            "background-weak": "#0d0d0d",
+            "background-strong": "#050505",
+            "background-stronger": "#000000",
+            "surface-base": "#111111",
+            "surface-base-hover": "#1a1a1a",
+            "surface-base-active": "#222222",
+            "surface-inset-base": "#050505",
+            "surface-raised-base": "#161616",
+            "surface-float-base": "#1a1a1a",
+            "surface-strong": "#1c1c1c",
+            "input-base": "#1e1e1e",
+            "input-hover": "#222222",
+            "text-base": "#FFFFFF",
+            "text-weak": "#9a9a9a",
+            "text-weaker": "#6b6b6b",
+            "text-strong": "#FFFFFF",
+            "border-base": "#2a2a2a",
+            "border-hover": "#333333",
+            "border-active": "#444444",
+            "border-interactive-base": "#00aaff",
+            "icon-base": "#9a9a9a",
+            "icon-hover": "#FFFFFF",
+            "syntax-string": "#00ff88",
+            "syntax-keyword": "#ff77ff",
+            "syntax-variable": "#00aaff",
+            "syntax-type": "#ffcc00",
+            "syntax-constant": "#00ccff",
+            "markdown-heading": "#00aaff",
+            "markdown-link": "#00aaff",
+            "markdown-code-block": "#0d1117"
+        }
+    }
+}

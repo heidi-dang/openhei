@@ -1,0 +1,603 @@
+---
+title: CLI
+description: Opções e comandos da CLI do openhei.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components"
+
+A CLI do openhei, por padrão, inicia o [TUI](/docs/tui) quando executada sem argumentos.
+
+```bash
+openhei
+```
+
+Mas também aceita comandos conforme documentado nesta página. Isso permite que você interaja com o openhei programaticamente.
+
+```bash
+openhei run "Explain how closures work in JavaScript"
+```
+
+---
+
+### tui
+
+Inicie a interface de usuário do terminal do openhei.
+
+```bash
+openhei [project]
+```
+
+#### Opções
+
+| Flag         | Curto | Descrição                                                                  |
+| ------------ | ----- | -------------------------------------------------------------------------- |
+| `--continue` | `-c`  | Continue a última sessão                                                   |
+| `--session`  | `-s`  | ID da sessão para continuar                                                |
+| `--fork`     |       | Criar um fork da sessão ao continuar (use com `--continue` ou `--session`) |
+| `--prompt`   |       | Prompt a ser usado                                                         |
+| `--model`    | `-m`  | Modelo a ser usado na forma de provider/model                              |
+| `--agent`    |       | Agente a ser usado                                                         |
+| `--port`     |       | Porta para escutar                                                         |
+| `--hostname` |       | Nome do host para escutar                                                  |
+
+---
+
+## Comandos
+
+A CLI do openhei também possui os seguintes comandos.
+
+---
+
+### agent
+
+Gerencie agentes para o openhei.
+
+```bash
+openhei agent [command]
+```
+
+---
+
+### attach
+
+Anexe um terminal a um servidor backend do openhei já em execução, iniciado via comandos `serve` ou `web`.
+
+```bash
+openhei attach [url]
+```
+
+Isso permite usar o TUI com um backend openhei remoto. Por exemplo:
+
+```bash
+# Inicie o servidor backend para acesso web/mobile
+openhei web --port 4096 --hostname 0.0.0.0
+
+# Em outro terminal, anexe o TUI ao backend em execução
+openhei attach http://10.20.30.40:4096
+```
+
+#### Opções
+
+| Flag        | Curto | Descrição                                |
+| ----------- | ----- | ---------------------------------------- |
+| `--dir`     |       | Diretório de trabalho para iniciar o TUI |
+| `--session` | `-s`  | ID da sessão para continuar              |
+
+---
+
+#### create
+
+Crie um novo agente com configuração personalizada.
+
+```bash
+openhei agent create
+```
+
+Este comando irá guiá-lo na criação de um novo agente com um prompt de sistema personalizado e configuração de ferramentas.
+
+---
+
+#### list
+
+Liste todos os agentes disponíveis.
+
+```bash
+openhei agent list
+```
+
+---
+
+### auth
+
+Comando para gerenciar credenciais e login para provedores.
+
+```bash
+openhei auth [command]
+```
+
+---
+
+#### login
+
+O openhei é alimentado pela lista de provedores em [Models.dev](https://models.dev), então você pode usar `openhei auth login` para configurar chaves de API para qualquer provedor que você gostaria de usar. Isso é armazenado em `~/.local/share/openhei/auth.json`.
+
+```bash
+openhei auth login
+```
+
+Quando o openhei é iniciado, ele carrega os provedores do arquivo de credenciais. E se houver chaves definidas em seus ambientes ou em um arquivo `.env` em seu projeto.
+
+---
+
+#### list
+
+Lista todos os provedores autenticados conforme armazenado no arquivo de credenciais.
+
+```bash
+openhei auth list
+```
+
+Ou a versão curta.
+
+```bash
+openhei auth ls
+```
+
+---
+
+#### logout
+
+Desconecta você de um provedor limpando-o do arquivo de credenciais.
+
+```bash
+openhei auth logout
+```
+
+---
+
+### github
+
+Gerencie o agente do GitHub para automação de repositórios.
+
+```bash
+openhei github [command]
+```
+
+---
+
+#### install
+
+Instale o agente do GitHub em seu repositório.
+
+```bash
+openhei github install
+```
+
+Isso configura o fluxo de trabalho necessário do GitHub Actions e o guia pelo processo de configuração. [Saiba mais](/docs/github).
+
+---
+
+#### run
+
+Execute o agente do GitHub. Isso é tipicamente usado em GitHub Actions.
+
+```bash
+openhei github run
+```
+
+##### Opções
+
+| Flag      | Descrição                                        |
+| --------- | ------------------------------------------------ |
+| `--event` | Evento simulado do GitHub para executar o agente |
+| `--token` | Token de acesso pessoal do GitHub                |
+
+---
+
+### mcp
+
+Gerencie servidores do Model Context Protocol.
+
+```bash
+openhei mcp [command]
+```
+
+---
+
+#### add
+
+Adicione um servidor MCP à sua configuração.
+
+```bash
+openhei mcp add
+```
+
+Este comando irá guiá-lo na adição de um servidor MCP local ou remoto.
+
+---
+
+#### list
+
+Liste todos os servidores MCP configurados e seu status de conexão.
+
+```bash
+openhei mcp list
+```
+
+Ou use a versão curta.
+
+```bash
+openhei mcp ls
+```
+
+---
+
+#### auth
+
+Autentique-se com um servidor MCP habilitado para OAuth.
+
+```bash
+openhei mcp auth [name]
+```
+
+Se você não fornecer um nome de servidor, será solicitado que você selecione entre os servidores disponíveis habilitados para OAuth.
+
+Você também pode listar servidores habilitados para OAuth e seu status de autenticação.
+
+```bash
+openhei mcp auth list
+```
+
+Ou use a versão curta.
+
+```bash
+openhei mcp auth ls
+```
+
+---
+
+#### logout
+
+Remova credenciais OAuth para um servidor MCP.
+
+```bash
+openhei mcp logout [name]
+```
+
+---
+
+#### debug
+
+Depure problemas de conexão OAuth para um servidor MCP.
+
+```bash
+openhei mcp debug <name>
+```
+
+---
+
+### models
+
+Liste todos os modelos disponíveis dos provedores configurados.
+
+```bash
+openhei models [provider]
+```
+
+Este comando exibe todos os modelos disponíveis entre seus provedores configurados no formato `provider/model`.
+
+Isso é útil para descobrir o nome exato do modelo a ser usado em [sua configuração](/docs/config/).
+
+Você pode opcionalmente passar um ID de provedor para filtrar modelos por esse provedor.
+
+```bash
+openhei models anthropic
+```
+
+#### Opções
+
+| Flag        | Descrição                                                             |
+| ----------- | --------------------------------------------------------------------- |
+| `--refresh` | Atualiza o cache de modelos a partir do models.dev                    |
+| `--verbose` | Use uma saída de modelo mais detalhada (inclui metadados como custos) |
+
+Use a flag `--refresh` para atualizar a lista de modelos em cache. Isso é útil quando novos modelos foram adicionados a um provedor e você deseja vê-los no openhei.
+
+```bash
+openhei models --refresh
+```
+
+---
+
+### run
+
+Execute o openhei em modo não interativo passando um prompt diretamente.
+
+```bash
+openhei run [message..]
+```
+
+Isso é útil para scripts, automação ou quando você deseja uma resposta rápida sem iniciar o TUI completo. Por exemplo.
+
+```bash "openhei run"
+openhei run Explique o uso de context em Go
+```
+
+Você também pode se anexar a uma instância em execução do `openhei serve` para evitar tempos de inicialização a frio do servidor MCP em cada execução:
+
+```bash
+# Inicie um servidor sem cabeça em um terminal
+openhei serve
+
+# Em outro terminal, execute comandos que se anexam a ele
+openhei run --attach http://localhost:4096 "Explique async/await em JavaScript"
+```
+
+#### Opções
+
+| Flag         | Curto | Descrição                                                                     |
+| ------------ | ----- | ----------------------------------------------------------------------------- |
+| `--command`  |       | O comando a ser executado, use mensagem para argumentos                       |
+| `--continue` | `-c`  | Continue a última sessão                                                      |
+| `--session`  | `-s`  | ID da sessão para continuar                                                   |
+| `--fork`     |       | Criar um fork da sessão ao continuar (use com `--continue` ou `--session`)    |
+| `--share`    |       | Compartilhe a sessão                                                          |
+| `--model`    | `-m`  | Modelo a ser usado na forma de provider/model                                 |
+| `--agent`    |       | Agente a ser usado                                                            |
+| `--file`     | `-f`  | Arquivo(s) a serem anexados à mensagem                                        |
+| `--format`   |       | Formato: padrão (formatado) ou json (eventos JSON brutos)                     |
+| `--title`    |       | Título para a sessão (usa o prompt truncado se nenhum valor for fornecido)    |
+| `--attach`   |       | Anexe a um servidor openhei em execução (por exemplo, http://localhost:4096) |
+| `--port`     |       | Porta para o servidor local (padrão para porta aleatória)                     |
+
+---
+
+### serve
+
+Inicie um servidor openhei sem cabeça para acesso à API. Confira a [documentação do servidor](/docs/server) para a interface HTTP completa.
+
+```bash
+openhei serve
+```
+
+Isso inicia um servidor HTTP que fornece acesso à funcionalidade do openhei sem a interface TUI. Defina `OPENHEI_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `openhei`).
+
+#### Opções
+
+| Flag         | Descrição                                             |
+| ------------ | ----------------------------------------------------- |
+| `--port`     | Porta para escutar                                    |
+| `--hostname` | Nome do host para escutar                             |
+| `--mdns`     | Habilitar descoberta mDNS                             |
+| `--cors`     | Origem(ns) de navegador adicionais para permitir CORS |
+
+---
+
+### session
+
+Gerencie sessões do openhei.
+
+```bash
+openhei session [command]
+```
+
+---
+
+#### list
+
+Liste todas as sessões do openhei.
+
+```bash
+openhei session list
+```
+
+##### Opções
+
+| Flag          | Curto | Descrição                                 |
+| ------------- | ----- | ----------------------------------------- |
+| `--max-count` | `-n`  | Limitar às N sessões mais recentes        |
+| `--format`    |       | Formato de saída: tabela ou json (tabela) |
+
+---
+
+### stats
+
+Mostre o uso de tokens e estatísticas de custo para suas sessões do openhei.
+
+```bash
+openhei stats
+```
+
+#### Opções
+
+| Flag        | Descrição                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `--days`    | Mostre estatísticas dos últimos N dias (todo o tempo)                                                |
+| `--tools`   | Número de ferramentas a serem mostradas (todas)                                                      |
+| `--models`  | Mostre a divisão do uso de modelos (oculto por padrão). Passe um número para mostrar os N principais |
+| `--project` | Filtrar por projeto (todos os projetos, string vazia: projeto atual)                                 |
+
+---
+
+### export
+
+Exporte dados da sessão como JSON.
+
+```bash
+openhei export [sessionID]
+```
+
+Se você não fornecer um ID de sessão, será solicitado que você selecione entre as sessões disponíveis.
+
+---
+
+### import
+
+Importe dados da sessão de um arquivo JSON ou URL de compartilhamento do openhei.
+
+```bash
+openhei import <file>
+```
+
+Você pode importar de um arquivo local ou de uma URL de compartilhamento do openhei.
+
+```bash
+openhei import session.json
+openhei import https://opncd.ai/s/abc123
+```
+
+---
+
+### web
+
+Inicie um servidor openhei sem cabeça com uma interface web.
+
+```bash
+openhei web
+```
+
+Isso inicia um servidor HTTP e abre um navegador para acessar o openhei através de uma interface web. Defina `OPENHEI_SERVER_PASSWORD` para habilitar a autenticação básica HTTP (o nome de usuário padrão é `openhei`).
+
+#### Opções
+
+| Flag         | Descrição                                             |
+| ------------ | ----------------------------------------------------- |
+| `--port`     | Porta para escutar                                    |
+| `--hostname` | Nome do host para escutar                             |
+| `--mdns`     | Habilitar descoberta mDNS                             |
+| `--cors`     | Origem(ns) de navegador adicionais para permitir CORS |
+
+---
+
+### acp
+
+Inicie um servidor ACP (Agent Client Protocol).
+
+```bash
+openhei acp
+```
+
+Este comando inicia um servidor ACP que se comunica via stdin/stdout usando nd-JSON.
+
+#### Opções
+
+| Flag         | Descrição                 |
+| ------------ | ------------------------- |
+| `--cwd`      | Diretório de trabalho     |
+| `--port`     | Porta para escutar        |
+| `--hostname` | Nome do host para escutar |
+
+---
+
+### uninstall
+
+Desinstale o openhei e remova todos os arquivos relacionados.
+
+```bash
+openhei uninstall
+```
+
+#### Opções
+
+| Flag            | Curto | Descrição                                |
+| --------------- | ----- | ---------------------------------------- |
+| `--keep-config` | `-c`  | Manter arquivos de configuração          |
+| `--keep-data`   | `-d`  | Manter dados de sessão e snapshots       |
+| `--dry-run`     |       | Mostrar o que seria removido sem remover |
+| `--force`       | `-f`  | Pular prompts de confirmação             |
+
+---
+
+### upgrade
+
+Atualiza o openhei para a versão mais recente ou uma versão específica.
+
+```bash
+openhei upgrade [target]
+```
+
+Para atualizar para a versão mais recente.
+
+```bash
+openhei upgrade
+```
+
+Para atualizar para uma versão específica.
+
+```bash
+openhei upgrade v0.1.48
+```
+
+#### Opções
+
+| Flag       | Curto | Descrição                                                        |
+| ---------- | ----- | ---------------------------------------------------------------- |
+| `--method` | `-m`  | O método de instalação que foi usado; curl, npm, pnpm, bun, brew |
+
+---
+
+## Opções Globais
+
+A CLI do openhei aceita as seguintes flags globais.
+
+| Flag           | Curto | Descrição                               |
+| -------------- | ----- | --------------------------------------- |
+| `--help`       | `-h`  | Exibir ajuda                            |
+| `--version`    | `-v`  | Imprimir número da versão               |
+| `--print-logs` |       | Imprimir logs no stderr                 |
+| `--log-level`  |       | Nível de log (DEBUG, INFO, WARN, ERROR) |
+
+---
+
+## Variáveis de ambiente
+
+O openhei pode ser configurado usando variáveis de ambiente.
+
+| Variável                              | Tipo    | Descrição                                                             |
+| ------------------------------------- | ------- | --------------------------------------------------------------------- |
+| `OPENHEI_AUTO_SHARE`                 | boolean | Compartilhar sessões automaticamente                                  |
+| `OPENHEI_GIT_BASH_PATH`              | string  | Caminho para o executável do Git Bash no Windows                      |
+| `OPENHEI_CONFIG`                     | string  | Caminho para o arquivo de configuração                                |
+| `OPENHEI_CONFIG_DIR`                 | string  | Caminho para o diretório de configuração                              |
+| `OPENHEI_CONFIG_CONTENT`             | string  | Conteúdo de configuração json inline                                  |
+| `OPENHEI_DISABLE_AUTOUPDATE`         | boolean | Desabilitar verificações de atualização automática                    |
+| `OPENHEI_DISABLE_PRUNE`              | boolean | Desabilitar a poda de dados antigos                                   |
+| `OPENHEI_DISABLE_TERMINAL_TITLE`     | boolean | Desabilitar atualizações automáticas do título do terminal            |
+| `OPENHEI_PERMISSION`                 | string  | Configuração de permissões json inline                                |
+| `OPENHEI_DISABLE_DEFAULT_PLUGINS`    | boolean | Desabilitar plugins padrão                                            |
+| `OPENHEI_DISABLE_LSP_DOWNLOAD`       | boolean | Desabilitar downloads automáticos do servidor LSP                     |
+| `OPENHEI_ENABLE_EXPERIMENTAL_MODELS` | boolean | Habilitar modelos experimentais                                       |
+| `OPENHEI_DISABLE_AUTOCOMPACT`        | boolean | Desabilitar compactação automática de contexto                        |
+| `OPENHEI_DISABLE_CLAUDE_CODE`        | boolean | Desabilitar leitura de `.claude` (prompt + habilidades)               |
+| `OPENHEI_DISABLE_CLAUDE_CODE_PROMPT` | boolean | Desabilitar leitura de `~/.claude/CLAUDE.md`                          |
+| `OPENHEI_DISABLE_CLAUDE_CODE_SKILLS` | boolean | Desabilitar carregamento de `.claude/skills`                          |
+| `OPENHEI_DISABLE_MODELS_FETCH`       | boolean | Desabilitar busca de modelos de fontes remotas                        |
+| `OPENHEI_FAKE_VCS`                   | string  | Provedor VCS falso para fins de teste                                 |
+| `OPENHEI_DISABLE_FILETIME_CHECK`     | boolean | Desabilitar verificação de tempo de arquivo para otimização           |
+| `OPENHEI_CLIENT`                     | string  | Identificador do cliente (padrão é `cli`)                             |
+| `OPENHEI_ENABLE_EXA`                 | boolean | Habilitar ferramentas de busca web Exa                                |
+| `OPENHEI_SERVER_PASSWORD`            | string  | Habilitar autenticação básica para `serve`/`web`                      |
+| `OPENHEI_SERVER_USERNAME`            | string  | Substituir nome de usuário de autenticação básica (padrão `openhei`) |
+| `OPENHEI_MODELS_URL`                 | string  | URL personalizada para buscar configuração de modelos                 |
+
+---
+
+### Experimental
+
+Essas variáveis de ambiente habilitam recursos experimentais que podem mudar ou ser removidos.
+
+| Variável                                        | Tipo    | Descrição                                                 |
+| ----------------------------------------------- | ------- | --------------------------------------------------------- |
+| `OPENHEI_EXPERIMENTAL`                         | boolean | Habilitar todos os recursos experimentais                 |
+| `OPENHEI_EXPERIMENTAL_ICON_DISCOVERY`          | boolean | Habilitar descoberta de ícones                            |
+| `OPENHEI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT`  | boolean | Desabilitar cópia ao selecionar no TUI                    |
+| `OPENHEI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS` | number  | Tempo limite padrão para comandos bash em ms              |
+| `OPENHEI_EXPERIMENTAL_OUTPUT_TOKEN_MAX`        | number  | Máximo de tokens de saída para respostas LLM              |
+| `OPENHEI_EXPERIMENTAL_FILEWATCHER`             | boolean | Habilitar monitoramento de arquivos para todo o diretório |
+| `OPENHEI_EXPERIMENTAL_OXFMT`                   | boolean | Habilitar formatador oxfmt                                |
+| `OPENHEI_EXPERIMENTAL_LSP_TOOL`                | boolean | Habilitar ferramenta LSP experimental                     |
+| `OPENHEI_EXPERIMENTAL_DISABLE_FILEWATCHER`     | boolean | Desabilitar monitoramento de arquivos                     |
+| `OPENHEI_EXPERIMENTAL_EXA`                     | boolean | Habilitar recursos experimentais do Exa                   |
+| `OPENHEI_EXPERIMENTAL_LSP_TY`                  | boolean | Habilitar verificação de tipo LSP experimental            |
+| `OPENHEI_EXPERIMENTAL_MARKDOWN`                | boolean | Habilitar recursos experimentais de markdown              |
+| `OPENHEI_EXPERIMENTAL_PLAN_MODE`               | boolean | Habilitar modo de plano                                   |

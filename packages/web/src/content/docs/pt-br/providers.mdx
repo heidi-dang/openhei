@@ -1,0 +1,1898 @@
+---
+title: Provedores
+description: Usando qualquer provedor LLM no openhei.
+---
+
+import config from "../../../../config.mjs"
+export const console = config.console
+
+openhei usa o [AI SDK](https://ai-sdk.dev/) e [Models.dev](https://models.dev) para suportar **75+ provedores LLM** e suporta a execução de modelos locais.
+
+Para adicionar um provedor, você precisa:
+
+1. Adicionar as chaves da API para o provedor usando o comando `/connect`.
+2. Configurar o provedor na sua configuração do openhei.
+
+---
+
+### Credenciais
+
+Quando você adiciona as chaves da API de um provedor com o comando `/connect`, elas são armazenadas em `~/.local/share/openhei/auth.json`.
+
+---
+
+### Configuração
+
+Você pode personalizar os provedores através da seção `provider` na sua configuração do openhei.
+
+---
+
+#### URL Base
+
+Você pode personalizar a URL base para qualquer provedor definindo a opção `baseURL`. Isso é útil ao usar serviços de proxy ou endpoints personalizados.
+
+```json title="openhei.json" {6}
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "options": {
+        "baseURL": "https://api.anthropic.com/v1"
+      }
+    }
+  }
+}
+```
+
+---
+
+## OpenHei Zen
+
+OpenHei Zen é uma lista de modelos fornecidos pela equipe do openhei que foram testados e verificados para funcionar bem com o openhei. [Saiba mais](/docs/zen).
+
+:::tip
+Se você é novo, recomendamos começar com o OpenHei Zen.
+:::
+
+1. Execute o comando `/connect` no TUI, selecione openhei e acesse [openhei.ai/auth](https://openhei.ai/auth).
+
+   ```txt
+   /connect
+   ```
+
+2. Faça login, adicione seus dados de cobrança e copie sua chave da API.
+
+3. Cole sua chave da API.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute `/models` no TUI para ver a lista de modelos que recomendamos.
+
+   ```txt
+   /models
+   ```
+
+Funciona como qualquer outro provedor no openhei e é completamente opcional.
+
+---
+
+## Diretório
+
+Vamos olhar alguns dos provedores em detalhes. Se você gostaria de adicionar um provedor à lista, sinta-se à vontade para abrir um PR.
+
+:::note
+Não vê um provedor aqui? Envie um PR.
+:::
+
+---
+
+### 302.AI
+
+1. Acesse o [console 302.AI](https://302.ai/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **302.AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API 302.AI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Amazon Bedrock
+
+Para usar o Amazon Bedrock com o openhei:
+
+1. Acesse o **Catálogo de Modelos** no console do Amazon Bedrock e solicite acesso aos modelos que você deseja.
+
+   :::tip
+   Você precisa ter acesso ao modelo que deseja no Amazon Bedrock.
+   :::
+
+2. **Configure a autenticação** usando um dos seguintes métodos:
+
+   #### Variáveis de Ambiente (Início Rápido)
+
+   Defina uma dessas variáveis de ambiente ao executar o openhei:
+
+   ```bash
+   # Option 1: Using AWS access keys
+   AWS_ACCESS_KEY_ID=XXX AWS_SECRET_ACCESS_KEY=YYY openhei
+
+   # Option 2: Using named AWS profile
+   AWS_PROFILE=my-profile openhei
+
+   # Option 3: Using Bedrock bearer token
+   AWS_BEARER_TOKEN_BEDROCK=XXX openhei
+   ```
+
+   Ou adicione-as ao seu perfil bash:
+
+   ```bash title="~/.bash_profile"
+   export AWS_PROFILE=my-dev-profile
+   export AWS_REGION=us-east-1
+   ```
+
+   #### Arquivo de Configuração (Recomendado)
+
+   Para configuração específica do projeto ou persistente, use `openhei.json`:
+
+   ```json title="openhei.json"
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "amazon-bedrock": {
+         "options": {
+           "region": "us-east-1",
+           "profile": "my-aws-profile"
+         }
+       }
+     }
+   }
+   ```
+
+   **Opções disponíveis:**
+   - `region` - Região da AWS (ex: `us-east-1`, `eu-west-1`)
+   - `profile` - Perfil nomeado da AWS em `~/.aws/credentials`
+   - `endpoint` - URL de endpoint personalizada para endpoints VPC (alias para a opção genérica `baseURL`)
+
+   :::tip
+   As opções do arquivo de configuração têm precedência sobre as variáveis de ambiente.
+   :::
+
+   #### Avançado: Endpoints VPC
+
+   Se você estiver usando endpoints VPC para Bedrock:
+
+   ```json title="openhei.json"
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "amazon-bedrock": {
+         "options": {
+           "region": "us-east-1",
+           "profile": "production",
+           "endpoint": "https://bedrock-runtime.us-east-1.vpce-xxxxx.amazonaws.com"
+         }
+       }
+     }
+   }
+   ```
+
+   :::note
+   A opção `endpoint` é um alias para a opção genérica `baseURL`, usando terminologia específica da AWS. Se tanto `endpoint` quanto `baseURL` forem especificados, `endpoint` tem precedência.
+   :::
+
+   #### Métodos de Autenticação
+   - **`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`**: Crie um usuário IAM e gere chaves de acesso no Console da AWS
+   - **`AWS_PROFILE`**: Use perfis nomeados de `~/.aws/credentials`. Primeiro configure com `aws configure --profile my-profile` ou `aws sso login`
+   - **`AWS_BEARER_TOKEN_BEDROCK`**: Gere chaves de API de longo prazo no console do Amazon Bedrock
+   - **`AWS_WEB_IDENTITY_TOKEN_FILE` / `AWS_ROLE_ARN`**: Para EKS IRSA (IAM Roles for Service Accounts) ou outros ambientes Kubernetes com federação OIDC. Essas variáveis de ambiente são injetadas automaticamente pelo Kubernetes ao usar anotações de conta de serviço.
+
+   #### Precedência de Autenticação
+
+   O Amazon Bedrock usa a seguinte prioridade de autenticação:
+   1. **Bearer Token** - variável de ambiente `AWS_BEARER_TOKEN_BEDROCK` ou token do comando `/connect`
+   2. **Cadeia de Credenciais da AWS** - Perfil, chaves de acesso, credenciais compartilhadas, funções IAM, Tokens de Identidade da Web (EKS IRSA), metadados da instância
+
+   :::note
+   Quando um token bearer é definido (via `/connect` ou `AWS_BEARER_TOKEN_BEDROCK`), ele tem precedência sobre todos os métodos de credenciais da AWS, incluindo perfis configurados.
+   :::
+
+3. Execute o comando `/models` para selecionar o modelo que você deseja.
+
+   ```txt
+   /models
+   ```
+
+:::note
+Para perfis de inferência personalizados, use o nome do modelo e do provedor na chave e defina a propriedade `id` para o arn. Isso garante o cache correto:
+
+```json title="openhei.json"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "amazon-bedrock": {
+      // ...
+      "models": {
+        "anthropic-claude-sonnet-4.5": {
+          "id": "arn:aws:bedrock:us-east-1:xxx:application-inference-profile/yyy"
+        }
+      }
+    }
+  }
+}
+```
+
+:::
+
+---
+
+### Anthropic
+
+1. Depois de se inscrever, execute o comando `/connect` e selecione Anthropic.
+
+   ```txt
+   /connect
+   ```
+
+2. Aqui você pode selecionar a opção **Claude Pro/Max** e isso abrirá seu navegador e pedirá para você se autenticar.
+
+   ```txt
+   ┌ Selecione o método de autenticação
+   │
+   │ Claude Pro/Max
+   │ Criar uma chave de API
+   │ Inserir manualmente a chave de API
+   └
+   ```
+
+3. Agora todos os modelos da Anthropic devem estar disponíveis quando você usar o comando `/models`.
+
+   ```txt
+   /models
+   ```
+
+:::info
+Usar sua assinatura Claude Pro/Max no openhei não é oficialmente suportado pela [Anthropic](https://anthropic.com).
+:::
+
+##### Usando chaves da API
+
+Você também pode selecionar **Criar uma chave de API** se não tiver uma assinatura Pro/Max. Isso também abrirá seu navegador e pedirá que você faça login na Anthropic e lhe dará um código que você pode colar no seu terminal.
+
+Ou, se você já tiver uma chave da API, pode selecionar **Inserir manualmente a chave de API** e colá-la no seu terminal.
+
+---
+
+### Azure OpenAI
+
+:::note
+Se você encontrar erros "Desculpe, mas não posso ajudar com esse pedido", tente mudar o filtro de conteúdo de **DefaultV2** para **Default** em seu recurso Azure.
+:::
+
+1. Acesse o [portal Azure](https://portal.azure.com/) e crie um recurso **Azure OpenAI**. Você precisará:
+   - **Nome do recurso**: Isso se torna parte do seu endpoint da API (`https://RESOURCE_NAME.openai.azure.com/`)
+   - **Chave da API**: Seja `KEY 1` ou `KEY 2` do seu recurso
+
+2. Vá para [Azure AI Foundry](https://ai.azure.com/) e implante um modelo.
+
+   :::note
+   O nome da implantação deve corresponder ao nome do modelo para que o openhei funcione corretamente.
+   :::
+
+3. Execute o comando `/connect` e procure por **Azure**.
+
+   ```txt
+   /connect
+   ```
+
+4. Insira sua chave da API.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+5. Defina o nome do seu recurso como uma variável de ambiente:
+
+   ```bash
+   AZURE_RESOURCE_NAME=XXX openhei
+   ```
+
+   Ou adicione ao seu perfil bash:
+
+   ```bash title="~/.bash_profile"
+   export AZURE_RESOURCE_NAME=XXX
+   ```
+
+6. Execute o comando `/models` para selecionar seu modelo implantado.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Azure Cognitive Services
+
+1. Acesse o [portal Azure](https://portal.azure.com/) e crie um recurso **Azure OpenAI**. Você precisará:
+   - **Nome do recurso**: Isso se torna parte do seu endpoint da API (`https://AZURE_COGNITIVE_SERVICES_RESOURCE_NAME.cognitiveservices.azure.com/`)
+   - **Chave da API**: Seja `KEY 1` ou `KEY 2` do seu recurso
+
+2. Vá para [Azure AI Foundry](https://ai.azure.com/) e implante um modelo.
+
+   :::note
+   O nome da implantação deve corresponder ao nome do modelo para que o openhei funcione corretamente.
+   :::
+
+3. Execute o comando `/connect` e procure por **Azure Cognitive Services**.
+
+   ```txt
+   /connect
+   ```
+
+4. Insira sua chave da API.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+5. Defina o nome do seu recurso como uma variável de ambiente:
+
+   ```bash
+   AZURE_COGNITIVE_SERVICES_RESOURCE_NAME=XXX openhei
+   ```
+
+   Ou adicione ao seu perfil bash:
+
+   ```bash title="~/.bash_profile"
+   export AZURE_COGNITIVE_SERVICES_RESOURCE_NAME=XXX
+   ```
+
+6. Execute o comando `/models` para selecionar seu modelo implantado.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Baseten
+
+1. Acesse o [Baseten](https://app.baseten.co/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Baseten**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Baseten.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Cerebras
+
+1. Acesse o [console Cerebras](https://inference.cerebras.ai/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Cerebras**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Cerebras.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Qwen 3 Coder 480B_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Cloudflare AI Gateway
+
+O Cloudflare AI Gateway permite que você acesse modelos do OpenAI, Anthropic, Workers AI e mais através de um endpoint unificado. Com [Faturamento Unificado](https://developers.cloudflare.com/ai-gateway/features/unified-billing/), você não precisa de chaves de API separadas para cada provedor.
+
+1. Acesse o [painel do Cloudflare](https://dash.cloudflare.com/), navegue até **AI** > **AI Gateway** e crie um novo gateway.
+
+2. Defina seu ID de Conta e ID de Gateway como variáveis de ambiente.
+
+   ```bash title="~/.bash_profile"
+   export CLOUDFLARE_ACCOUNT_ID=your-32-character-account-id
+   export CLOUDFLARE_GATEWAY_ID=your-gateway-id
+   ```
+
+3. Execute o comando `/connect` e procure por **Cloudflare AI Gateway**.
+
+   ```txt
+   /connect
+   ```
+
+4. Insira seu token da API do Cloudflare.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+   Ou defina como uma variável de ambiente.
+
+   ```bash title="~/.bash_profile"
+   export CLOUDFLARE_API_TOKEN=your-api-token
+   ```
+
+5. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+   Você também pode adicionar modelos através da sua configuração do openhei.
+
+   ```json title="openhei.json"
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "cloudflare-ai-gateway": {
+         "models": {
+           "openai/gpt-4o": {},
+           "anthropic/claude-sonnet-4": {}
+         }
+       }
+     }
+   }
+   ```
+
+---
+
+### Cortecs
+
+1. Acesse o [console Cortecs](https://cortecs.ai/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Cortecs**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Cortecs.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Kimi K2 Instruct_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### DeepSeek
+
+1. Acesse o [console DeepSeek](https://platform.deepseek.com/), crie uma conta e clique em **Criar nova chave da API**.
+
+2. Execute o comando `/connect` e procure por **DeepSeek**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API DeepSeek.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo DeepSeek como _DeepSeek Reasoner_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Deep Infra
+
+1. Acesse o [painel Deep Infra](https://deepinfra.com/dash), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Deep Infra**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Deep Infra.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Firmware
+
+1. Acesse o [painel Firmware](https://app.firmware.ai/signup), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Firmware**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Firmware.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Fireworks AI
+
+1. Acesse o [console Fireworks AI](https://app.fireworks.ai/), crie uma conta e clique em **Criar Chave da API**.
+
+2. Execute o comando `/connect` e procure por **Fireworks AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Fireworks AI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Kimi K2 Instruct_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### GitLab Duo
+
+GitLab Duo fornece um chat agente com suporte a ferramentas nativas através do proxy da Anthropic do GitLab.
+
+1. Execute o comando `/connect` e selecione GitLab.
+
+   ```txt
+   /connect
+   ```
+
+2. Escolha seu método de autenticação:
+
+   ```txt
+   ┌ Selecione o método de autenticação
+   │
+   │ OAuth (Recomendado)
+   │ Token de Acesso Pessoal
+   └
+   ```
+
+   #### Usando OAuth (Recomendado)
+
+   Selecione **OAuth** e seu navegador abrirá para autorização.
+
+   #### Usando Token de Acesso Pessoal
+   1. Vá para [Configurações do Usuário do GitLab > Tokens de Acesso](https://gitlab.com/-/user_settings/personal_access_tokens)
+   2. Clique em **Adicionar novo token**
+   3. Nome: `OpenHei`, Escopos: `api`
+   4. Copie o token (começa com `glpat-`)
+   5. Insira-o no terminal
+
+3. Execute o comando `/models` para ver os modelos disponíveis.
+
+   ```txt
+   /models
+   ```
+
+   Três modelos baseados em Claude estão disponíveis:
+   - **duo-chat-haiku-4-5** (Padrão) - Respostas rápidas para tarefas rápidas
+   - **duo-chat-sonnet-4-5** - Desempenho equilibrado para a maioria dos fluxos de trabalho
+   - **duo-chat-opus-4-5** - Mais capaz para análises complexas
+
+:::note
+Você também pode especificar a variável de ambiente 'GITLAB_TOKEN' se não quiser
+armazenar o token no armazenamento de autenticação do openhei.
+:::
+
+##### GitLab Auto-Hospedado
+
+:::note[nota de conformidade]
+openhei usa um pequeno modelo para algumas tarefas de AI, como gerar o título da sessão.
+Ele está configurado para usar gpt-5-nano por padrão, hospedado pela Zen. Para bloquear o openhei
+para usar apenas sua própria instância hospedada do GitLab, adicione o seguinte ao seu
+arquivo `openhei.json`. Também é recomendado desativar o compartilhamento de sessões.
+
+```json
+{
+  "$schema": "https://openhei.ai/config.json",
+  "small_model": "gitlab/duo-chat-haiku-4-5",
+  "share": "disabled"
+}
+```
+
+:::
+
+Para instâncias do GitLab auto-hospedadas:
+
+```bash
+export GITLAB_INSTANCE_URL=https://gitlab.company.com
+export GITLAB_TOKEN=glpat-...
+```
+
+Se sua instância executar um AI Gateway personalizado:
+
+```bash
+GITLAB_AI_GATEWAY_URL=https://ai-gateway.company.com
+```
+
+Ou adicione ao seu perfil bash:
+
+```bash title="~/.bash_profile"
+export GITLAB_INSTANCE_URL=https://gitlab.company.com
+export GITLAB_AI_GATEWAY_URL=https://ai-gateway.company.com
+export GITLAB_TOKEN=glpat-...
+```
+
+:::note
+Seu administrador do GitLab deve habilitar o seguinte:
+
+1. [Duo Agent Platform](https://docs.gitlab.com/user/gitlab_duo/turn_on_off/) para o usuário, grupo ou instância
+2. Flags de recurso (via console Rails):
+   - `agent_platform_claude_code`
+   - `third_party_agents_enabled`
+     :::
+
+##### OAuth para instâncias auto-hospedadas
+
+Para fazer o OAuth funcionar para sua instância auto-hospedada, você precisa criar
+um novo aplicativo (Configurações → Aplicativos) com a
+URL de callback `http://127.0.0.1:8080/callback` e os seguintes escopos:
+
+- api (Acessar a API em seu nome)
+- read_user (Ler suas informações pessoais)
+- read_repository (Permite acesso somente leitura ao repositório)
+
+Em seguida, exponha o ID do aplicativo como variável de ambiente:
+
+```bash
+export GITLAB_OAUTH_CLIENT_ID=your_application_id_here
+```
+
+Mais documentação na página [openhei-gitlab-auth](https://www.npmjs.com/package/@gitlab/openhei-gitlab-auth).
+
+##### Configuração
+
+Personalize através do `openhei.json`:
+
+```json title="openhei.json"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "gitlab": {
+      "options": {
+        "instanceUrl": "https://gitlab.com",
+        "featureFlags": {
+          "duo_agent_platform_agentic_chat": true,
+          "duo_agent_platform": true
+        }
+      }
+    }
+  }
+}
+```
+
+##### Ferramentas da API do GitLab (Opcional, mas altamente recomendado)
+
+Para acessar ferramentas do GitLab (merge requests, issues, pipelines, CI/CD, etc.):
+
+```json title="openhei.json"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "plugin": ["@gitlab/openhei-gitlab-plugin"]
+}
+```
+
+Este plugin fornece capacidades abrangentes de gerenciamento de repositório do GitLab, incluindo revisões de MR, rastreamento de issues, monitoramento de pipelines e mais.
+
+---
+
+### GitHub Copilot
+
+Para usar sua assinatura do GitHub Copilot com o openhei:
+
+:::note
+Alguns modelos podem precisar de uma [assinatura Pro+](https://github.com/features/copilot/plans) para usar.
+
+Alguns modelos precisam ser habilitados manualmente nas suas [configurações do GitHub Copilot](https://docs.github.com/en/copilot/how-tos/use-ai-models/configure-access-to-ai-models#setup-for-individual-use).
+:::
+
+1. Execute o comando `/connect` e procure por GitHub Copilot.
+
+   ```txt
+   /connect
+   ```
+
+2. Navegue até [github.com/login/device](https://github.com/login/device) e insira o código.
+
+   ```txt
+   ┌ Login com GitHub Copilot
+   │
+   │ https://github.com/login/device
+   │
+   │ Digite o código: 8F43-6FCF
+   │
+   └ Aguardando autorização...
+   ```
+
+3. Agora execute o comando `/models` para selecionar o modelo que você deseja.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Google Vertex AI
+
+Para usar o Google Vertex AI com o openhei:
+
+1. Acesse o **Model Garden** no Console do Google Cloud e verifique os
+   modelos disponíveis na sua região.
+
+   :::note
+   Você precisa ter um projeto do Google Cloud com a API Vertex AI habilitada.
+   :::
+
+2. Defina as variáveis de ambiente necessárias:
+   - `GOOGLE_CLOUD_PROJECT`: Seu ID do projeto do Google Cloud
+   - `VERTEX_LOCATION` (opcional): A região para o Vertex AI (padrão é `global`)
+   - Autenticação (escolha uma):
+     - `GOOGLE_APPLICATION_CREDENTIALS`: Caminho para seu arquivo de chave JSON da conta de serviço
+     - Autentique usando o CLI gcloud: `gcloud auth application-default login`
+
+   Defina-as ao executar o openhei.
+
+   ```bash
+   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json GOOGLE_CLOUD_PROJECT=your-project-id openhei
+   ```
+
+   Ou adicione-as ao seu perfil bash.
+
+   ```bash title="~/.bash_profile"
+   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+   export GOOGLE_CLOUD_PROJECT=your-project-id
+   export VERTEX_LOCATION=global
+   ```
+
+:::tip
+A região `global` melhora a disponibilidade e reduz erros sem custo adicional. Use endpoints regionais (ex: `us-central1`) para requisitos de residência de dados. [Saiba mais](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-partner-models#regional_and_global_endpoints)
+:::
+
+3. Execute o comando `/models` para selecionar o modelo que você deseja.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Groq
+
+1. Acesse o [console Groq](https://console.groq.com/), clique em **Criar Chave da API** e copie a chave.
+
+2. Execute o comando `/connect` e procure por Groq.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira a chave da API para o provedor.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar o que você deseja.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Hugging Face
+
+[Provedores de Inferência Hugging Face](https://huggingface.co/docs/inference-providers) fornecem acesso a modelos abertos suportados por mais de 17 provedores.
+
+1. Acesse [configurações do Hugging Face](https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained) para criar um token com permissão para fazer chamadas para Provedores de Inferência.
+
+2. Execute o comando `/connect` e procure por **Hugging Face**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira seu token do Hugging Face.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Kimi-K2-Instruct_ ou _GLM-4.6_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Helicone
+
+[Helicone](https://helicone.ai) é uma plataforma de observabilidade LLM que fornece registro, monitoramento e análises para suas aplicações de AI. O Helicone AI Gateway roteia suas solicitações para o provedor apropriado automaticamente com base no modelo.
+
+1. Acesse [Helicone](https://helicone.ai), crie uma conta e gere uma chave da API a partir do seu painel.
+
+2. Execute o comando `/connect` e procure por **Helicone**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Helicone.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+Para mais provedores e recursos avançados como cache e limitação de taxa, consulte a [documentação do Helicone](https://docs.helicone.ai).
+
+#### Configurações Opcionais
+
+Caso você veja um recurso ou modelo do Helicone que não está configurado automaticamente através do openhei, você sempre pode configurá-lo você mesmo.
+
+Aqui está o [Diretório de Modelos do Helicone](https://helicone.ai/models), você precisará disso para pegar os IDs dos modelos que deseja adicionar.
+
+```jsonc title="~/.config/openhei/openhei.jsonc"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "helicone": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Helicone",
+      "options": {
+        "baseURL": "https://ai-gateway.helicone.ai",
+      },
+      "models": {
+        "gpt-4o": {
+          // Model ID (from Helicone's model directory page)
+          "name": "GPT-4o", // Your own custom name for the model
+        },
+        "claude-sonnet-4-20250514": {
+          "name": "Claude Sonnet 4",
+        },
+      },
+    },
+  },
+}
+```
+
+#### Cabeçalhos Personalizados
+
+Helicone suporta cabeçalhos personalizados para recursos como cache, rastreamento de usuários e gerenciamento de sessões. Adicione-os à sua configuração do provedor usando `options.headers`:
+
+```jsonc title="~/.config/openhei/openhei.jsonc"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "helicone": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Helicone",
+      "options": {
+        "baseURL": "https://ai-gateway.helicone.ai",
+        "headers": {
+          "Helicone-Cache-Enabled": "true",
+          "Helicone-User-Id": "openhei",
+        },
+      },
+    },
+  },
+}
+```
+
+##### Rastreamento de Sessões
+
+O recurso [Sessões](https://docs.helicone.ai/features/sessions) do Helicone permite que você agrupe solicitações LLM relacionadas. Use o plugin [openhei-helicone-session](https://github.com/H2Shami/openhei-helicone-session) para registrar automaticamente cada conversa do openhei como uma sessão no Helicone.
+
+```bash
+npm install -g openhei-helicone-session
+```
+
+Adicione-o à sua configuração.
+
+```json title="openhei.json"
+{
+  "plugin": ["openhei-helicone-session"]
+}
+```
+
+O plugin injeta os cabeçalhos `Helicone-Session-Id` e `Helicone-Session-Name` em suas solicitações. Na página de Sessões do Helicone, você verá cada conversa do openhei listada como uma sessão separada.
+
+##### Cabeçalhos Comuns do Helicone
+
+| Cabeçalho                  | Descrição                                                                   |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `Helicone-Cache-Enabled`   | Habilitar cache de resposta (`true`/`false`)                                |
+| `Helicone-User-Id`         | Rastrear métricas por usuário                                               |
+| `Helicone-Property-[Name]` | Adicionar propriedades personalizadas (ex: `Helicone-Property-Environment`) |
+| `Helicone-Prompt-Id`       | Associar solicitações com versões de prompt                                 |
+
+Consulte o [Diretório de Cabeçalhos do Helicone](https://docs.helicone.ai/helicone-headers/header-directory) para todos os cabeçalhos disponíveis.
+
+---
+
+### llama.cpp
+
+Você pode configurar o openhei para usar modelos locais através da utilidade llama-server do [llama.cpp](https://github.com/ggml-org/llama.cpp)
+
+```json title="openhei.json" "llama.cpp" {5, 6, 8, 10-15}
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "llama.cpp": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "llama-server (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      },
+      "models": {
+        "qwen3-coder:a3b": {
+          "name": "Qwen3-Coder: a3b-30b (local)",
+          "limit": {
+            "context": 128000,
+            "output": 65536
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Neste exemplo:
+
+- `llama.cpp` é o ID do provedor personalizado. Isso pode ser qualquer string que você quiser.
+- `npm` especifica o pacote a ser usado para este provedor. Aqui, `@ai-sdk/openai-compatible` é usado para qualquer API compatível com OpenAI.
+- `name` é o nome exibido para o provedor na interface do usuário.
+- `options.baseURL` é o endpoint para o servidor local.
+- `models` é um mapa de IDs de modelos para suas configurações. O nome do modelo será exibido na lista de seleção de modelos.
+
+---
+
+### IO.NET
+
+IO.NET oferece 17 modelos otimizados para vários casos de uso:
+
+1. Acesse o [console IO.NET](https://ai.io.net/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **IO.NET**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API IO.NET.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### LM Studio
+
+Você pode configurar o openhei para usar modelos locais através do LM Studio.
+
+```json title="openhei.json" "lmstudio" {5, 6, 8, 10-14}
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1"
+      },
+      "models": {
+        "google/gemma-3n-e4b": {
+          "name": "Gemma 3n-e4b (local)"
+        }
+      }
+    }
+  }
+}
+```
+
+Neste exemplo:
+
+- `lmstudio` é o ID do provedor personalizado. Isso pode ser qualquer string que você quiser.
+- `npm` especifica o pacote a ser usado para este provedor. Aqui, `@ai-sdk/openai-compatible` é usado para qualquer API compatível com OpenAI.
+- `name` é o nome exibido para o provedor na interface do usuário.
+- `options.baseURL` é o endpoint para o servidor local.
+- `models` é um mapa de IDs de modelos para suas configurações. O nome do modelo será exibido na lista de seleção de modelos.
+
+---
+
+### Moonshot AI
+
+Para usar Kimi K2 do Moonshot AI:
+
+1. Acesse o [console Moonshot AI](https://platform.moonshot.ai/console), crie uma conta e clique em **Criar chave da API**.
+
+2. Execute o comando `/connect` e procure por **Moonshot AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Moonshot.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar _Kimi K2_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### MiniMax
+
+1. Acesse o [MiniMax API Console](https://platform.minimax.io/login), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **MiniMax**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API MiniMax.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _M2.1_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Nebius Token Factory
+
+1. Acesse o [console Nebius Token Factory](https://tokenfactory.nebius.com/), crie uma conta e clique em **Adicionar Chave**.
+
+2. Execute o comando `/connect` e procure por **Nebius Token Factory**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Nebius Token Factory.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Kimi K2 Instruct_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Ollama
+
+Você pode configurar o openhei para usar modelos locais através do Ollama.
+
+:::tip
+Ollama pode se configurar automaticamente para o openhei. Consulte a [documentação de integração do Ollama](https://docs.ollama.com/integrations/openhei) para detalhes.
+:::
+
+```json title="openhei.json" "ollama" {5, 6, 8, 10-14}
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "llama2": {
+          "name": "Llama 2"
+        }
+      }
+    }
+  }
+}
+```
+
+Neste exemplo:
+
+- `ollama` é o ID do provedor personalizado. Isso pode ser qualquer string que você quiser.
+- `npm` especifica o pacote a ser usado para este provedor. Aqui, `@ai-sdk/openai-compatible` é usado para qualquer API compatível com OpenAI.
+- `name` é o nome exibido para o provedor na interface do usuário.
+- `options.baseURL` é o endpoint para o servidor local.
+- `models` é um mapa de IDs de modelos para suas configurações. O nome do modelo será exibido na lista de seleção de modelos.
+
+:::tip
+Se chamadas de ferramentas não estiverem funcionando, tente aumentar `num_ctx` no Ollama. Comece em torno de 16k - 32k.
+:::
+
+---
+
+### Ollama Cloud
+
+Para usar o Ollama Cloud com o openhei:
+
+1. Acesse [https://ollama.com/](https://ollama.com/) e faça login ou crie uma conta.
+
+2. Navegue até **Configurações** > **Chaves** e clique em **Adicionar Chave da API** para gerar uma nova chave da API.
+
+3. Copie a chave da API para uso no openhei.
+
+4. Execute o comando `/connect` e procure por **Ollama Cloud**.
+
+   ```txt
+   /connect
+   ```
+
+5. Insira sua chave da API do Ollama Cloud.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+6. **Importante**: Antes de usar modelos em nuvem no openhei, você deve puxar as informações do modelo localmente:
+
+   ```bash
+   ollama pull gpt-oss:20b-cloud
+   ```
+
+7. Execute o comando `/models` para selecionar seu modelo do Ollama Cloud.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### OpenAI
+
+Recomendamos se inscrever para [ChatGPT Plus ou Pro](https://chatgpt.com/pricing).
+
+1. Depois de se inscrever, execute o comando `/connect` e selecione OpenAI.
+
+   ```txt
+   /connect
+   ```
+
+2. Aqui você pode selecionar a opção **ChatGPT Plus/Pro** e isso abrirá seu navegador e pedirá para você se autenticar.
+
+   ```txt
+   ┌ Selecione o método de autenticação
+   │
+   │ ChatGPT Plus/Pro
+   │ Inserir manualmente a chave de API
+   └
+   ```
+
+3. Agora todos os modelos da OpenAI devem estar disponíveis quando você usar o comando `/models`.
+
+   ```txt
+   /models
+   ```
+
+##### Usando chaves da API
+
+Se você já tiver uma chave da API, pode selecionar **Inserir chave da API manualmente** e colá-la no seu terminal.
+
+---
+
+### OpenHei Zen
+
+OpenHei Zen é uma lista de modelos testados e verificados fornecidos pela equipe do openhei. [Saiba mais](/docs/zen).
+
+1. Faça login em **<a href={console}>OpenHei Zen</a>** e clique em **Criar Chave da API**.
+
+2. Execute o comando `/connect` e procure por **OpenHei Zen**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API do openhei.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Qwen 3 Coder 480B_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### OpenRouter
+
+1. Acesse o [painel OpenRouter](https://openrouter.ai/settings/keys), clique em **Criar Chave da API** e copie a chave.
+
+2. Execute o comando `/connect` e procure por OpenRouter.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira a chave da API para o provedor.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Muitos modelos do OpenRouter são pré-carregados por padrão, execute o comando `/models` para selecionar o que você deseja.
+
+   ```txt
+   /models
+   ```
+
+   Você também pode adicionar modelos adicionais através da sua configuração do openhei.
+
+   ```json title="openhei.json" {6}
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "openrouter": {
+         "models": {
+           "somecoolnewmodel": {}
+         }
+       }
+     }
+   }
+   ```
+
+5. Você também pode personalizá-los através da sua configuração do openhei. Aqui está um exemplo de especificar um provedor
+
+   ```json title="openhei.json"
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "openrouter": {
+         "models": {
+           "moonshotai/kimi-k2": {
+             "options": {
+               "provider": {
+                 "order": ["baseten"],
+                 "allow_fallbacks": false
+               }
+             }
+           }
+         }
+       }
+     }
+   }
+   ```
+
+---
+
+### SAP AI Core
+
+SAP AI Core fornece acesso a mais de 40 modelos do OpenAI, Anthropic, Google, Amazon, Meta, Mistral e AI21 através de uma plataforma unificada.
+
+1. Vá para seu [SAP BTP Cockpit](https://account.hana.ondemand.com/), navegue até sua instância de serviço SAP AI Core e crie uma chave de serviço.
+
+   :::tip
+   A chave de serviço é um objeto JSON contendo `clientid`, `clientsecret`, `url` e `serviceurls.AI_API_URL`. Você pode encontrar sua instância do AI Core em **Serviços** > **Instâncias e Assinaturas** no BTP Cockpit.
+   :::
+
+2. Execute o comando `/connect` e procure por **SAP AI Core**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira seu JSON da chave de serviço.
+
+   ```txt
+   ┌ Service key
+   │
+   │
+   └ enter
+   ```
+
+   Ou defina a variável de ambiente `AICORE_SERVICE_KEY`:
+
+   ```bash
+   AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...","url":"...","serviceurls":{"AI_API_URL":"..."}}' openhei
+   ```
+
+   Ou adicione ao seu perfil bash:
+
+   ```bash title="~/.bash_profile"
+   export AICORE_SERVICE_KEY='{"clientid":"...","clientsecret":"...","url":"...","serviceurls":{"AI_API_URL":"..."}}'
+   ```
+
+4. Opcionalmente, defina o ID de implantação e o grupo de recursos:
+
+   ```bash
+   AICORE_DEPLOYMENT_ID=your-deployment-id AICORE_RESOURCE_GROUP=your-resource-group openhei
+   ```
+
+   :::note
+   Essas configurações são opcionais e devem ser configuradas de acordo com sua configuração do SAP AI Core.
+   :::
+
+5. Execute o comando `/models` para selecionar entre mais de 40 modelos disponíveis.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### OVHcloud AI Endpoints
+
+1. Acesse o [painel OVHcloud](https://ovh.com/manager). Navegue até a seção `Public Cloud`, `AI & Machine Learning` > `AI Endpoints` e na aba `API Keys`, clique em **Criar uma nova chave da API**.
+
+2. Execute o comando `/connect` e procure por **OVHcloud AI Endpoints**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API OVHcloud AI Endpoints.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _gpt-oss-120b_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Scaleway
+
+Para usar [APIs Generativas Scaleway](https://www.scaleway.com/en/docs/generative-apis/) com o openhei:
+
+1. Acesse as [configurações de IAM do Scaleway Console](https://console.scaleway.com/iam/api-keys) para gerar uma nova chave da API.
+
+2. Execute o comando `/connect` e procure por **Scaleway**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Scaleway.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _devstral-2-123b-instruct-2512_ ou _gpt-oss-120b_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Together AI
+
+1. Acesse o [console Together AI](https://api.together.ai), crie uma conta e clique em **Adicionar Chave**.
+
+2. Execute o comando `/connect` e procure por **Together AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Together AI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Kimi K2 Instruct_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Venice AI
+
+1. Acesse o [console Venice AI](https://venice.ai), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **Venice AI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API Venice AI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Llama 3.3 70B_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Vercel AI Gateway
+
+O Vercel AI Gateway permite que você acesse modelos do OpenAI, Anthropic, Google, xAI e mais através de um endpoint unificado. Os modelos são oferecidos pelo preço de tabela, sem markup.
+
+1. Acesse o [painel Vercel](https://vercel.com/), navegue até a aba **AI Gateway** e clique em **Chaves da API** para criar uma nova chave da API.
+
+2. Execute o comando `/connect` e procure por **Vercel AI Gateway**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API do Vercel AI Gateway.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo.
+
+   ```txt
+   /models
+   ```
+
+Você também pode personalizar modelos através da sua configuração do openhei. Aqui está um exemplo de especificar a ordem de roteamento do provedor.
+
+```json title="openhei.json"
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "vercel": {
+      "models": {
+        "anthropic/claude-sonnet-4": {
+          "options": {
+            "order": ["anthropic", "vertex"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Algumas opções de roteamento úteis:
+
+| Opção               | Descrição                                                      |
+| ------------------- | -------------------------------------------------------------- |
+| `order`             | Sequência de provedores a serem tentados                       |
+| `only`              | Restringir a provedores específicos                            |
+| `zeroDataRetention` | Usar apenas provedores com políticas de retenção de dados zero |
+
+---
+
+### xAI
+
+1. Acesse o [console xAI](https://console.x.ai/), crie uma conta e gere uma chave da API.
+
+2. Execute o comando `/connect` e procure por **xAI**.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira sua chave da API xAI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _Grok Beta_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### Z.AI
+
+1. Acesse o [console da API Z.AI](https://z.ai/manage-apikey/apikey-list), crie uma conta e clique em **Criar uma nova chave da API**.
+
+2. Execute o comando `/connect` e procure por **Z.AI**.
+
+   ```txt
+   /connect
+   ```
+
+   Se você estiver inscrito no **GLM Coding Plan**, selecione **Z.AI Coding Plan**.
+
+3. Insira sua chave da API Z.AI.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Execute o comando `/models` para selecionar um modelo como _GLM-4.7_.
+
+   ```txt
+   /models
+   ```
+
+---
+
+### ZenMux
+
+1. Acesse o [painel ZenMux](https://zenmux.ai/settings/keys), clique em **Criar Chave da API** e copie a chave.
+
+2. Execute o comando `/connect` e procure por ZenMux.
+
+   ```txt
+   /connect
+   ```
+
+3. Insira a chave da API para o provedor.
+
+   ```txt
+   ┌ API key
+   │
+   │
+   └ enter
+   ```
+
+4. Muitos modelos ZenMux são pré-carregados por padrão, execute o comando `/models` para selecionar o que você deseja.
+
+   ```txt
+   /models
+   ```
+
+   Você também pode adicionar modelos adicionais através da sua configuração do openhei.
+
+   ```json title="openhei.json" {6}
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "zenmux": {
+         "models": {
+           "somecoolnewmodel": {}
+         }
+       }
+     }
+   }
+   ```
+
+---
+
+## Provedor personalizado
+
+Para adicionar qualquer provedor **compatível com OpenAI** que não esteja listado no comando `/connect`:
+
+:::tip
+Você pode usar qualquer provedor compatível com OpenAI com o openhei. A maioria dos provedores de AI modernos oferece APIs compatíveis com OpenAI.
+:::
+
+1. Execute o comando `/connect` e role para baixo até **Outro**.
+
+   ```bash
+   $ /connect
+
+   ┌  Adicionar credencial
+   │
+   ▲  Isso armazena apenas uma credencial para myprovider - você precisará configurá-lo no openhei.json, verifique a documentação para exemplos.
+   │
+   ◇  Digite sua chave de API
+   │  sk-...
+   └
+   ```
+
+2. Insira um ID exclusivo para o provedor.
+
+   ```bash
+   $ /connect
+
+   ┌  Adicionar credencial
+   │
+   ▲  Isso armazena apenas uma credencial para myprovider - você precisará configurá-lo no openhei.json, verifique a documentação para exemplos.
+   │
+   ◇  Digite sua chave de API
+   │  sk-...
+   └
+   ```
+
+   :::note
+   Escolha um ID memorável, você usará isso no seu arquivo de configuração.
+   :::
+
+3. Insira sua chave da API para o provedor.
+
+   ```bash
+   $ /connect
+
+   ┌  Adicionar credencial
+   │
+   ▲  Isso armazena apenas uma credencial para myprovider - você precisará configurá-lo no openhei.json, verifique a documentação para exemplos.
+   │
+   ◇  Digite sua chave de API
+   │  sk-...
+   └
+   ```
+
+4. Crie ou atualize seu arquivo `openhei.json` no diretório do seu projeto:
+
+   ```json title="openhei.json" ""myprovider"" {5-15}
+   {
+     "$schema": "https://openhei.ai/config.json",
+     "provider": {
+       "myprovider": {
+         "npm": "@ai-sdk/openai-compatible",
+         "name": "Nome de Exibição do Meu Provedor de IA",
+         "options": {
+           "baseURL": "https://api.myprovider.com/v1"
+         },
+         "models": {
+           "my-model-name": {
+             "name": "Nome de Exibição do Meu Modelo"
+           }
+         }
+       }
+         }
+       }
+     }
+   }
+   ```
+
+   Aqui estão as opções de configuração:
+   - **npm**: Pacote do SDK de AI a ser usado, `@ai-sdk/openai-compatible` para provedores compatíveis com OpenAI
+   - **name**: Nome de exibição na interface do usuário.
+   - **models**: Modelos disponíveis.
+   - **options.baseURL**: URL do endpoint da API.
+   - **options.apiKey**: Defina opcionalmente a chave da API, se não estiver usando autenticação.
+   - **options.headers**: Defina opcionalmente cabeçalhos personalizados.
+
+   Mais sobre as opções avançadas no exemplo abaixo.
+
+5. Execute o comando `/models` e seu provedor e modelos personalizados aparecerão na lista de seleção.
+
+---
+
+##### Exemplo
+
+Aqui está um exemplo definindo as opções `apiKey`, `headers` e `limit` do modelo.
+
+```json title="openhei.json" {9,11,17-20}
+{
+  "$schema": "https://openhei.ai/config.json",
+  "provider": {
+    "myprovider": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Nome de Exibição do Meu Provedor de IA",
+      "options": {
+        "baseURL": "https://api.myprovider.com/v1",
+        "apiKey": "{env:ANTHROPIC_API_KEY}",
+        "headers": {
+          "Authorization": "Bearer custom-token"
+        }
+      },
+      "models": {
+        "my-model-name": {
+          "name": "Nome de Exibição do Meu Modelo",
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          }
+        }
+      }
+    }
+  }
+      },
+      "models": {
+        "my-model-name": {
+          "name": "Nome de Exibição do Meu Modelo",
+          "limit": {
+            "context": 200000,
+            "output": 65536
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Detalhes da configuração:
+
+- **apiKey**: Definido usando a sintaxe de variável `env`, [saiba mais](/docs/config#env-vars).
+- **headers**: Cabeçalhos personalizados enviados com cada solicitação.
+- **limit.context**: Máximo de tokens de entrada que o modelo aceita.
+- **limit.output**: Máximo de tokens que o modelo pode gerar.
+
+Os campos `limit` permitem que o openhei entenda quanto contexto você tem disponível. Provedores padrão puxam isso automaticamente do models.dev.
+
+---
+
+## Solução de Problemas
+
+Se você estiver tendo problemas para configurar um provedor, verifique o seguinte:
+
+1. **Verifique a configuração de autenticação**: Execute `openhei auth list` para ver se as credenciais
+   para o provedor estão adicionadas à sua configuração.
+
+   Isso não se aplica a provedores como Amazon Bedrock, que dependem de variáveis de ambiente para sua autenticação.
+
+2. Para provedores personalizados, verifique a configuração do openhei e:
+   - Certifique-se de que o ID do provedor usado no comando `/connect` corresponda ao ID na sua configuração do openhei.
+   - O pacote npm correto está sendo usado para o provedor. Por exemplo, use `@ai-sdk/cerebras` para Cerebras. E para todos os outros provedores compatíveis com OpenAI, use `@ai-sdk/openai-compatible`.
+   - Verifique se o endpoint da API correto está sendo usado no campo `options.baseURL`.
