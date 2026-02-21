@@ -204,7 +204,8 @@ function createGlobalSync() {
         sessionMeta.set(directory, { limit })
       })
       .catch((err) => {
-        console.error("Failed to load sessions", err)
+        const normalizedError = err ?? new Error("Unknown error (null)")
+        console.error("Failed to load sessions", normalizedError)
         const project = getFilename(directory)
         showToast({
           title: language.t("toast.session.listFailed.title", { project }),

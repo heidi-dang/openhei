@@ -1,0 +1,26 @@
+{
+  "base_model": "microsoft/phi-2",
+  "data_path": "/home/heidi/work/opencode/dataset.jsonl",
+  "lora": {
+    "alpha": 32,
+    "dropout": 0.05,
+    "r": 16
+  },
+  "repo_root": "/home/heidi/work/opencode",
+  "run_dir": "/home/heidi/work/opencode/runs/round_2",
+  "runtime_root": "/home/heidi/.local/heidi-engine",
+  "train": {
+    "batch_size": 1,
+    "cap_samples": 9000,
+    "dtype": "bf16",
+    "epochs": 1,
+    "grad_accum": 8,
+    "lr": 0.0002,
+    "max_steps": 0,
+    "resume": "n",
+    "resume_from": "",
+    "seq_len": 2048,
+    "use_4bit": "y",
+    "warmup_ratio": 0.03
+  }
+}

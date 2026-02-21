@@ -18,6 +18,9 @@ export default [
         worker: {
           format: "es",
         },
+        build: {
+          sourcemap: process.env.VITE_SOURCEMAP === "1",
+        },
       }
     },
   },

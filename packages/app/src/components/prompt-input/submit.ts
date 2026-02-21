@@ -23,6 +23,25 @@ type PendingPrompt = {
 
 const pending = new Map<string, PendingPrompt>()
 
+const pendingSyncs = new Map<string, ReturnType<typeof setTimeout>>()
+const SYNC_DEBOUNCE_MS = 250
+
+const debouncedSync = (sessionID: string, syncFn: () => Promise<void>) => {
+  const existing = pendingSyncs.get(sessionID)
+  if (existing) clearTimeout(existing)
+  pendingSyncs.set(
+    sessionID,
+    setTimeout(() => {
+      pendingSyncs.delete(sessionID)
+      syncFn().catch((e) => {
+        if (import.meta.env.DEV) {
+          console.warn("[sync] failed", e ?? "(null)")
+        }
+      })
+    }, SYNC_DEBOUNCE_MS),
+  )
+}
+
 type PromptSubmitInput = {
   info: Accessor<{ id: string } | undefined>
   imageAttachments: Accessor<ImageAttachmentPart[]>
@@ -246,6 +265,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           model,
           command: text,
         })
+        .then(() => {
+          // Ensure messages are synced after shell command
+          if (session.id) {
+            debouncedSync(session.id, () => sync.session.sync(session.id))
+          }
+        })
         .catch((err) => {
           showToast({
             title: language.t("prompt.toast.shellSendFailed.title"),
@@ -277,6 +302,12 @@ export function createPromptSubmit(input: PromptSubmitInput) {
               url: attachment.dataUrl,
               filename: attachment.filename,
             })),
+          })
+          .then(() => {
+            // Ensure messages are synced after custom command
+            if (session.id) {
+              debouncedSync(session.id, () => sync.session.sync(session.id))
+            }
           })
           .catch((err) => {
             showToast({
@@ -389,14 +420,24 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const send = async () => {
       const ok = await waitForWorktree()
       if (!ok) return
-      await client.session.promptAsync({
-        sessionID: session.id,
-        agent,
-        model,
-        messageID,
-        parts: requestParts,
-        variant,
-      })
+      try {
+        await client.session.promptAsync({
+          sessionID: session.id,
+          agent,
+          model,
+          messageID,
+          parts: requestParts,
+          variant,
+        })
+        // Ensure messages are synced after sending prompt
+        // This provides a fallback in case SSE events are delayed/not received
+        if (session.id) {
+          debouncedSync(session.id, () => sync.session.sync(session.id))
+        }
+      } catch (e) {
+        // Let the existing error handler deal with this
+        throw e
+      }
     }
 
     void send().catch((err) => {

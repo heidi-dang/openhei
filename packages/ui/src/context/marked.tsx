@@ -428,35 +428,42 @@ async function highlightCodeBlocks(html: string): Promise<string> {
   const matches = [...html.matchAll(codeBlockRegex)]
   if (matches.length === 0) return html
 
-  const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
+  try {
+    const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
 
-  let result = html
-  for (const match of matches) {
-    const [fullMatch, lang, escapedCode] = match
-    const code = escapedCode
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
+    let result = html
+    for (const match of matches) {
+      const [fullMatch, lang, escapedCode] = match
+      const code = escapedCode
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
 
-    let language = lang || "text"
-    if (!(language in bundledLanguages)) {
-      language = "text"
+      let language = lang || "text"
+      if (!(language in bundledLanguages)) {
+        language = "text"
+      }
+      if (!highlighter.getLoadedLanguages().includes(language)) {
+        await highlighter.loadLanguage(language as BundledLanguage)
+      }
+
+      const highlighted = highlighter.codeToHtml(code, {
+        lang: language,
+        theme: "OpenHei",
+        tabindex: false,
+      })
+      result = result.replace(fullMatch, () => highlighted)
     }
-    if (!highlighter.getLoadedLanguages().includes(language)) {
-      await highlighter.loadLanguage(language as BundledLanguage)
-    }
 
-    const highlighted = highlighter.codeToHtml(code, {
-      lang: language,
-      theme: "OpenHei",
-      tabindex: false,
-    })
-    result = result.replace(fullMatch, () => highlighted)
+    return result
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[highlightCodeBlocks] Shiki failed, using plain code blocks", e)
+    }
+    return html
   }
-
-  return result
 }
 
 export type NativeMarkdownParser = (markdown: string) => Promise<string>
@@ -479,18 +486,25 @@ export const { use: useMarked, provider: MarkedProvider } = createSimpleContext(
       }),
       markedShiki({
         async highlight(code, lang) {
-          const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
-          if (!(lang in bundledLanguages)) {
-            lang = "text"
+          try {
+            const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
+            if (!(lang in bundledLanguages)) {
+              lang = "text"
+            }
+            if (!highlighter.getLoadedLanguages().includes(lang)) {
+              await highlighter.loadLanguage(lang as BundledLanguage)
+            }
+            return highlighter.codeToHtml(code, {
+              lang: lang || "text",
+              theme: "OpenHei",
+              tabindex: false,
+            })
+          } catch (e) {
+            if (import.meta.env.DEV) {
+              console.warn("[markedShiki] Shiki failed, using plain code blocks", e)
+            }
+            return `<pre><code>${code}</code></pre>`
           }
-          if (!highlighter.getLoadedLanguages().includes(lang)) {
-            await highlighter.loadLanguage(lang as BundledLanguage)
-          }
-          return highlighter.codeToHtml(code, {
-            lang: lang || "text",
-            theme: "OpenHei",
-            tabindex: false,
-          })
         },
       }),
     )

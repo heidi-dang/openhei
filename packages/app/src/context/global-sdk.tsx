@@ -125,10 +125,11 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
               if (aborted(error)) return
               if (streamErrorLogged) return
               streamErrorLogged = true
+              const normalizedError = error ?? new Error("Unknown SSE error (null)")
               console.error("[global-sdk] event stream error", {
                 url: currentServer.http.url,
                 fetch: eventFetch ? "platform" : "webview",
-                error,
+                error: normalizedError,
               })
             },
           })
@@ -158,10 +159,11 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         } catch (error) {
           if (!aborted(error) && !streamErrorLogged) {
             streamErrorLogged = true
+            const normalizedError = error ?? new Error("Unknown stream error (null)")
             console.error("[global-sdk] event stream failed", {
               url: currentServer.http.url,
               fetch: eventFetch ? "platform" : "webview",
-              error,
+              error: normalizedError,
             })
           }
         } finally {

@@ -37,7 +37,7 @@ export const auraTheme = auraThemeJson as DesktopTheme
 
 export const DEFAULT_THEMES: Record<string, DesktopTheme> = {
   "hei-1": hei1Theme,
-  "hei-1": oc1Theme,
+  "oc-1": oc1Theme,
   "oc-2": oc2Theme,
   aura: auraTheme,
   ayu: ayuTheme,
