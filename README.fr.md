@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://openhei.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/openhei-ai"><img alt="npm" src="https://img.shields.io/npm/v/openhei-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/openhei/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/heidi-dang/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/heidi-dang/openhei/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
 <p align="center">
@@ -55,7 +55,7 @@ brew install openhei              # macOS et Linux (formule officielle brew, mis
 sudo pacman -S openhei            # Arch Linux (Stable)
 paru -S openhei-bin               # Arch Linux (Latest from AUR)
 mise use -g openhei               # n'importe quel OS
-nix run nixpkgs#openhei           # ou github:anomalyco/openhei pour la branche dev la plus récente
+nix run nixpkgs#openhei           # ou github:heidi-dang/openhei pour la branche dev la plus récente
 ```
 
 > [!TIP]
@@ -63,7 +63,7 @@ nix run nixpkgs#openhei           # ou github:anomalyco/openhei pour la branche 
 
 ### Application de bureau (BETA)
 
-OpenHei est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases](https://github.com/anomalyco/openhei/releases) ou [openhei.ai/download](https://openhei.ai/download).
+OpenHei est aussi disponible en application de bureau. Téléchargez-la directement depuis la [page des releases](https://github.com/heidi-dang/openhei/releases) ou [openhei.ai/download](https://openhei.ai/download).
 
 | Plateforme            | Téléchargement                        |
 | --------------------- | ------------------------------------- |

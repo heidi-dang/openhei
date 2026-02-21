@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://openhei.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/openhei-ai"><img alt="npm" src="https://img.shields.io/npm/v/openhei-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/openhei/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/heidi-dang/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/heidi-dang/openhei/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
 <p align="center">
@@ -55,7 +55,7 @@ brew install openhei              # macOS 및 Linux (공식 brew formula, 업데
 sudo pacman -S openhei            # Arch Linux (Stable)
 paru -S openhei-bin               # Arch Linux (Latest from AUR)
 mise use -g openhei               # 어떤 OS든
-nix run nixpkgs#openhei           # 또는 github:anomalyco/openhei 로 최신 dev 브랜치
+nix run nixpkgs#openhei           # 또는 github:heidi-dang/openhei 로 최신 dev 브랜치
 ```
 
 > [!TIP]
@@ -63,7 +63,7 @@ nix run nixpkgs#openhei           # 또는 github:anomalyco/openhei 로 최신 d
 
 ### 데스크톱 앱 (BETA)
 
-OpenHei 는 데스크톱 앱으로도 제공됩니다. [releases page](https://github.com/anomalyco/openhei/releases) 에서 직접 다운로드하거나 [openhei.ai/download](https://openhei.ai/download) 를 이용하세요.
+OpenHei 는 데스크톱 앱으로도 제공됩니다. [releases page](https://github.com/heidi-dang/openhei/releases) 에서 직접 다운로드하거나 [openhei.ai/download](https://openhei.ai/download) 를 이용하세요.
 
 | 플랫폼                | 다운로드                              |
 | --------------------- | ------------------------------------- |

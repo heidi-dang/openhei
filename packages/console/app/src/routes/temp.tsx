@@ -161,7 +161,7 @@ export default function Home() {
             <a href="https://x.com/openhei">{i18n.t("footer.x")}</a>
           </div>
           <div data-slot="cell">
-            <a href="https://github.com/anomalyco/openhei">{i18n.t("footer.github")}</a>
+            <a href="https://github.com/heidi-dang/openhei">{i18n.t("footer.github")}</a>
           </div>
           <div data-slot="cell">
             <a href="https://openhei.ai/discord">{i18n.t("footer.discord")}</a>

@@ -324,7 +324,7 @@ export default function () {
                               <div class="flex gap-3 items-center">
                                 <IconButton
                                   as={"a"}
-                                  href="https://github.com/anomalyco/openhei"
+                                  href="https://github.com/heidi-dang/openhei"
                                   target="_blank"
                                   icon="github"
                                   variant="ghost"

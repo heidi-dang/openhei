@@ -7,7 +7,7 @@ export const config = {
 
   // GitHub
   github: {
-    repoUrl: "https://github.com/anomalyco/openhei",
+    repoUrl: "https://github.com/heidi-dang/openhei",
     starsFormatted: {
       compact: "100K",
       full: "100,000",

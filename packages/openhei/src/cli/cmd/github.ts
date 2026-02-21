@@ -403,7 +403,7 @@ jobs:
           persist-credentials: false
 
       - name: Run openhei
-        uses: anomalyco/openhei/github@latest${envStr}
+        uses: heidi-dang/openhei/github@latest${envStr}
         with:
           model: ${provider}/${model}`,
             )

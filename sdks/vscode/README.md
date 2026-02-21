@@ -15,7 +15,7 @@ This extension requires the [openhei CLI](https://openhei.ai) to be installed on
 
 ## Support
 
-This is an early release. If you encounter issues or have feedback, please create an issue at https://github.com/anomalyco/openhei/issues.
+This is an early release. If you encounter issues or have feedback, please create an issue at https://github.com/heidi-dang/openhei/issues.
 
 ## Development
 

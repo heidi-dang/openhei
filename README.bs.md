@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://openhei.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/openhei-ai"><img alt="npm" src="https://img.shields.io/npm/v/openhei-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/openhei/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/heidi-dang/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/heidi-dang/openhei/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ brew install openhei              # macOS i Linux (zvanična brew formula, rjeđ
 sudo pacman -S openhei            # Arch Linux (Stable)
 paru -S openhei-bin               # Arch Linux (Latest from AUR)
 mise use -g openhei               # Bilo koji OS
-nix run nixpkgs#openhei           # ili github:anomalyco/openhei za najnoviji dev branch
+nix run nixpkgs#openhei           # ili github:heidi-dang/openhei za najnoviji dev branch
 ```
 
 > [!TIP]
@@ -64,7 +64,7 @@ nix run nixpkgs#openhei           # ili github:anomalyco/openhei za najnoviji de
 
 ### Desktop aplikacija (BETA)
 
-OpenHei je dostupan i kao desktop aplikacija. Preuzmi je direktno sa [stranice izdanja](https://github.com/anomalyco/openhei/releases) ili sa [openhei.ai/download](https://openhei.ai/download).
+OpenHei je dostupan i kao desktop aplikacija. Preuzmi je direktno sa [stranice izdanja](https://github.com/heidi-dang/openhei/releases) ili sa [openhei.ai/download](https://openhei.ai/download).
 
 | Platforma             | Preuzimanje                           |
 | --------------------- | ------------------------------------- |

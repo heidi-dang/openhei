@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://openhei.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/openhei-ai"><img alt="npm" src="https://img.shields.io/npm/v/openhei-ai?style=flat-square" /></a>
-  <a href="https://github.com/anomalyco/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/openhei/publish.yml?style=flat-square&branch=dev" /></a>
+  <a href="https://github.com/heidi-dang/openhei/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/heidi-dang/openhei/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
 <p align="center">
@@ -55,7 +55,7 @@ brew install openhei              # macOS и Linux (официальная фо�
 sudo pacman -S openhei            # Arch Linux (Stable)
 paru -S openhei-bin               # Arch Linux (Latest from AUR)
 mise use -g openhei               # любая ОС
-nix run nixpkgs#openhei           # или github:anomalyco/openhei для самой свежей ветки dev
+nix run nixpkgs#openhei           # или github:heidi-dang/openhei для самой свежей ветки dev
 ```
 
 > [!TIP]
@@ -63,7 +63,7 @@ nix run nixpkgs#openhei           # или github:anomalyco/openhei для са�
 
 ### Десктопное приложение (BETA)
 
-OpenHei также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/anomalyco/openhei/releases) или с [openhei.ai/download](https://openhei.ai/download).
+OpenHei также доступен как десктопное приложение. Скачайте его со [страницы релизов](https://github.com/heidi-dang/openhei/releases) или с [openhei.ai/download](https://openhei.ai/download).
 
 | Платформа             | Загрузка                              |
 | --------------------- | ------------------------------------- |

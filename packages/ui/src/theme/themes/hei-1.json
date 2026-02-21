@@ -32,7 +32,7 @@
             "diffDelete": "#ff4444"
         },
         "overrides": {
-            "background-base": "#0a0a0a",
+            "background-base": "linear-gradient(180deg, #0a0a0a 0%, #141414 100%)",
             "background-weak": "#0d0d0d",
             "background-strong": "#050505",
             "background-stronger": "#000000",
