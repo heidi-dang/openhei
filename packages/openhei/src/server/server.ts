@@ -7,6 +7,7 @@ import { cors } from "hono/cors"
 import { streamSSE } from "hono/streaming"
 import { proxy } from "hono/proxy"
 import { basicAuth } from "hono/basic-auth"
+import { serveStatic } from "hono/bun"
 import z from "zod"
 import { Provider } from "../provider/provider"
 import { NamedError } from "@openhei-ai/util/error"
@@ -117,8 +118,8 @@ export namespace Server {
               )
                 return input
 
-              // *.openhei.ai (https only, adjust if needed)
-              if (/^https:\/\/([a-z0-9-]+\.)*openhei\.ai$/.test(input)) {
+              // *.openhei.ai or original dashboard
+              if (/^https:\/\/([a-z0-9-]+\.)*openhei\.ai$/.test(input) || /^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)) {
                 return input
               }
               if (_corsWhitelist.includes(input)) {
@@ -540,21 +541,35 @@ export namespace Server {
             })
           },
         )
-        .all("/*", async (c) => {
-          const path = c.req.path
+        .all("/*", async (c, next) => {
+          if (Flag.OPENHEI_DASHBOARD_DIR) {
+            return serveStatic({ root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+          }
 
-          const response = await proxy(`https://app.openhei.ai${path}`, {
-            ...c.req,
-            headers: {
-              ...c.req.raw.headers,
-              host: "app.openhei.ai",
-            },
-          })
-          response.headers.set(
-            "Content-Security-Policy",
-            "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:",
-          )
-          return response
+          const path = c.req.path
+          const dashboardUrl = new URL(Flag.OPENHEI_DASHBOARD_URL)
+          try {
+            const response = await proxy(`${dashboardUrl.origin}${path}`, {
+              ...c.req,
+              headers: {
+                ...c.req.raw.headers,
+                host: dashboardUrl.host,
+              },
+            })
+            response.headers.set(
+              "Content-Security-Policy",
+              "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src 'self' data:",
+            )
+            return response
+          } catch (err) {
+            log.error("proxy failed", { error: err, url: dashboardUrl.origin })
+            return c.json({
+              name: "UnknownError",
+              data: {
+                message: `Error: Unable to connect to dashbord at ${dashboardUrl.origin}. Is the computer able to access the url?`,
+              }
+            }, 500)
+          }
         }) as unknown as Hono,
   )
 
