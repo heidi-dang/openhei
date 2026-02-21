@@ -1,5 +1,6 @@
 import { EOL } from "os"
 import { basename } from "path"
+import JSON5 from "json5"
 import { Agent } from "../../../agent/agent"
 import { Provider } from "../../../provider/provider"
 import { Session } from "../../../session"
@@ -86,7 +87,7 @@ async function resolveTools(agent: Agent.Info, availableTools: Awaited<ReturnTyp
   return resolved
 }
 
-function parseToolParams(input?: string) {
+export function parseToolParams(input?: string) {
   if (!input) return {}
   const trimmed = input.trim()
   if (trimmed.length === 0) return {}
@@ -96,10 +97,10 @@ function parseToolParams(input?: string) {
       return JSON.parse(trimmed)
     } catch (jsonError) {
       try {
-        return new Function(`return (${trimmed})`)()
-      } catch (evalError) {
+        return JSON5.parse(trimmed)
+      } catch (json5Error) {
         throw new Error(
-          `Failed to parse --params. Use JSON or a JS object literal. JSON error: ${jsonError}. Eval error: ${evalError}.`,
+          `Failed to parse --params. Use JSON or a JS object literal. JSON error: ${jsonError}. JSON5 error: ${json5Error}.`,
         )
       }
     }
