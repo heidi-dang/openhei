@@ -16,7 +16,6 @@ import type {
   WorkflowRunEvent,
   PullRequestEvent,
 } from "@octokit/webhooks-types"
-import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
 import { Instance } from "@/project/instance"
@@ -29,6 +28,7 @@ import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
 import { $ } from "bun"
 import { Log } from "../../util/log"
+import { UI } from "../ui"
 
 const logger = Log.create({ service: "github" })
 
