@@ -1,6 +1,7 @@
 import { marked } from "marked"
 import { codeToHtml } from "shiki"
 import markedShiki from "marked-shiki"
+import DOMPurify from "dompurify"
 import { createOverflow, useShareMessages } from "./common"
 import { CopyButton } from "./copy-button"
 import { createResource, createSignal } from "solid-js"
@@ -28,18 +29,42 @@ const markedWithShiki = marked.use(
   }),
 )
 
+export async function parseAndSanitizeMarkdown(markdown: string): Promise<string> {
+  const html = await markedWithShiki.parse(markdown)
+
+  let purifyInstance: any = DOMPurify
+
+  if (typeof DOMPurify.sanitize !== "function") {
+    // It's likely a factory
+    let win: any = typeof window !== "undefined" ? window : undefined
+
+    if (!win) {
+      // Server-side
+      const { Window } = await import("happy-dom")
+      const virtualWindow = new Window()
+      win = virtualWindow
+    }
+
+    if (typeof DOMPurify === "function") {
+      purifyInstance = (DOMPurify as any)(win)
+    }
+  }
+
+  if (purifyInstance && typeof purifyInstance.sanitize === "function") {
+    return purifyInstance.sanitize(html, { ADD_ATTR: ["target"] })
+  }
+
+  // Fail safe
+  return ""
+}
+
 interface Props {
   text: string
   expand?: boolean
   highlight?: boolean
 }
 export function ContentMarkdown(props: Props) {
-  const [html] = createResource(
-    () => strip(props.text),
-    async (markdown) => {
-      return markedWithShiki.parse(markdown)
-    },
-  )
+  const [html] = createResource(() => strip(props.text), parseAndSanitizeMarkdown)
   const [expanded, setExpanded] = createSignal(false)
   const overflow = createOverflow()
   const messages = useShareMessages()

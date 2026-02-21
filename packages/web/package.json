@@ -9,7 +9,8 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "bun test"
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.3",
@@ -22,6 +23,8 @@
     "ai": "catalog:",
     "astro": "5.7.13",
     "diff": "catalog:",
+    "dompurify": "catalog:",
+    "happy-dom": "^15.7.4",
     "js-base64": "3.7.7",
     "lang-map": "0.4.0",
     "luxon": "catalog:",
@@ -37,7 +40,9 @@
   "devDependencies": {
     "openhei": "workspace:*",
     "@types/node": "catalog:",
+    "@types/dompurify": "^3.0.5",
     "@astrojs/check": "0.9.6",
+    "@happy-dom/global-registrator": "^15.7.4",
     "typescript": "catalog:"
   }
 }
