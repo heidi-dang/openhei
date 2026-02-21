@@ -201,7 +201,7 @@ jobs:
             const hasIssueSection = /### Issue for this PR/.test(body);
 
             if (!hasWhatSection || !hasTypeSection || !hasVerifySection || !hasChecklistSection || !hasIssueSection) {
-              issues.push('PR description is missing required template sections. Please use the [PR template](../blob/' + context.payload.repository.default_branch + '/.github/pull_request_template.md).');
+              issues.push(`PR description is missing required template sections. Please use the [PR template](../blob/${context.payload.repository.default_branch}/.github/pull_request_template.md).`);
             }
 
             // Check: "What does this PR do?" has real content (not just placeholder text)
