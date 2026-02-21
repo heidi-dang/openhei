@@ -193,6 +193,15 @@ else
             echo -e "${MUTED}For now, you can run 'openhei' directly from the source if you have it installed locally.${NC}"
             exit 1
         fi
+
+        # Verify asset exists before attempting download
+        asset_check=$(curl -sI "$url" | head -n 1 | awk '{print $2}')
+        if [ "$asset_check" != "200" ] && [ "$asset_check" != "302" ]; then
+            echo -e "${RED}Error: Binary asset '$filename' not found in release v$specific_version${NC}"
+            echo -e "${ORANGE}The release exists, but it seems there are no binaries uploaded yet.${NC}"
+            echo -e "${MUTED}Make sure you upload the .zip and .tar.gz files to the v$specific_version release on GitHub.${NC}"
+            exit 1
+        fi
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
