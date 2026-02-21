@@ -28,14 +28,21 @@ jobs:
 
             // Check if author is a team member or bot
             if (login === 'opencode-agent[bot]') return;
-            const defaultBranch = context.payload.repository.default_branch;
-            const { data: file } = await github.rest.repos.getContent({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              path: '.github/TEAM_MEMBERS',
-              ref: defaultBranch
-            });
-            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
+
+            let members = [];
+            try {
+              const defaultBranch = context.payload.repository.default_branch;
+              const { data: file } = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: '.github/TEAM_MEMBERS',
+                ref: defaultBranch
+              });
+              members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
+            } catch (error) {
+              console.log('Warning: Could not fetch TEAM_MEMBERS file. Assuming user is not a team member.', error.message);
+            }
+
             if (members.includes(login)) {
               console.log(`Skipping: ${login} is a team member`);
               return;
@@ -103,7 +110,7 @@ jobs:
 
             Where \`scope\` is the package name (e.g., \`app\`, \`desktop\`, \`opencode\`).
 
-            See [CONTRIBUTING.md](../blob/${defaultBranch}/CONTRIBUTING.md#pr-titles) for details.`);
+            See [CONTRIBUTING.md](../blob/${context.payload.repository.default_branch}/CONTRIBUTING.md#pr-titles) for details.`);
               return;
             }
 
@@ -146,7 +153,7 @@ jobs:
             1. Open an issue describing the bug/feature (if one doesn't exist)
             2. Add \`Fixes #<number>\` or \`Closes #<number>\` to this PR description
 
-            See [CONTRIBUTING.md](../blob/${defaultBranch}/CONTRIBUTING.md#issue-first-policy) for details.`);
+            See [CONTRIBUTING.md](../blob/${context.payload.repository.default_branch}/CONTRIBUTING.md#issue-first-policy) for details.`);
               return;
             }
 
@@ -176,14 +183,21 @@ jobs:
 
             // Check if author is a team member or bot
             if (login === 'opencode-agent[bot]') return;
-            const defaultBranch = context.payload.repository.default_branch;
-            const { data: file } = await github.rest.repos.getContent({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              path: '.github/TEAM_MEMBERS',
-              ref: defaultBranch
-            });
-            const members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
+
+            let members = [];
+            try {
+              const defaultBranch = context.payload.repository.default_branch;
+              const { data: file } = await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: '.github/TEAM_MEMBERS',
+                ref: defaultBranch
+              });
+              members = Buffer.from(file.content, 'base64').toString().split('\n').map(l => l.trim()).filter(Boolean);
+            } catch (error) {
+              console.log('Warning: Could not fetch TEAM_MEMBERS file. Assuming user is not a team member.', error.message);
+            }
+
             if (members.includes(login)) {
               console.log(`Skipping: ${login} is a team member`);
               return;
@@ -203,7 +217,7 @@ jobs:
             const hasIssueSection = /### Issue for this PR/.test(body);
 
             if (!hasWhatSection || !hasTypeSection || !hasVerifySection || !hasChecklistSection || !hasIssueSection) {
-              issues.push('PR description is missing required template sections. Please use the [PR template](../blob/' + defaultBranch + '/.github/pull_request_template.md).');
+              issues.push('PR description is missing required template sections. Please use the [PR template](../blob/' + context.payload.repository.default_branch + '/.github/pull_request_template.md).');
             }
 
             // Check: "What does this PR do?" has real content (not just placeholder text)
@@ -295,7 +309,7 @@ jobs:
               const existing = comments.find(c => c.body.includes(marker));
 
               const body_text = `${marker}
-            This PR doesn't fully meet our [contributing guidelines](../blob/${defaultBranch}/CONTRIBUTING.md) and [PR template](../blob/${defaultBranch}/.github/pull_request_template.md).
+            This PR doesn't fully meet our [contributing guidelines](../blob/${context.payload.repository.default_branch}/CONTRIBUTING.md) and [PR template](../blob/${context.payload.repository.default_branch}/.github/pull_request_template.md).
 
             **What needs to be fixed:**
             ${issues.map(i => `- ${i}`).join('\n')}
