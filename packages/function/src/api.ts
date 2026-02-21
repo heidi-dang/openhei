@@ -114,9 +114,8 @@ export class SyncServer extends DurableObject<Env> {
       prefix: `session/message/${sessionID}/`,
       limit: 1000,
     })
-    for (const item of list.objects) {
-      await this.env.Bucket.delete(item.key)
-    }
+    const keys = list.objects.map((item) => item.key)
+    await this.env.Bucket.delete(keys)
     await this.env.Bucket.delete(`session/info/${sessionID}`)
     await this.ctx.storage.deleteAll()
   }
