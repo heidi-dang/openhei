@@ -28,6 +28,9 @@ import { Bus } from "../../bus"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
 import { $ } from "bun"
+import { Log } from "../../util/log"
+
+const logger = Log.create({ service: "github" })
 
 type GitHubAuthor = {
   login: string
@@ -539,7 +542,7 @@ export const GithubRunCommand = cmd({
           await Session.share(session.id)
           return session.id.slice(-8)
         })()
-        console.log("openhei session", session.id)
+        logger.info("openhei session", { sessionID: session.id })
 
         // Handle event types:
         // REPO_EVENTS (schedule, workflow_dispatch): no issue/PR context, output to logs/PR only
@@ -548,7 +551,7 @@ export const GithubRunCommand = cmd({
         if (isRepoEvent) {
           // Repo event - no issue/PR context, output goes to logs
           if (isWorkflowDispatchEvent && actor) {
-            console.log(`Triggered by: ${actor}`)
+            logger.info("Triggered by", { actor })
           }
           const branchPrefix = isWorkflowDispatchEvent ? "dispatch" : "schedule"
           const branch = await checkoutNewBranch(branchPrefix)
@@ -557,8 +560,8 @@ export const GithubRunCommand = cmd({
           const { dirty, uncommittedChanges, switched } = await branchIsDirty(head, branch)
           if (switched) {
             // Agent switched branches (likely created its own branch/PR)
-            console.log("Agent managed its own branch, skipping infrastructure push/PR")
-            console.log("Response:", response)
+            logger.info("Agent managed its own branch, skipping infrastructure push/PR")
+            logger.debug("Response", { response })
           } else if (dirty) {
             const summary = await summarize(response)
             // workflow_dispatch has an actor for co-author attribution, schedule does not
@@ -571,12 +574,12 @@ export const GithubRunCommand = cmd({
               `${response}\n\nTriggered by ${triggerType}${footer({ image: true })}`,
             )
             if (pr) {
-              console.log(`Created PR #${pr}`)
+              logger.info("Created PR", { pr })
             } else {
-              console.log("Skipped PR creation (no new commits)")
+              logger.info("Skipped PR creation (no new commits)")
             }
           } else {
-            console.log("Response:", response)
+            logger.debug("Response", { response })
           }
         } else if (
           ["pull_request", "pull_request_review_comment"].includes(context.eventName) ||
@@ -591,7 +594,7 @@ export const GithubRunCommand = cmd({
             const response = await chat(`${userPrompt}\n\n${dataPrompt}`, promptFiles)
             const { dirty, uncommittedChanges, switched } = await branchIsDirty(head, prData.headRefName)
             if (switched) {
-              console.log("Agent managed its own branch, skipping infrastructure push")
+              logger.info("Agent managed its own branch, skipping infrastructure push")
             }
             if (dirty && !switched) {
               const summary = await summarize(response)
@@ -609,7 +612,7 @@ export const GithubRunCommand = cmd({
             const response = await chat(`${userPrompt}\n\n${dataPrompt}`, promptFiles)
             const { dirty, uncommittedChanges, switched } = await branchIsDirty(head, forkBranch)
             if (switched) {
-              console.log("Agent managed its own branch, skipping infrastructure push")
+              logger.info("Agent managed its own branch, skipping infrastructure push")
             }
             if (dirty && !switched) {
               const summary = await summarize(response)
@@ -655,7 +658,7 @@ export const GithubRunCommand = cmd({
         }
       } catch (e: any) {
         exitCode = 1
-        console.error(e instanceof Error ? e.message : String(e))
+        logger.error("Error", { error: e instanceof Error ? e.message : String(e) })
         let msg = e
         if (e instanceof $.ShellError) {
           msg = e.stderr.toString()
@@ -803,7 +806,7 @@ export const GithubRunCommand = cmd({
         const mdMatches = prompt.matchAll(/!?\[.*?\]\((https:\/\/github\.com\/user-attachments\/[^)]+)\)/gi)
         const tagMatches = prompt.matchAll(/<img .*?src="(https:\/\/github\.com\/user-attachments\/[^"]+)" \/>/gi)
         const matches = [...mdMatches, ...tagMatches].sort((a, b) => a.index - b.index)
-        console.log("Images", JSON.stringify(matches, null, 2))
+        logger.debug("Images", { matches })
 
         let offset = 0
         for (const m of matches) {
@@ -820,7 +823,7 @@ export const GithubRunCommand = cmd({
             },
           })
           if (!res.ok) {
-            console.error(`Failed to download image: ${url}`)
+            logger.error("Failed to download image", { url })
             continue
           }
 
@@ -878,7 +881,7 @@ export const GithubRunCommand = cmd({
               part.state.title || Object.keys(part.state.input).length > 0
                 ? JSON.stringify(part.state.input)
                 : "Unknown"
-            console.log()
+            UI.println("")
             printEvent(color, tool, title)
           }
 
@@ -908,7 +911,7 @@ export const GithubRunCommand = cmd({
       }
 
       async function chat(message: string, files: PromptFiles = []) {
-        console.log("Sending message to openhei...")
+        logger.info("Sending message to openhei...")
 
         const result = await SessionPrompt.prompt({
           sessionID: session.id,
@@ -949,7 +952,7 @@ export const GithubRunCommand = cmd({
         // result should always be assistant just satisfying type checker
         if (result.info.role === "assistant" && result.info.error) {
           const err = result.info.error
-          console.error("Agent error:", err)
+          logger.error("Agent error", { error: err })
 
           if (err.name === "ContextOverflowError") {
             throw new Error(formatPromptTooLargeError(files))
@@ -963,7 +966,7 @@ export const GithubRunCommand = cmd({
         if (text) return text
 
         // No text part (tool-only or reasoning-only) - ask agent to summarize
-        console.log("Requesting summary from agent...")
+        logger.info("Requesting summary from agent...")
         const summary = await SessionPrompt.prompt({
           sessionID: session.id,
           messageID: Identifier.ascending("message"),
@@ -984,7 +987,7 @@ export const GithubRunCommand = cmd({
 
         if (summary.info.role === "assistant" && summary.info.error) {
           const err = summary.info.error
-          console.error("Summary agent error:", err)
+          logger.error("Summary agent error", { error: err })
 
           if (err.name === "ContextOverflowError") {
             throw new Error(formatPromptTooLargeError(files))
@@ -1006,7 +1009,7 @@ export const GithubRunCommand = cmd({
         try {
           return await core.getIDToken("openhei-github-action")
         } catch (error) {
-          console.error("Failed to get OIDC token:", error instanceof Error ? error.message : error)
+          logger.error("Failed to get OIDC token", { error: error instanceof Error ? error.message : error })
           throw new Error(
             "Could not fetch an OIDC token. Make sure to add `id-token: write` to your workflow permissions.",
           )
@@ -1044,7 +1047,7 @@ export const GithubRunCommand = cmd({
         // Do not change git config when running locally
         if (isMock) return
 
-        console.log("Configuring git...")
+        logger.info("Configuring git...")
         const config = "http.https://github.com/.extraheader"
         // actions/checkout@v6 no longer stores credentials in .git/config,
         // so this may not exist - use nothrow() to handle gracefully
@@ -1068,14 +1071,14 @@ export const GithubRunCommand = cmd({
       }
 
       async function checkoutNewBranch(type: "issue" | "schedule" | "dispatch") {
-        console.log("Checking out new branch...")
+        logger.info("Checking out new branch...")
         const branch = generateBranchName(type)
         await $`git checkout -b ${branch}`
         return branch
       }
 
       async function checkoutLocalBranch(pr: GitHubPullRequest) {
-        console.log("Checking out local branch...")
+        logger.info("Checking out local branch...")
 
         const branch = pr.headRefName
         const depth = Math.max(pr.commits.totalCount, 20)
@@ -1085,7 +1088,7 @@ export const GithubRunCommand = cmd({
       }
 
       async function checkoutForkBranch(pr: GitHubPullRequest) {
-        console.log("Checking out fork branch...")
+        logger.info("Checking out fork branch...")
 
         const remoteBranch = pr.headRefName
         const localBranch = generateBranchName("pr")
@@ -1112,7 +1115,7 @@ export const GithubRunCommand = cmd({
       }
 
       async function pushToNewBranch(summary: string, branch: string, commit: boolean, isSchedule: boolean) {
-        console.log("Pushing to new branch...")
+        logger.info("Pushing to new branch...")
         if (commit) {
           await $`git add .`
           if (isSchedule) {
@@ -1128,7 +1131,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       async function pushToLocalBranch(summary: string, commit: boolean) {
-        console.log("Pushing to local branch...")
+        logger.info("Pushing to local branch...")
         if (commit) {
           await $`git add .`
           await $`git commit -m "${summary}
@@ -1139,7 +1142,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       async function pushToForkBranch(summary: string, pr: GitHubPullRequest, commit: boolean) {
-        console.log("Pushing to fork branch...")
+        logger.info("Pushing to fork branch...")
 
         const remoteBranch = pr.headRefName
 
@@ -1153,12 +1156,12 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       async function branchIsDirty(originalHead: string, expectedBranch: string) {
-        console.log("Checking if branch is dirty...")
+        logger.info("Checking if branch is dirty...")
         // Detect if the agent switched branches during chat (e.g. created
         // its own branch, committed, and possibly pushed/created a PR).
         const current = (await $`git rev-parse --abbrev-ref HEAD`).stdout.toString().trim()
         if (current !== expectedBranch) {
-          console.log(`Branch changed during chat: expected ${expectedBranch}, now on ${current}`)
+          logger.warn("Branch changed during chat", { expected: expectedBranch, actual: current })
           return { dirty: true, uncommittedChanges: false, switched: true }
         }
 
@@ -1181,7 +1184,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       async function hasNewCommits(base: string, head: string) {
         const result = await $`git rev-list --count ${base}..${head}`.nothrow()
         if (result.exitCode !== 0) {
-          console.log(`rev-list failed, fetching origin/${base}...`)
+          logger.warn("rev-list failed, fetching origin", { base })
           await $`git fetch origin ${base} --depth=1`.nothrow()
           const retry = await $`git rev-list --count origin/${base}..${head}`.nothrow()
           if (retry.exitCode !== 0) return true // assume dirty if we can't tell
@@ -1192,7 +1195,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
 
       async function assertPermissions() {
         // Only called for non-schedule events, so actor is defined
-        console.log(`Asserting permissions for user ${actor}...`)
+        logger.info("Asserting permissions", { user: actor })
 
         let permission
         try {
@@ -1203,9 +1206,9 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
           })
 
           permission = response.data.permission
-          console.log(`  permission: ${permission}`)
+          logger.info("Permission level", { permission })
         } catch (error) {
-          console.error(`Failed to check permissions: ${error}`)
+          logger.error("Failed to check permissions", { error })
           throw new Error(`Failed to check permissions for user ${actor}: ${error}`)
         }
 
@@ -1214,7 +1217,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
 
       async function addReaction(commentType?: "issue" | "pr_review") {
         // Only called for non-schedule events, so triggerCommentId is defined
-        console.log("Adding reaction...")
+        logger.info("Adding reaction...")
         if (triggerCommentId) {
           if (commentType === "pr_review") {
             return await octoRest.rest.reactions.createForPullRequestReviewComment({
@@ -1241,7 +1244,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
 
       async function removeReaction(commentType?: "issue" | "pr_review") {
         // Only called for non-schedule events, so triggerCommentId is defined
-        console.log("Removing reaction...")
+        logger.info("Removing reaction...")
         if (triggerCommentId) {
           if (commentType === "pr_review") {
             const reactions = await octoRest.rest.reactions.listForPullRequestReviewComment({
@@ -1300,7 +1303,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
 
       async function createComment(body: string) {
         // Only called for non-schedule events, so issueId is defined
-        console.log("Creating comment...")
+        logger.info("Creating comment...")
         return await octoRest.rest.issues.createComment({
           owner,
           repo,
@@ -1310,7 +1313,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       async function createPR(base: string, branch: string, title: string, body: string): Promise<number | null> {
-        console.log("Creating pull request...")
+        logger.info("Creating pull request...")
 
         // Check if an open PR already exists for this head→base combination
         // This handles the case where the agent created a PR via gh pr create during its run
@@ -1326,19 +1329,19 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
           )
 
           if (existing.data.length > 0) {
-            console.log(`PR #${existing.data[0].number} already exists for branch ${branch}`)
+            logger.info("PR already exists", { pr: existing.data[0].number, branch })
             return existing.data[0].number
           }
         } catch (e) {
           // If the check fails, proceed to create - we'll get a clear error if a PR already exists
-          console.log(`Failed to check for existing PR: ${e}`)
+          logger.warn("Failed to check for existing PR", { error: e })
         }
 
         // Verify there are commits between base and head before creating the PR.
         // In shallow clones, the branch can appear dirty but share the same
         // commit as the base, causing a 422 from GitHub.
         if (!(await hasNewCommits(base, branch))) {
-          console.log(`No commits between ${base} and ${branch}, skipping PR creation`)
+          logger.info("No commits between branches, skipping PR creation", { base, branch })
           return null
         }
 
@@ -1359,7 +1362,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
           // This can happen when the branch was pushed but has no new commits
           // relative to the base (e.g. shallow clone edge cases).
           if (e instanceof Error && e.message.includes("No commits between")) {
-            console.log(`GitHub rejected PR: ${e.message}`)
+            logger.warn("GitHub rejected PR", { error: e.message })
             return null
           }
           throw e
@@ -1371,7 +1374,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
           return await fn()
         } catch (e) {
           if (retries > 0) {
-            console.log(`Retrying after ${delayMs}ms...`)
+            logger.info("Retrying...", { delayMs })
             await Bun.sleep(delayMs)
             return withRetry(fn, retries - 1, delayMs)
           }
@@ -1398,7 +1401,7 @@ Co-authored-by: ${actor} <${actor}@users.noreply.github.com>"`
       }
 
       async function fetchIssue() {
-        console.log("Fetching prompt data for issue...")
+        logger.info("Fetching prompt data for issue...")
         const issueResult = await octoGraph<IssueQueryResponse>(
           `
 query($owner: String!, $repo: String!, $number: Int!) {
@@ -1469,7 +1472,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       }
 
       async function fetchPR() {
-        console.log("Fetching prompt data for PR...")
+        logger.info("Fetching prompt data for PR...")
         const prResult = await octoGraph<PullRequestQueryResponse>(
           `
 query($owner: String!, $repo: String!, $number: Int!) {
