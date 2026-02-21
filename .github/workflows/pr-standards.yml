@@ -1,4 +1,4 @@
-name: pr-standards
+name: pr-standards-fixed
 
 on:
   pull_request:
