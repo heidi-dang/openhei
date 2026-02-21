@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 APP=openhei
+specific_version=""
+requested_version=""
+echo "OpenHei Installer started..."
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -239,10 +242,10 @@ check_version() {
         ## Check the installed version
         installed_version=$(openhei --version 2>/dev/null || echo "")
 
-        if [[ "$installed_version" != "$specific_version" ]]; then
-            print_message info "${MUTED}Installed version: ${NC}$installed_version."
-        else
-            print_message info "${MUTED}Version ${NC}$specific_version${MUTED} already installed"
+        if [[ "$installed_version" == "$specific_version" ]]; then
+            echo -e "${NC}Version $specific_version already installed at $openhei_path${NC}"
+            # Still show the logo even if already installed
+            show_logo
             exit 0
         fi
     fi
@@ -457,17 +460,21 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
     print_message info "Added $INSTALL_DIR to \$GITHUB_PATH"
 fi
 
-echo -e ""
-echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█░░█ █▀▀▀ ░█░░"
-echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█▀▀█ █▀▀▀ ░█░░"
-echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀  ▀ ▀▀▀▀ ▀▀▀▀"
-echo -e ""
-echo -e ""
-echo -e "${MUTED}OpenHei includes free models, to start:${NC}"
-echo -e ""
-echo -e "cd <project>  ${MUTED}# Open directory${NC}"
-echo -e "openhei      ${MUTED}# Run command${NC}"
-echo -e ""
-echo -e "${MUTED}For more information visit ${NC}https://openhei.ai/docs"
-echo -e ""
-echo -e ""
+show_logo() {
+    echo -e ""
+    echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█░░█ █▀▀▀ ░█░░"
+    echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█▀▀█ █▀▀▀ ░█░░"
+    echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀  ▀ ▀▀▀▀ ▀▀▀▀"
+    echo -e ""
+    echo -e ""
+    echo -e "${MUTED}OpenHei includes free models, to start:${NC}"
+    echo -e ""
+    echo -e "cd <project>  ${MUTED}# Open directory${NC}"
+    echo -e "openhei      ${MUTED}# Run command${NC}"
+    echo -e ""
+    echo -e "${MUTED}For more information visit ${NC}https://openhei.ai/docs"
+    echo -e ""
+    echo -e ""
+}
+
+show_logo
