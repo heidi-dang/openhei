@@ -56,5 +56,12 @@ export async function resolveNetworkOptions(args: NetworkOptions) {
   const argsCors = Array.isArray(args.cors) ? args.cors : args.cors ? [args.cors] : []
   const cors = [...configCors, ...argsCors]
 
+  const isLocalhost = hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1"
+  if (!isLocalhost && !process.env["OPENHEI_SERVER_PASSWORD"]) {
+    throw new Error(
+      "OPENHEI_SERVER_PASSWORD is required when binding to a non-localhost interface. Please set the OPENHEI_SERVER_PASSWORD environment variable.",
+    )
+  }
+
   return { hostname, port, mdns, mdnsDomain, cors }
 }

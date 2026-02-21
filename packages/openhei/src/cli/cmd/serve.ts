@@ -8,9 +8,6 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless openhei server",
   handler: async (args) => {
-    if (!Flag.OPENHEI_SERVER_PASSWORD) {
-      console.log("Warning: OPENHEI_SERVER_PASSWORD is not set; server is unsecured.")
-    }
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)
     console.log(`openhei server listening on http://${server.hostname}:${server.port}`)
