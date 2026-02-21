@@ -5,7 +5,7 @@ on:
     types: [opened, edited, synchronize]
 
 jobs:
-  check-standards:
+  check-standards-fixed:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,7 +152,7 @@ jobs:
             await removeLabel('needs:issue');
             console.log('PR meets all standards');
 
-  check-compliance:
+  check-compliance-fixed:
     runs-on: ubuntu-latest
     permissions:
       contents: read
