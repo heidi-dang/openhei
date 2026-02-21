@@ -1,0 +1,17 @@
+name: Restore Dev Branch
+on: [push, pull_request]
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push dev branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b dev origin/main || git checkout dev
+          git push origin dev
