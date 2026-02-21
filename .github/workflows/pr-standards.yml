@@ -175,7 +175,7 @@ jobs:
             }
 
             // Check if author is a team member or bot
-            const defaultBranch = context.payload.repository.default_branch;
+            const defaultBranch = 'main';
             if (login === 'opencode-agent[bot]') return;
             const { data: file } = await github.rest.repos.getContent({
               owner: context.repo.owner,
