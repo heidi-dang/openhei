@@ -29,6 +29,29 @@ describe("Filesystem.contains", () => {
     expect(Filesystem.contains("/project", "/project-other/file")).toBe(false)
     expect(Filesystem.contains("/project", "/projectfile")).toBe(false)
   })
+
+  test("blocks symlink escape", async () => {
+    await using tmp = await tmpdir({
+      init: async (dir) => {
+        const outside = path.join(dir, "outside")
+        await fs.mkdir(outside)
+        await Bun.write(path.join(outside, "secret.txt"), "secret")
+        const inside = path.join(dir, "project")
+        await fs.mkdir(inside)
+        await fs.symlink(outside, path.join(inside, "link_to_outside"))
+      },
+    })
+
+    const project = path.join(tmp.path, "project")
+    const link = path.join(project, "link_to_outside")
+
+    // Symlink itself resolves to outside, so it should be rejected
+    expect(Filesystem.contains(project, link)).toBe(false)
+    // File inside symlink resolves to outside, so it should be rejected
+    expect(Filesystem.contains(project, path.join(link, "secret.txt"))).toBe(false)
+    // Non-existent file inside symlink resolves to outside, should be rejected
+    expect(Filesystem.contains(project, path.join(link, "missing.txt"))).toBe(false)
+  })
 })
 
 /*
