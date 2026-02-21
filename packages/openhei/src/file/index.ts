@@ -331,6 +331,14 @@ export namespace File {
     ),
   }
 
+  const resolvePath = async (p: string) => {
+    try {
+      return await fs.promises.realpath(p)
+    } catch {
+      return p
+    }
+  }
+
   const state = Instance.state(async () => {
     type Entry = { files: string[]; dirs: string[] }
     let cache: Entry = { files: [], dirs: [] }
@@ -496,9 +504,8 @@ export namespace File {
     const project = Instance.project
     const full = path.join(Instance.directory, file)
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!Instance.containsPath(full)) {
+    const resolved = await resolvePath(full)
+    if (!Instance.containsPath(resolved)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
@@ -570,22 +577,21 @@ export namespace File {
       }
       ignored = ig.ignores.bind(ig)
     }
-    const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
+    const target = dir ? path.join(Instance.directory, dir) : Instance.directory
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
+    const resolved = await resolvePath(target)
     if (!Instance.containsPath(resolved)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
     const nodes: Node[] = []
     for (const entry of await fs.promises
-      .readdir(resolved, {
+      .readdir(target, {
         withFileTypes: true,
       })
       .catch(() => [])) {
       if (exclude.includes(entry.name)) continue
-      const fullPath = path.join(resolved, entry.name)
+      const fullPath = path.join(target, entry.name)
       const relativePath = path.relative(Instance.directory, fullPath)
       const type = entry.isDirectory() ? "directory" : "file"
       nodes.push({
