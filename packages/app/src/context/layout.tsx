@@ -316,12 +316,24 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
       return available[Math.floor(Math.random() * available.length)]
     }
 
+    const projectIndex = createMemo(() => {
+      const byId = new Map<string, Project>()
+      const byWorktree = new Map<string, Project>()
+      for (const p of globalSync.data.project) {
+        if (p.id) byId.set(p.id, p)
+        if (p.worktree) byWorktree.set(p.worktree, p)
+      }
+      return { byId, byWorktree }
+    })
+
     function enrich(project: { worktree: string; expanded: boolean }) {
       const [childStore] = globalSync.child(project.worktree, { bootstrap: false })
       const projectID = childStore.project
+
+      const index = projectIndex()
       const metadata = projectID
-        ? globalSync.data.project.find((x) => x.id === projectID)
-        : globalSync.data.project.find((x) => x.worktree === project.worktree)
+        ? index.byId.get(projectID)
+        : index.byWorktree.get(project.worktree)
 
       const local = childStore.projectMeta
       const localOverride =
