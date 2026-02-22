@@ -431,3 +431,14 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
 fi
 
 show_logo
+
+# Optional: Run immediately
+export PATH="$INSTALL_DIR:$PATH"
+if [ -t 0 ]; then
+    echo -e "${ORANGE}Installation complete!${NC}"
+    read -p "Would you like to run openhei now? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        exec "${INSTALL_DIR}/openhei"
+    fi
+fi

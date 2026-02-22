@@ -46,8 +46,8 @@
 ### Installation
 
 ```bash
-# YOLO
-curl -fsSL https://openhei.ai/install | bash
+# One-click install
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/local-backend/install.sh)"
 
 # Package managers
 npm i -g openhei-ai@latest        # or bun/pnpm/yarn
