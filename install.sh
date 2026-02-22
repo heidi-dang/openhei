@@ -349,11 +349,24 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    # The archive now contains bin/ and dashboard/
+    # Support both new bundled structure (bin/, dashboard/) and legacy flat structure
     rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
-    mv "$tmp_dir/bin" "$INSTALL_DIR"
-    mv "$tmp_dir/dashboard" "$DASHBOARD_DIR"
-    chmod 755 "${INSTALL_DIR}/openhei"
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+
+    if [ -d "$tmp_dir/bin" ]; then
+        mv "$tmp_dir/bin"/* "$INSTALL_DIR/"
+    elif [ -f "$tmp_dir/openhei" ]; then
+        mv "$tmp_dir/openhei" "$INSTALL_DIR/"
+    elif [ -f "$tmp_dir/openhei.exe" ]; then
+        mv "$tmp_dir/openhei.exe" "$INSTALL_DIR/"
+    fi
+
+    if [ -d "$tmp_dir/dashboard" ]; then
+        mv "$tmp_dir/dashboard"/* "$DASHBOARD_DIR/"
+    fi
+
+    chmod 755 "${INSTALL_DIR}/openhei" 2>/dev/null || chmod 755 "${INSTALL_DIR}/openhei.exe" 2>/dev/null || true
     rm -rf "$tmp_dir"
 }
 
