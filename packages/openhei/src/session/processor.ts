@@ -50,6 +50,38 @@ export namespace SessionProcessor {
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+            let pendingTextDelta = ""
+            let pendingReasoningDeltas: Record<string, string> = {}
+            let lastFlush = Date.now()
+
+            const flushDeltas = async () => {
+              if (currentText && pendingTextDelta) {
+                const delta = pendingTextDelta
+                pendingTextDelta = ""
+                await Session.updatePartDelta({
+                  sessionID: currentText.sessionID,
+                  messageID: currentText.messageID,
+                  partID: currentText.id,
+                  field: "text",
+                  delta,
+                })
+              }
+
+              for (const [id, delta] of Object.entries(pendingReasoningDeltas)) {
+                if (id in reasoningMap) {
+                  const part = reasoningMap[id]
+                  delete pendingReasoningDeltas[id]
+                  await Session.updatePartDelta({
+                    sessionID: part.sessionID,
+                    messageID: part.messageID,
+                    partID: part.id,
+                    field: "text",
+                    delta,
+                  })
+                }
+              }
+              lastFlush = Date.now()
+            }
             const stream = await LLM.stream(streamInput)
 
             for await (const value of stream.fullStream) {
@@ -79,22 +111,37 @@ export namespace SessionProcessor {
                   break
 
                 case "reasoning-delta":
+                  if (!(value.id in reasoningMap)) {
+                    await flushDeltas()
+                    const reasoningPart = {
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "reasoning" as const,
+                      text: "",
+                      time: {
+                        start: Date.now(),
+                      },
+                      metadata: value.providerMetadata,
+                    }
+                    reasoningMap[value.id] = reasoningPart
+                    await Session.updatePart(reasoningPart)
+                  }
                   if (value.id in reasoningMap) {
                     const part = reasoningMap[value.id]
                     part.text += value.text
+                    pendingReasoningDeltas[value.id] = (pendingReasoningDeltas[value.id] || "") + value.text
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    await Session.updatePartDelta({
-                      sessionID: part.sessionID,
-                      messageID: part.messageID,
-                      partID: part.id,
-                      field: "text",
-                      delta: value.text,
-                    })
+
+                    if (Date.now() - lastFlush > 100) {
+                      await flushDeltas()
+                    }
                   }
                   break
 
                 case "reasoning-end":
                   if (value.id in reasoningMap) {
+                    await flushDeltas()
                     const part = reasoningMap[value.id]
                     part.text = part.text.trimEnd()
 
@@ -109,6 +156,12 @@ export namespace SessionProcessor {
                   break
 
                 case "tool-input-start":
+                  await flushDeltas()
+                  for (const [id, part] of Object.entries(reasoningMap)) {
+                    part.time = { ...part.time, end: Date.now() }
+                    await Session.updatePart(part)
+                    delete reasoningMap[id]
+                  }
                   const part = await Session.updatePart({
                     id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
@@ -125,13 +178,27 @@ export namespace SessionProcessor {
                   toolcalls[value.id] = part as MessageV2.ToolPart
                   break
 
-                case "tool-input-delta":
+                case "tool-input-delta": {
+                  const match = toolcalls[value.id]
+                  if (match && match.state.status === "pending") {
+                    match.state.raw += value.delta
+                    await Session.updatePartDelta({
+                      sessionID: match.sessionID,
+                      messageID: match.messageID,
+                      partID: match.id,
+                      field: "state.raw",
+                      delta: value.delta,
+                    })
+                  }
                   break
+                }
 
                 case "tool-input-end":
-                  break
+                  await flushDeltas()
+                  break;
 
                 case "tool-call": {
+                  await flushDeltas()
                   const match = toolcalls[value.toolCallId]
                   if (match) {
                     const part = await Session.updatePart({
@@ -178,6 +245,7 @@ export namespace SessionProcessor {
                   break
                 }
                 case "tool-result": {
+                  await flushDeltas()
                   const match = toolcalls[value.toolCallId]
                   if (match && match.state.status === "running") {
                     await Session.updatePart({
@@ -228,6 +296,7 @@ export namespace SessionProcessor {
                   break
                 }
                 case "error":
+                  await flushDeltas()
                   throw value.error
 
                 case "start-step":
@@ -242,6 +311,7 @@ export namespace SessionProcessor {
                   break
 
                 case "finish-step":
+                  await flushDeltas()
                   const usage = Session.getUsage({
                     model: input.model,
                     usage: value.usage,
@@ -285,6 +355,12 @@ export namespace SessionProcessor {
                   break
 
                 case "text-start":
+                  await flushDeltas()
+                  for (const [id, part] of Object.entries(reasoningMap)) {
+                    part.time = { ...part.time, end: Date.now() }
+                    await Session.updatePart(part)
+                    delete reasoningMap[id]
+                  }
                   currentText = {
                     id: Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
@@ -300,20 +376,34 @@ export namespace SessionProcessor {
                   break
 
                 case "text-delta":
+                  if (!currentText) {
+                    await flushDeltas()
+                    currentText = {
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "text",
+                      text: "",
+                      time: {
+                        start: Date.now(),
+                      },
+                      metadata: value.providerMetadata,
+                    }
+                    await Session.updatePart(currentText)
+                  }
                   if (currentText) {
                     currentText.text += value.text
+                    pendingTextDelta += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    await Session.updatePartDelta({
-                      sessionID: currentText.sessionID,
-                      messageID: currentText.messageID,
-                      partID: currentText.id,
-                      field: "text",
-                      delta: value.text,
-                    })
+
+                    if (Date.now() - lastFlush > 100) {
+                      await flushDeltas()
+                    }
                   }
                   break
 
                 case "text-end":
+                  await flushDeltas()
                   if (currentText) {
                     currentText.text = currentText.text.trimEnd()
                     const textOutput = await Plugin.trigger(
@@ -337,6 +427,7 @@ export namespace SessionProcessor {
                   break
 
                 case "finish":
+                  await flushDeltas()
                   break
 
                 default:
@@ -366,7 +457,7 @@ export namespace SessionProcessor {
                 message: retry,
                 next: Date.now() + delay,
               })
-              await SessionRetry.sleep(delay, input.abort).catch(() => {})
+              await SessionRetry.sleep(delay, input.abort).catch(() => { })
               continue
             }
             input.assistantMessage.error = error

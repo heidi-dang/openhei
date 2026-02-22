@@ -41,6 +41,9 @@ import type {
   GlobalDisposeResponses,
   GlobalEventResponses,
   GlobalHealthResponses,
+  GlobalUpdateCheckResponses,
+  GlobalUpdateInstallErrors,
+  GlobalUpdateInstallResponses,
   InstanceDisposeResponses,
   LspStatusResponses,
   McpAddErrors,
@@ -258,6 +261,31 @@ export class Config extends HeyApiClient {
   }
 }
 
+export class Update extends HeyApiClient {
+  /**
+   * Check for updates
+   *
+   * Check if a new version of OpenHei is available.
+   */
+  public check<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalUpdateCheckResponses, unknown, ThrowOnError>({
+      url: "/global/update/check",
+      ...options,
+    })
+  }
+
+  /**
+   * Install update
+   *
+   * Download and install the latest version of OpenHei.
+   */
+  public install<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).post<GlobalUpdateInstallResponses, GlobalUpdateInstallErrors, ThrowOnError>(
+      { url: "/global/update", ...options },
+    )
+  }
+}
+
 export class Global extends HeyApiClient {
   /**
    * Get health
@@ -298,6 +326,11 @@ export class Global extends HeyApiClient {
   private _config?: Config
   get config(): Config {
     return (this._config ??= new Config({ client: this.client }))
+  }
+
+  private _update?: Update
+  get update(): Update {
+    return (this._update ??= new Update({ client: this.client }))
   }
 }
 

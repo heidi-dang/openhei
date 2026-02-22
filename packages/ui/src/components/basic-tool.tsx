@@ -30,6 +30,7 @@ export interface BasicToolProps {
   defer?: boolean
   locked?: boolean
   onSubtitleClick?: () => void
+  raw?: string
 }
 
 export function BasicTool(props: BasicToolProps) {
@@ -48,7 +49,7 @@ export function BasicTool(props: BasicToolProps) {
   onCleanup(cancel)
 
   createEffect(() => {
-    if (props.forceOpen) setOpen(true)
+    if (props.forceOpen || (pending() && props.raw)) setOpen(true)
   })
 
   createEffect(
@@ -74,7 +75,7 @@ export function BasicTool(props: BasicToolProps) {
   )
 
   const handleOpenChange = (value: boolean) => {
-    if (pending()) return
+    if (pending() && !value) return
     if (props.locked && !value) return
     setOpen(value)
   }
@@ -142,14 +143,23 @@ export function BasicTool(props: BasicToolProps) {
               </Switch>
             </div>
           </div>
-          <Show when={props.children && !props.hideDetails && !props.locked && !pending()}>
+          <Show when={(props.children || (pending() && props.raw)) && !props.hideDetails && !props.locked}>
             <Collapsible.Arrow />
           </Show>
         </div>
       </Collapsible.Trigger>
-      <Show when={props.children && !props.hideDetails}>
+      <Show when={(props.children || (pending() && props.raw)) && !props.hideDetails}>
         <Collapsible.Content>
-          <Show when={!props.defer || ready()}>{props.children}</Show>
+          <Show when={!props.defer || ready()}>
+            <Show when={pending() && props.raw}>
+              <div data-component="tool-raw-input">
+                <pre class="text-12-regular opacity-60 overflow-hidden text-ellipsis p-3 bg-surface-base rounded-lg border border-border-base border-dashed">
+                  {props.raw}
+                </pre>
+              </div>
+            </Show>
+            {props.children}
+          </Show>
         </Collapsible.Content>
       </Show>
     </Collapsible>

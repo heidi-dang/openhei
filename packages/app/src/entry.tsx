@@ -102,7 +102,7 @@ const restart: Platform["restart"] = async () => {
   // Try to ping the server until it's back
   const ping = async () => {
     try {
-      const res = await fetch(`${defaultUrl}/health`)
+      const res = await fetch(`${defaultUrl}/global/health`)
       return res.ok
     } catch {
       return false
@@ -124,7 +124,7 @@ const restart: Platform["restart"] = async () => {
 
 const checkUpdate: Platform["checkUpdate"] = async () => {
   try {
-    const res = await fetch(`${defaultUrl}/update/check`)
+    const res = await fetch(`${defaultUrl}/global/update/check`)
     if (!res.ok) throw new Error(res.statusText)
     const data = await res.json()
     return {
@@ -139,7 +139,7 @@ const checkUpdate: Platform["checkUpdate"] = async () => {
 
 const update: Platform["update"] = async () => {
   try {
-    const res = await fetch(`${defaultUrl}/update`, { method: "POST" })
+    const res = await fetch(`${defaultUrl}/global/update`, { method: "POST" })
     if (!res.ok) throw new Error(res.statusText)
   } catch (err) {
     console.error("Failed to install update:", err)

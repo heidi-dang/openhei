@@ -874,6 +874,7 @@ export interface ToolProps {
   defaultOpen?: boolean
   forceOpen?: boolean
   locked?: boolean
+  raw?: string
 }
 
 export type ToolComponent = Component<ToolProps>
@@ -1026,6 +1027,7 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
               forceOpen={forceOpen()}
               locked={showPermission() || showQuestion()}
               defaultOpen={props.defaultOpen}
+              raw={(part.state as any).raw}
             />
           </Match>
         </Switch>

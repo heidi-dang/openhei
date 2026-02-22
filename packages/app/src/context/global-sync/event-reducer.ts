@@ -245,16 +245,8 @@ export function applyDirectoryEvent(input: {
       if (!parts) break
       const result = Binary.search(parts, props.partID, (p) => p.id)
       if (!result.found) break
-      input.setStore(
-        "part",
-        props.messageID,
-        produce((draft) => {
-          const part = draft[result.index]
-          const field = props.field as keyof typeof part
-          const existing = part[field] as string | undefined
-          ;(part[field] as string) = (existing ?? "") + props.delta
-        }),
-      )
+      const fields = props.field.split(".") as any[]
+        ; (input.setStore as any)("part", props.messageID, result.index, ...fields, (prev: string) => (prev ?? "") + props.delta)
       break
     }
     case "vcs.branch.updated": {

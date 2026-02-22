@@ -1898,6 +1898,11 @@ export type BadRequestError = {
   success: false
 }
 
+export type InstallationInfo = {
+  version: string
+  latest: string
+}
+
 export type OAuth = {
   type: "oauth"
   refresh: string
@@ -2374,6 +2379,47 @@ export type GlobalDisposeResponses = {
 }
 
 export type GlobalDisposeResponse = GlobalDisposeResponses[keyof GlobalDisposeResponses]
+
+export type GlobalUpdateCheckData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/update/check"
+}
+
+export type GlobalUpdateCheckResponses = {
+  /**
+   * Update information
+   */
+  200: InstallationInfo
+}
+
+export type GlobalUpdateCheckResponse = GlobalUpdateCheckResponses[keyof GlobalUpdateCheckResponses]
+
+export type GlobalUpdateInstallData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/update"
+}
+
+export type GlobalUpdateInstallErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type GlobalUpdateInstallError = GlobalUpdateInstallErrors[keyof GlobalUpdateInstallErrors]
+
+export type GlobalUpdateInstallResponses = {
+  /**
+   * Update started
+   */
+  200: boolean
+}
+
+export type GlobalUpdateInstallResponse = GlobalUpdateInstallResponses[keyof GlobalUpdateInstallResponses]
 
 export type AuthRemoveData = {
   body?: never

@@ -131,6 +131,7 @@ export namespace Server {
           }),
         )
         .route("/global", GlobalRoutes())
+        .get("/health", async (c) => c.json({ healthy: true, version: Installation.VERSION }))
         .put(
           "/auth/:providerID",
           describeRoute({
@@ -566,7 +567,7 @@ export namespace Server {
             return c.json({
               name: "UnknownError",
               data: {
-                message: `Error: Unable to connect to dashbord at ${dashboardUrl.origin}. Is the computer able to access the url?`,
+                message: `Error: Unable to connect to dashboard at ${dashboardUrl.origin}. If you are developing locally, make sure to build the dashboard and set OPENHEI_DASHBOARD_DIR.`,
               }
             }, 500)
           }
