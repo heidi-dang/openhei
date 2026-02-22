@@ -54,7 +54,7 @@ export namespace Flag {
   export const OPENHEI_EXPERIMENTAL_MARKDOWN = truthy("OPENHEI_EXPERIMENTAL_MARKDOWN")
   export const OPENHEI_MODELS_URL = process.env["OPENHEI_MODELS_URL"]
   export const OPENHEI_MODELS_PATH = process.env["OPENHEI_MODELS_PATH"]
-  export const OPENHEI_DASHBOARD_DIR = process.env["OPENHEI_DASHBOARD_DIR"]
+  export declare const OPENHEI_DASHBOARD_DIR: string | undefined
 
   function number(key: string) {
     const value = process.env[key]
@@ -63,6 +63,37 @@ export namespace Flag {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
   }
 }
+
+// Dynamic getter for OPENHEI_DASHBOARD_DIR
+Object.defineProperty(Flag, "OPENHEI_DASHBOARD_DIR", {
+  get() {
+    const env = process.env["OPENHEI_DASHBOARD_DIR"]
+    if (env) return env
+
+    // For local development
+    if (import.meta.env.DEV) return undefined
+
+    // Default to a 'dashboard' folder next to the binary's directory
+    // Expecting structure:
+    // bin/openhei
+    // dashboard/
+    try {
+      const path = require("path")
+      const fs = require("fs")
+      const binDir = path.dirname(process.execPath)
+      const relativeDashboard = path.resolve(binDir, "../dashboard")
+      if (fs.existsSync(relativeDashboard)) {
+        return relativeDashboard
+      }
+    } catch {
+      // Ignore errors in path resolution
+    }
+
+    return undefined
+  },
+  enumerable: true,
+  configurable: false,
+})
 
 // Dynamic getter for OPENHEI_DISABLE_PROJECT_CONFIG
 // This must be evaluated at access time, not module load time,

@@ -84,8 +84,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-INSTALL_DIR=$HOME/.openhei/bin
+INSTALL_BASE="$HOME/.openhei"
+INSTALL_DIR="$INSTALL_BASE/bin"
+DASHBOARD_DIR="$INSTALL_BASE/dashboard"
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$DASHBOARD_DIR"
 
 if [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
@@ -345,14 +348,24 @@ download_and_install() {
     else
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
-    mv "$tmp_dir/openhei" "$INSTALL_DIR"
+
+    # The archive now contains bin/ and dashboard/
+    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+    mv "$tmp_dir/bin" "$INSTALL_DIR"
+    mv "$tmp_dir/dashboard" "$DASHBOARD_DIR"
     chmod 755 "${INSTALL_DIR}/openhei"
     rm -rf "$tmp_dir"
 }
 
 install_from_binary() {
     print_message info "\n${MUTED}Installing ${NC}openhei ${MUTED}from: ${NC}$binary_path"
+    # When installing from a local binary, we don't necessarily have a dashboard folder
+    # but we'll try to find it relative to the binary
     cp "$binary_path" "${INSTALL_DIR}/openhei"
+    local src_dir=$(dirname "$binary_path")
+    if [ -d "$src_dir/../dashboard" ]; then
+        cp -r "$src_dir/../dashboard" "$DASHBOARD_DIR"
+    fi
     chmod 755 "${INSTALL_DIR}/openhei"
 }
 
