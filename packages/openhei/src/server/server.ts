@@ -5,7 +5,6 @@ import { describeRoute, generateSpecs, validator, resolver, openAPIRouteHandler 
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { streamSSE } from "hono/streaming"
-import { proxy } from "hono/proxy"
 import { basicAuth } from "hono/basic-auth"
 import { serveStatic } from "hono/bun"
 import z from "zod"
@@ -542,34 +541,29 @@ export namespace Server {
           },
         )
         .all("/*", async (c, next) => {
-          if (Flag.OPENHEI_DASHBOARD_DIR) {
-            return serveStatic({ root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+          if (!Flag.OPENHEI_DASHBOARD_DIR) {
+            return c.json({
+              name: "ConfigurationError",
+              data: {
+                message: "Dashboard directory not configured. Set OPENHEI_DASHBOARD_DIR to serve the frontend locally.",
+              }
+            }, 404)
           }
 
-          const path = c.req.path
-          const dashboardUrl = new URL(Flag.OPENHEI_DASHBOARD_URL)
-          try {
-            const response = await proxy(`${dashboardUrl.origin}${path}`, {
-              ...c.req,
-              headers: {
-                ...c.req.raw.headers,
-                host: dashboardUrl.host,
-              },
-            })
+          const getResponse = async () => {
+            const res = await serveStatic({ root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+            if (res && res.status !== 404) return res
+            return serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+          }
+
+          const response = await getResponse()
+          if (response instanceof Response) {
             response.headers.set(
               "Content-Security-Policy",
               "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src *",
             )
-            return response
-          } catch (err) {
-            log.error("proxy failed", { error: err, url: dashboardUrl.origin })
-            return c.json({
-              name: "UnknownError",
-              data: {
-                message: `Error: Unable to connect to dashbord at ${dashboardUrl.origin}. Is the computer able to access the url?`,
-              }
-            }, 500)
           }
+          return response
         }) as unknown as Hono,
   )
 

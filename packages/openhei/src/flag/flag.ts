@@ -54,7 +54,6 @@ export namespace Flag {
   export const OPENHEI_EXPERIMENTAL_MARKDOWN = truthy("OPENHEI_EXPERIMENTAL_MARKDOWN")
   export const OPENHEI_MODELS_URL = process.env["OPENHEI_MODELS_URL"]
   export const OPENHEI_MODELS_PATH = process.env["OPENHEI_MODELS_PATH"]
-  export const OPENHEI_DASHBOARD_URL = process.env["OPENHEI_DASHBOARD_URL"] ?? "https://app.opencode.ai"
   export const OPENHEI_DASHBOARD_DIR = process.env["OPENHEI_DASHBOARD_DIR"]
 
   function number(key: string) {
