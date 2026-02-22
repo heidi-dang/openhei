@@ -1,4 +1,4 @@
-import { $, semver } from "bun"
+import { semver } from "bun"
 import path from "path"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
@@ -22,11 +22,18 @@ const env = {
   OPENHEI_VERSION: process.env["OPENHEI_VERSION"],
   OPENHEI_RELEASE: process.env["OPENHEI_RELEASE"],
 }
+
+const root = path.dirname(rootPkgPath)
 const CHANNEL = await (async () => {
   if (env.OPENHEI_CHANNEL) return env.OPENHEI_CHANNEL
   if (env.OPENHEI_BUMP) return "latest"
   if (env.OPENHEI_VERSION && !env.OPENHEI_VERSION.startsWith("0.0.0-")) return "latest"
-  return await $`git branch --show-current`.text().then((x) => x.trim())
+  const head = await Bun.file(path.join(root, ".git/HEAD"))
+    .text()
+    .catch(() => "")
+  const ref = head.startsWith("ref: ") ? head.slice("ref: ".length).trim() : ""
+  if (ref.startsWith("refs/heads/")) return ref.slice("refs/heads/".length)
+  return "dev"
 })()
 const IS_PREVIEW = CHANNEL !== "latest"
 
@@ -38,7 +45,16 @@ const VERSION = await (async () => {
       if (!res.ok) throw new Error(res.statusText)
       return res.json()
     })
-    .then((data: any) => data.version)
+    .then((data: unknown) => {
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid npm registry response")
+      }
+      const version = (data as { version?: unknown }).version
+      if (typeof version !== "string") {
+        throw new Error("Invalid npm registry version")
+      }
+      return version
+    })
   const [major, minor, patch] = version.split(".").map((x: string) => Number(x) || 0)
   const t = env.OPENHEI_BUMP?.toLowerCase()
   if (t === "major") return `${major + 1}.0.0`

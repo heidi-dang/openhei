@@ -10,6 +10,16 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return
+          if (id.includes("katex")) return "katex"
+          if (id.includes("@opentui")) return "opentui"
+          return "vendor"
+        },
+      },
+    },
     // sourcemap: true,
   },
 })

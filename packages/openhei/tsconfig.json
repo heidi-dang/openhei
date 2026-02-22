@@ -3,24 +3,14 @@
   "extends": "@tsconfig/bun/tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "solid-js",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "jsxImportSource": "@opentui/solid",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
     "noUncheckedIndexedAccess": false,
-    "customConditions": [
-      "browser"
-    ],
+    "customConditions": ["browser"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@tui/*": [
-        "./src/cli/cmd/tui/*"
-      ]
+      "@/*": ["./src/*"],
+      "@tui/*": ["./src/cli/cmd/tui/*"]
     }
   }
 }

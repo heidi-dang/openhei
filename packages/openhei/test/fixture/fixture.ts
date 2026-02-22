@@ -1,4 +1,3 @@
-import { $ } from "bun"
 import * as fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -15,12 +14,57 @@ type TmpDirOptions<T> = {
   init?: (dir: string) => Promise<T>
   dispose?: (dir: string) => Promise<T>
 }
+
+export const hasGit = () => Bun.which("git") !== null
+
+async function run(args: string[], cwd: string) {
+  const proc = Bun.spawn(args, {
+    cwd,
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "pipe",
+  })
+  const code = await proc.exited
+  if (code === 0) return
+  throw new Error((await new Response(proc.stderr).text()) || `Command failed: ${args.join(" ")}`)
+}
+
+async function fake(dir: string) {
+  const git = path.join(dir, ".git")
+  await fs.mkdir(path.join(git, "refs", "heads"), { recursive: true })
+  await Bun.write(path.join(git, "HEAD"), "ref: refs/heads/main\n")
+  await Bun.write(
+    path.join(git, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tlogallrefupdates = true\n",
+  )
+  await Bun.write(path.join(git, "refs", "heads", "main"), "0000000000000000000000000000000000000000\n")
+}
 export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   const dirpath = sanitizePath(path.join(os.tmpdir(), "openhei-test-" + Math.random().toString(36).slice(2)))
   await fs.mkdir(dirpath, { recursive: true })
   if (options?.git) {
-    await $`git init`.cwd(dirpath).quiet()
-    await $`git commit --allow-empty -m "root commit ${dirpath}"`.cwd(dirpath).quiet()
+    const git = Bun.which("git")
+    if (!git) {
+      await fake(dirpath)
+      const id = Math.random().toString(16).slice(2).padEnd(40, "0").slice(0, 40)
+      await Bun.write(path.join(dirpath, ".git", "openhei"), id + "\n")
+    } else {
+      await run([git, "init"], dirpath)
+      await run(
+        [
+          git,
+          "-c",
+          "user.name=openhei-test",
+          "-c",
+          "user.email=openhei-test@local",
+          "commit",
+          "--allow-empty",
+          "-m",
+          `root commit ${dirpath}`,
+        ],
+        dirpath,
+      )
+    }
   }
   if (options?.config) {
     await Bun.write(

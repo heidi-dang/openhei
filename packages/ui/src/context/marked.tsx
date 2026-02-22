@@ -1,13 +1,10 @@
 import { marked } from "marked"
-import markedKatex from "marked-katex-extension"
-import markedShiki from "marked-shiki"
-import katex from "katex"
-import { bundledLanguages, type BundledLanguage } from "shiki"
+import type { BundledLanguage } from "shiki"
 import { createSimpleContext } from "./helper"
-import { getSharedHighlighter, registerCustomTheme, ThemeRegistrationResolved } from "@pierre/diffs"
+import type { ThemeRegistrationResolved } from "@pierre/diffs"
 
-registerCustomTheme("OpenHei", () => {
-  return Promise.resolve({
+const theme = () =>
+  Promise.resolve({
     name: "OpenHei",
     colors: {
       "editor.background": "var(--color-background-stronger)",
@@ -374,9 +371,33 @@ registerCustomTheme("OpenHei", () => {
       "variable.defaultLibrary": "var(--syntax-unknown)",
     },
   } as unknown as ThemeRegistrationResolved)
-})
 
-function renderMathInText(text: string): string {
+let diffs: Promise<typeof import("@pierre/diffs")> | undefined
+const loadDiffs = () => {
+  if (diffs) return diffs
+  diffs = import("@pierre/diffs").then((x) => {
+    x.registerCustomTheme("OpenHei", theme)
+    return x
+  })
+  return diffs
+}
+
+type Katex = {
+  renderToString: (math: string, opts: { displayMode: boolean; throwOnError: boolean }) => string
+}
+
+let math: Promise<Katex> | undefined
+const loadKatex = async () => {
+  math ??= Promise.all([import("katex/dist/katex.min.css"), import("katex")]).then(
+    ([, x]) => x.default as unknown as Katex,
+  )
+  return math
+}
+
+async function renderMathInText(text: string): Promise<string> {
+  if (!text.includes("$")) return text
+
+  const katex = await loadKatex()
   let result = text
 
   // Display math: $$...$$
@@ -408,19 +429,19 @@ function renderMathInText(text: string): string {
   return result
 }
 
-function renderMathExpressions(html: string): string {
+async function renderMathExpressions(html: string): Promise<string> {
   // Split on code/pre/kbd tags to avoid processing their contents
   const codeBlockPattern = /(<(?:pre|code|kbd)[^>]*>[\s\S]*?<\/(?:pre|code|kbd)>)/gi
   const parts = html.split(codeBlockPattern)
 
-  return parts
-    .map((part, i) => {
-      // Odd indices are the captured code blocks - leave them alone
-      if (i % 2 === 1) return part
-      // Process math only in non-code parts
-      return renderMathInText(part)
-    })
-    .join("")
+  return (
+    await Promise.all(
+      parts.map(async (part, i) => {
+        if (i % 2 === 1) return part
+        return renderMathInText(part)
+      }),
+    )
+  ).join("")
 }
 
 async function highlightCodeBlocks(html: string): Promise<string> {
@@ -429,6 +450,7 @@ async function highlightCodeBlocks(html: string): Promise<string> {
   if (matches.length === 0) return html
 
   try {
+    const { getSharedHighlighter } = await loadDiffs()
     const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
 
     let result = html
@@ -442,11 +464,13 @@ async function highlightCodeBlocks(html: string): Promise<string> {
         .replace(/&#39;/g, "'")
 
       let language = lang || "text"
-      if (!(language in bundledLanguages)) {
-        language = "text"
-      }
       if (!highlighter.getLoadedLanguages().includes(language)) {
-        await highlighter.loadLanguage(language as BundledLanguage)
+        await highlighter.loadLanguage(language as BundledLanguage).catch(async () => {
+          language = "text"
+          if (!highlighter.getLoadedLanguages().includes(language)) {
+            await highlighter.loadLanguage(language as BundledLanguage).catch(() => {})
+          }
+        })
       }
 
       const highlighted = highlighter.codeToHtml(code, {
@@ -471,55 +495,68 @@ export type NativeMarkdownParser = (markdown: string) => Promise<string>
 export const { use: useMarked, provider: MarkedProvider } = createSimpleContext({
   name: "Marked",
   init: (props: { nativeParser?: NativeMarkdownParser }) => {
-    const jsParser = marked.use(
-      {
-        renderer: {
-          link({ href, title, text }) {
-            const titleAttr = title ? ` title="${title}"` : ""
-            return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
-          },
+    let setup: Promise<void> | undefined
+    const init = () => {
+      if (setup) return setup
+      setup = Promise.all([import("marked-shiki"), import("marked-katex-extension")]).then(
+        ([{ default: markedShiki }, { default: markedKatex }]) => {
+          marked.use(
+            {
+              renderer: {
+                link({ href, title, text }) {
+                  const titleAttr = title ? ` title="${title}"` : ""
+                  return `<a href="${href}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`
+                },
+              },
+            },
+            markedKatex({
+              throwOnError: false,
+              nonStandard: true,
+            }),
+            markedShiki({
+              async highlight(code, lang) {
+                try {
+                  const { getSharedHighlighter } = await loadDiffs()
+                  const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
+                  const language = lang || "text"
+                  if (!highlighter.getLoadedLanguages().includes(language)) {
+                    await highlighter.loadLanguage(language as BundledLanguage).catch(() => {})
+                  }
+                  return highlighter.codeToHtml(code, {
+                    lang: language,
+                    theme: "OpenHei",
+                    tabindex: false,
+                  })
+                } catch (e) {
+                  if (import.meta.env.DEV) {
+                    console.warn("[markedShiki] Shiki failed, using plain code blocks", e)
+                  }
+                  return `<pre><code>${code}</code></pre>`
+                }
+              },
+            }),
+          )
         },
-      },
-      markedKatex({
-        throwOnError: false,
-        nonStandard: true,
-      }),
-      markedShiki({
-        async highlight(code, lang) {
-          try {
-            const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
-            if (!(lang in bundledLanguages)) {
-              lang = "text"
-            }
-            if (!highlighter.getLoadedLanguages().includes(lang)) {
-              await highlighter.loadLanguage(lang as BundledLanguage)
-            }
-            return highlighter.codeToHtml(code, {
-              lang: lang || "text",
-              theme: "OpenHei",
-              tabindex: false,
-            })
-          } catch (e) {
-            if (import.meta.env.DEV) {
-              console.warn("[markedShiki] Shiki failed, using plain code blocks", e)
-            }
-            return `<pre><code>${code}</code></pre>`
-          }
-        },
-      }),
-    )
+      )
+      return setup
+    }
 
     if (props.nativeParser) {
       const nativeParser = props.nativeParser
       return {
         async parse(markdown: string): Promise<string> {
           const html = await nativeParser(markdown)
-          const withMath = renderMathExpressions(html)
+          const withMath = await renderMathExpressions(html)
           return highlightCodeBlocks(withMath)
         },
       }
     }
 
-    return jsParser
+    return {
+      async parse(markdown: string): Promise<string> {
+        await init()
+        return marked.parse(markdown)
+      },
+    }
   },
 })

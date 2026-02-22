@@ -1,10 +1,12 @@
-import { test, expect } from "bun:test"
+import { test as it, expect } from "bun:test"
 import { $ } from "bun"
 import fs from "fs/promises"
 import { Snapshot } from "../../src/snapshot"
 import { Instance } from "../../src/project/instance"
 import { Filesystem } from "../../src/util/filesystem"
-import { tmpdir } from "../fixture/fixture"
+import { hasGit, tmpdir } from "../fixture/fixture"
+
+const test = it.skipIf(!hasGit())
 
 async function bootstrap() {
   return tmpdir({
@@ -324,7 +326,7 @@ test("unicode filenames", async () => {
   })
 })
 
-test.skip("unicode filenames modification and restore", async () => {
+it.skip("unicode filenames modification and restore", async () => {
   await using tmp = await bootstrap()
   await Instance.provide({
     directory: tmp.path,

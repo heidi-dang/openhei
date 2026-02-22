@@ -7,11 +7,8 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
-import { OpenAIAuthPlugin as CodexAuthPlugin } from "openhei-openai-codex-auth"
 import { Session } from "../session"
 import { NamedError } from "@openhei-ai/util/error"
-import { CopilotAuthPlugin } from "./copilot"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "@gitlab/opencode-gitlab-auth"
 
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
@@ -19,7 +16,20 @@ export namespace Plugin {
   const BUILTIN = ["openhei-anthropic-auth@0.0.13"]
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, GitlabAuthPlugin]
+  const INTERNAL_PLUGINS = [
+    {
+      name: "openhei-openai-codex-auth",
+      load: async () => (await import("openhei-openai-codex-auth")).OpenAIAuthPlugin as unknown as PluginInstance,
+    },
+    {
+      name: "openhei-copilot-auth",
+      load: async () => (await import("./copilot")).CopilotAuthPlugin,
+    },
+    {
+      name: "@gitlab/opencode-gitlab-auth",
+      load: async () => (await import("@gitlab/opencode-gitlab-auth")).gitlabAuthPlugin as unknown as PluginInstance,
+    },
+  ]
 
   const state = Instance.state(async () => {
     const client = createOpencodeClient({
@@ -41,7 +51,11 @@ export namespace Plugin {
 
     for (const plugin of INTERNAL_PLUGINS) {
       log.info("loading internal plugin", { name: plugin.name })
-      const init = await plugin(input).catch((err) => {
+      const fn = await plugin.load().catch((err) => {
+        log.error("failed to import internal plugin", { name: plugin.name, error: err })
+      })
+      if (!fn) continue
+      const init = await fn(input).catch((err) => {
         log.error("failed to load internal plugin", { name: plugin.name, error: err })
       })
       if (init) hooks.push(init)

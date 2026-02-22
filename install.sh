@@ -38,18 +38,30 @@ Options:
     -v, --version <version> Install a specific version (e.g., 1.0.180)
     -b, --binary <path>     Install from a local binary instead of downloading
     --local-repo            Build and install from the current repository
+     --repo-local            Alias for --local-repo
+     -repo-local             Legacy alias for --local-repo
+     --reuse-build           Reuse existing local build output if present
+     --skip-install          Skip dependency install for --local-repo
+     --skip-build            Skip building for --local-repo (requires existing dist)
+     --link                  Symlink into ~/.openhei instead of copying (dev)
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
     curl -fsSL https://openhei.ai/install | bash
     curl -fsSL https://openhei.ai/install | bash -s -- --version 1.0.180
-    ./install --binary /path/to/openhei
+    ./install.sh --binary /path/to/openhei
+    ./install.sh --local-repo --no-modify-path
+    ./install.sh -repo-local --reuse-build --skip-install --skip-build --link
 EOF
 }
 
 no_modify_path=false
 binary_path=""
 local_repo=false
+skip_install=false
+skip_build=false
+reuse_build=false
+link_install=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -75,8 +87,24 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        --local-repo)
+        --local-repo|--repo-local|-repo-local)
             local_repo=true
+            shift
+            ;;
+        --reuse-build)
+            reuse_build=true
+            shift
+            ;;
+        --skip-install)
+            skip_install=true
+            shift
+            ;;
+        --skip-build)
+            skip_build=true
+            shift
+            ;;
+        --link)
+            link_install=true
             shift
             ;;
         --no-modify-path)
@@ -104,7 +132,9 @@ if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; th
     USE_LOCAL_DASHBOARD=true
 fi
 
-if [ -n "$binary_path" ]; then
+if [ "$local_repo" = "true" ]; then
+    specific_version="local"
+elif [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
         echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
         exit 1
@@ -398,8 +428,12 @@ install_from_binary() {
 
 install_from_repo() {
     print_message info "\n${MUTED}Building openhei from source...${NC}"
+    cd "$SCRIPT_DIR"
+
     # Ensure dependencies are installed
-    HUSKY=0 bun install
+    if [ "$skip_install" != "true" ]; then
+        HUSKY=0 bun install
+    fi
 
     # Detect target name used by build script
     local os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -411,16 +445,32 @@ install_from_repo() {
     [[ "$arch" == "aarch64" ]] && arch="arm64"
     
     local target_name="openhei-$os-$arch"
+    local build_dir="$SCRIPT_DIR/packages/openhei/dist/$target_name"
+
+    if [ "$reuse_build" = "true" ] && [ -f "$build_dir/bin/openhei" ]; then
+        print_message info "${MUTED}Reusing existing build output: ${NC}$build_dir"
+        skip_build=true
+    fi
 
     # Run build - removing --cwd and using relative path to avoid context issues
-    cd packages/openhei
-    OPENHEI_CHANNEL=local OPENHEI_VERSION=local bun run build --single --skip-install
-    cd ../..
+    if [ "$skip_build" != "true" ]; then
+        (
+            cd "$SCRIPT_DIR/packages/openhei"
+            OPENHEI_CHANNEL=local OPENHEI_VERSION=local bun run build --single --skip-install --reuse-dashboard --reuse-models
+        )
+    fi
 
-    local build_dir="packages/openhei/dist/$target_name"
     if [ ! -d "$build_dir" ]; then
          # Fallback to whatever directory was built
-         build_dir=$(ls -d packages/openhei/dist/openhei-*-* 2>/dev/null | head -n 1)
+         shopt -s nullglob
+         local dirs=("$SCRIPT_DIR"/packages/openhei/dist/openhei-*-*)
+         shopt -u nullglob
+         for d in "${dirs[@]}"; do
+             if [ -f "$d/bin/openhei" ]; then
+                 build_dir="$d"
+                 break
+             fi
+         done
     fi
 
     if [ -z "$build_dir" ] || [ ! -d "$build_dir" ]; then
@@ -429,12 +479,34 @@ install_from_repo() {
     fi
 
     print_message info "${MUTED}Installing from: ${NC}$build_dir"
+    local dashboard_src="$build_dir/dashboard"
+    if [ "$USE_LOCAL_DASHBOARD" = "true" ]; then
+        dashboard_src="$LOCAL_DASHBOARD_DIR"
+    fi
+
+    if [ "$link_install" = "true" ]; then
+        if ! command -v ln >/dev/null 2>&1; then
+            echo -e "${RED}Error: 'ln' is required but not installed.${NC}"
+            exit 1
+        fi
+        if [ ! -d "$dashboard_src" ]; then
+            echo -e "${RED}Error: Dashboard directory not found at $dashboard_src${NC}"
+            exit 1
+        fi
+        rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+        mkdir -p "$INSTALL_DIR"
+        ln -sf "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+        ln -s "$dashboard_src" "$DASHBOARD_DIR"
+        chmod 755 "${INSTALL_DIR}/openhei" || true
+        return
+    fi
+
     rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$DASHBOARD_DIR"
-    
+
     cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
-    cp -r "$build_dir/dashboard/"* "$DASHBOARD_DIR/"
+    cp -r "$dashboard_src/"* "$DASHBOARD_DIR/"
     chmod 755 "${INSTALL_DIR}/openhei"
 }
 

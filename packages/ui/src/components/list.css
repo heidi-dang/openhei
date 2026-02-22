@@ -130,6 +130,8 @@
     flex-direction: column;
     gap: 12px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     overscroll-behavior: contain;
     mask: linear-gradient(to bottom, #ffff calc(100% - var(--bottom-fade)), #0000);
     animation: scroll;
