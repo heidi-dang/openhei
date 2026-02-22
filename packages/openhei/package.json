@@ -88,6 +88,7 @@
     "@openhei-ai/script": "workspace:*",
     "@openhei-ai/sdk": "workspace:*",
     "@openhei-ai/util": "workspace:*",
+    "openhei-openai-codex-auth": "workspace:*",
     "@openrouter/ai-sdk-provider": "1.5.4",
     "@opentui/core": "0.1.79",
     "@opentui/solid": "0.1.79",

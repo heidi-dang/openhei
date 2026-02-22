@@ -1,0 +1,72 @@
+{
+  "name": "openhei-openai-codex-auth",
+  "version": "4.4.0",
+  "description": "OpenAI ChatGPT (Codex backend) OAuth auth plugin for openhei - use your ChatGPT Plus/Pro subscription instead of API credits",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "license": "MIT",
+  "author": "Numman Ali",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heidi-dang/openhei.git"
+  },
+  "keywords": [
+    "openhei",
+    "openai",
+    "codex",
+    "chatgpt",
+    "oauth",
+    "gpt-5",
+    "plugin",
+    "auth",
+    "chatgpt-plus",
+    "chatgpt-pro"
+  ],
+  "homepage": "https://github.com/heidi-dang/openhei#readme",
+  "bugs": {
+    "url": "https://github.com/heidi-dang/openhei/issues"
+  },
+  "scripts": {
+    "build": "tsc && cp lib/oauth-success.html dist/lib/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "bin": {
+    "openhei-openai-codex-auth": "./scripts/install-openhei-codex-auth.js"
+  },
+  "files": [
+    "dist/",
+    "assets/",
+    "config/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "@openhei-ai/plugin": "workspace:*"
+  },
+  "dependencies": {
+    "@openauthjs/openauth": "^0.4.3",
+    "hono": "^4.10.4",
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@openhei-ai/plugin": "workspace:*",
+    "@openhei-ai/sdk": "workspace:*",
+    "@types/node": "^24.6.2",
+    "@vitest/ui": "^3.2.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "hono": "^4.10.4",
+    "vite": "^7.1.12"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openhei.ai/config.json",
+  "plugin": ["openhei-openai-codex-auth"],
+  "provider": {
+    "openai": {
+      "options": {
+        "store": false
+      }
+    }
+  },
+  "model": "openai/gpt-5-codex"
+}
