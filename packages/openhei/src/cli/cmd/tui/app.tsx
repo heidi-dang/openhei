@@ -555,7 +555,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://openhei.ai/docs").catch(() => {})
+        open("https://openhei.ai/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",

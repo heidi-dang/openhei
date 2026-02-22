@@ -37,6 +37,7 @@ Options:
     -h, --help              Display this help message
     -v, --version <version> Install a specific version (e.g., 1.0.180)
     -b, --binary <path>     Install from a local binary instead of downloading
+    --local-repo            Build and install from the current repository
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
@@ -48,6 +49,7 @@ EOF
 
 no_modify_path=false
 binary_path=""
+local_repo=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -72,6 +74,10 @@ while [[ $# -gt 0 ]]; do
                 echo -e "${RED}Error: --binary requires a path argument${NC}"
                 exit 1
             fi
+            ;;
+        --local-repo)
+            local_repo=true
+            shift
             ;;
         --no-modify-path)
             no_modify_path=true
@@ -390,12 +396,65 @@ install_from_binary() {
     chmod 755 "${INSTALL_DIR}/openhei"
 }
 
-if [ -n "$binary_path" ]; then
+install_from_repo() {
+    print_message info "\n${MUTED}Building openhei from source...${NC}"
+    # Ensure dependencies are installed
+    HUSKY=0 bun install
+
+    # Detect target name used by build script
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    [ "$os" == "linux" ] && os="linux"
+    [ "$os" == "darwin" ] && os="darwin"
+    
+    local arch=$(uname -m)
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+    
+    local target_name="openhei-$os-$arch"
+
+    # Run build - removing --cwd and using relative path to avoid context issues
+    cd packages/openhei
+    OPENHEI_CHANNEL=local OPENHEI_VERSION=local bun run build --single --skip-install
+    cd ../..
+
+    local build_dir="packages/openhei/dist/$target_name"
+    if [ ! -d "$build_dir" ]; then
+         # Fallback to whatever directory was built
+         build_dir=$(ls -d packages/openhei/dist/openhei-*-* 2>/dev/null | head -n 1)
+    fi
+
+    if [ -z "$build_dir" ] || [ ! -d "$build_dir" ]; then
+        echo -e "${RED}Error: Build failed or build directory not found at $build_dir${NC}"
+        exit 1
+    fi
+
+    print_message info "${MUTED}Installing from: ${NC}$build_dir"
+    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+    
+    cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+    cp -r "$build_dir/dashboard/"* "$DASHBOARD_DIR/"
+    chmod 755 "${INSTALL_DIR}/openhei"
+}
+
+if [ "$local_repo" = "true" ]; then
+    install_from_repo
+elif [ -n "$binary_path" ]; then
     install_from_binary
 else
     check_version
     download_and_install
 fi
+
+clean_old_env() {
+    local config_file=$1
+    if [ -f "$config_file" ] && grep -q "OPENHEI_DASHBOARD_DIR" "$config_file"; then
+        sed -i '/# openhei/d' "$config_file" 2>/dev/null || true
+        sed -i '/OPENHEI_DASHBOARD_DIR/d' "$config_file" 2>/dev/null || true
+        print_message info "${MUTED}Cleaned up old dev environment variables from ${NC}$config_file"
+    fi
+}
 
 add_to_path() {
     local config_file=$1
@@ -433,26 +492,19 @@ if [[ "$no_modify_path" != "true" ]]; then
     if [[ -z $config_file ]]; then
         print_message warning "No config file found for $current_shell. You may need to manually add to PATH:"
         print_message info "  export PATH=$INSTALL_DIR:\$PATH"
-    elif [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-        case $current_shell in
-            fish) add_to_path "$config_file" "fish_add_path $INSTALL_DIR" ;;
-            zsh|bash|ash|sh) add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH" ;;
-            *)
-                export PATH=$INSTALL_DIR:$PATH
-                print_message warning "Manually add the directory to $config_file (or similar):"
-                print_message info "  export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-        esac
-    fi
-
-    # Set local dashboard directory if detected
-    if [[ "$USE_LOCAL_DASHBOARD" == "true" ]]; then
-        case $current_shell in
-            fish) add_to_path "$config_file" "set -gx OPENHEI_DASHBOARD_DIR $LOCAL_DASHBOARD_DIR" ;;
-            zsh|bash|ash|sh) add_to_path "$config_file" "export OPENHEI_DASHBOARD_DIR=$LOCAL_DASHBOARD_DIR" ;;
-        esac
-        export OPENHEI_DASHBOARD_DIR="$LOCAL_DASHBOARD_DIR"
-        print_message info "Setting OPENHEI_DASHBOARD_DIR to $LOCAL_DASHBOARD_DIR"
+    else
+        clean_old_env "$config_file"
+        if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+            case $current_shell in
+                fish) add_to_path "$config_file" "fish_add_path $INSTALL_DIR" ;;
+                zsh|bash|ash|sh) add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH" ;;
+                *)
+                    export PATH=$INSTALL_DIR:$PATH
+                    print_message warning "Manually add the directory to $config_file (or similar):"
+                    print_message info "  export PATH=$INSTALL_DIR:\$PATH"
+                ;;
+            esac
+        fi
     fi
 fi
 
