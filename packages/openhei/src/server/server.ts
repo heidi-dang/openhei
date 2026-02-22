@@ -224,6 +224,36 @@ export namespace Server {
           }),
         )
         .use(validator("query", z.object({ directory: z.string().optional() })))
+        // SPA Fallback for navigation requests
+        // This ensures that refreshing the page on a session URL (e.g. /BASE64_DIR/session/ID)
+        // serves the dashboard instead of hitting the API route or returning 404.
+        .get("/*", async (c, next) => {
+          const accept = c.req.header("Accept")
+          if (accept?.includes("text/html")) {
+            // We want to serve index.html for navigation requests.
+            // But we must NOT consume the request if it's meant for an actual static file (like .js or .css)
+            // though those wouldn't typically have 'text/html' in Accept.
+
+            // Check if the path looks like an API or static file
+            const path = c.req.path
+            const isStaticFile = /\.[a-z0-9]+$/i.test(path)
+            const isApiDoc = path === "/doc" || path === "/global/health"
+
+            if (!isStaticFile && !isApiDoc) {
+              if (Flag.OPENHEI_DASHBOARD_DIR) {
+                const res = await serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+                if (res) {
+                  res.headers.set(
+                    "Content-Security-Policy",
+                    "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' data:; connect-src *",
+                  )
+                  return res
+                }
+              }
+            }
+          }
+          return next()
+        })
         .route("/project", ProjectRoutes())
         .route("/pty", PtyRoutes())
         .route("/config", ConfigRoutes())

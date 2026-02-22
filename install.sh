@@ -90,6 +90,14 @@ DASHBOARD_DIR="$INSTALL_BASE/dashboard"
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DASHBOARD_DIR"
 
+# Detect local dashboard in repo for development
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
+USE_LOCAL_DASHBOARD=false
+if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; then
+    USE_LOCAL_DASHBOARD=true
+fi
+
 if [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
         echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
@@ -435,6 +443,16 @@ if [[ "$no_modify_path" != "true" ]]; then
                 print_message info "  export PATH=$INSTALL_DIR:\$PATH"
             ;;
         esac
+    fi
+
+    # Set local dashboard directory if detected
+    if [[ "$USE_LOCAL_DASHBOARD" == "true" ]]; then
+        case $current_shell in
+            fish) add_to_path "$config_file" "set -gx OPENHEI_DASHBOARD_DIR $LOCAL_DASHBOARD_DIR" ;;
+            zsh|bash|ash|sh) add_to_path "$config_file" "export OPENHEI_DASHBOARD_DIR=$LOCAL_DASHBOARD_DIR" ;;
+        esac
+        export OPENHEI_DASHBOARD_DIR="$LOCAL_DASHBOARD_DIR"
+        print_message info "Setting OPENHEI_DASHBOARD_DIR to $LOCAL_DASHBOARD_DIR"
     fi
 fi
 
