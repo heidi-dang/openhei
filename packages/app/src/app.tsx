@@ -31,6 +31,7 @@ import { ErrorPage } from "./pages/error"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
+const Updating = lazy(() => import("@/pages/updating"))
 const Diff = lazy(() => import("@openhei-ai/ui/diff").then((m) => ({ default: m.Diff })))
 const Code = lazy(() => import("@openhei-ai/ui/code").then((m) => ({ default: m.Code })))
 const Loading = () => <div class="size-full" />
@@ -158,6 +159,14 @@ export function AppInterface(props: {
               root={(routerProps) => <RouterRoot appChildren={props.children}>{routerProps.children}</RouterRoot>}
             >
               <Route path="/" component={HomeRoute} />
+              <Route
+                path="/updating"
+                component={() => (
+                  <Suspense fallback={<Loading />}>
+                    <Updating />
+                  </Suspense>
+                )}
+              />
               <Route path="/:dir" component={DirectoryLayout}>
                 <Route path="/" component={SessionIndexRoute} />
                 <Route path="/session/:id?" component={SessionRoute} />

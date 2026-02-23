@@ -224,13 +224,30 @@ export const GlobalRoutes = lazy(() =>
       async (c) => {
         const info = await Installation.info()
         if (info.version !== info.latest) {
-          const method = await Installation.method()
-          // We don't await this because it will likely kill the server
-          void Installation.upgrade(method, info.latest).catch((err) => {
-            log.error("Update failed", { error: err })
-          })
+          void Installation.startUpdate(info.latest)
         }
         return c.json(true)
+      },
+    )
+    .get(
+      "/update/status",
+      describeRoute({
+        summary: "Update status",
+        description: "Get realtime update progress, if an update is running.",
+        operationId: "global.update.status",
+        responses: {
+          200: {
+            description: "Update status",
+            content: {
+              "application/json": {
+                schema: resolver(Installation.UpdateStatus),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(Installation.status())
       },
     ),
 )

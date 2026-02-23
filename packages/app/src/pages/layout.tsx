@@ -12,7 +12,7 @@ import {
   untrack,
   type JSX,
 } from "solid-js"
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useLocation, useNavigate, useParams } from "@solidjs/router"
 import { useLayout, LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
@@ -107,6 +107,7 @@ export default function Layout(props: ParentProps) {
   const notification = useNotification()
   const permission = usePermission()
   const navigate = useNavigate()
+  const location = useLocation()
   const providers = useProviders()
   const dialog = useDialog()
   const command = useCommand()
@@ -299,8 +300,8 @@ export default function Layout(props: ParentProps) {
               {
                 label: language.t("toast.update.action.installRestart"),
                 onClick: async () => {
-                  await platform.update!()
-                  await platform.restart!()
+                  const ret = `${location.pathname}${location.search}${location.hash}`
+                  navigate(`/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(version ?? "")}`)
                 },
               },
               {

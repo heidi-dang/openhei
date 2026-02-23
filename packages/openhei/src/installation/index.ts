@@ -15,6 +15,212 @@ declare global {
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
+  export const UpdateStatus = z
+    .object({
+      state: z.union([z.literal("idle"), z.literal("running"), z.literal("complete"), z.literal("failed")]),
+      progress: z.number().min(0).max(100),
+      message: z.string().optional(),
+      target: z.string().optional(),
+      startedAt: z.number().optional(),
+      finishedAt: z.number().optional(),
+      error: z.string().optional(),
+    })
+    .meta({
+      ref: "InstallationUpdateStatus",
+    })
+  export type UpdateStatus = z.infer<typeof UpdateStatus>
+
+  let update: UpdateStatus = { state: "idle", progress: 0 }
+  let updating: Promise<void> | undefined
+
+  export function status() {
+    return update
+  }
+
+  const setUpdate = (next: Partial<UpdateStatus>) => {
+    update = {
+      ...update,
+      ...next,
+      progress: Math.max(0, Math.min(100, next.progress ?? update.progress ?? 0)),
+    }
+  }
+
+  async function cmdForUpgrade(
+    method: Method,
+    target: string,
+  ): Promise<{ cmd: string[]; env?: Record<string, string> }> {
+    switch (method) {
+      case "curl":
+        return {
+          cmd: ["bash", "-lc", "curl -fsSL https://openhei.ai/install | bash"],
+          env: { ...process.env, VERSION: target },
+        }
+      case "npm":
+        return { cmd: ["npm", "install", "-g", `openhei-ai@${target}`] }
+      case "pnpm":
+        return { cmd: ["pnpm", "install", "-g", `openhei-ai@${target}`] }
+      case "bun":
+        return { cmd: ["bun", "install", "-g", `openhei-ai@${target}`] }
+      case "brew":
+        return iife(async () => {
+          const formula = await getBrewFormula()
+          if (formula.includes("/")) {
+            return {
+              cmd: [
+                "bash",
+                "-lc",
+                `brew tap anomalyco/tap && cd "$(brew --repo anomalyco/tap)" && git pull --ff-only && brew upgrade ${formula}`,
+              ],
+              env: {
+                HOMEBREW_NO_AUTO_UPDATE: "1",
+                ...process.env,
+              },
+            }
+          }
+
+          return {
+            cmd: ["brew", "upgrade", formula],
+            env: {
+              HOMEBREW_NO_AUTO_UPDATE: "1",
+              ...process.env,
+            },
+          }
+        })
+      case "choco":
+        return { cmd: ["choco", "upgrade", "openhei", `--version=${target}`, "-y"] }
+      case "scoop":
+        return { cmd: ["scoop", "install", `openhei@${target}`] }
+      default:
+        throw new Error(`Unknown method: ${method}`)
+    }
+  }
+
+  async function readLines(stream: ReadableStream<Uint8Array> | null | undefined, onLine: (line: string) => void) {
+    if (!stream) return
+    const reader = stream.getReader()
+    const decoder = new TextDecoder()
+    let buf = ""
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      while (true) {
+        const idx = buf.indexOf("\n")
+        if (idx === -1) break
+        const line = buf.slice(0, idx).trim()
+        buf = buf.slice(idx + 1)
+        if (line) onLine(line)
+      }
+    }
+    const rest = buf.trim()
+    if (rest) onLine(rest)
+  }
+
+  export async function startUpdate(target: string) {
+    if (update.state === "running") return
+
+    const method = await Installation.method()
+    const startedAt = Date.now()
+    setUpdate({ state: "running", progress: 0, message: "Starting update…", target, startedAt, finishedAt: undefined })
+
+    updating = (async () => {
+      try {
+        setUpdate({ progress: 5, message: `Preparing (${method})…` })
+        const info = await cmdForUpgrade(method, target)
+
+        const proc = Bun.spawn(info.cmd, {
+          env: info.env,
+          stdout: "pipe",
+          stderr: "pipe",
+        })
+
+        const tick = setInterval(() => {
+          if (update.state !== "running") return
+          const elapsed = Date.now() - startedAt
+          const next = Math.min(85, 10 + Math.floor(elapsed / 500))
+          if (next <= update.progress) return
+          setUpdate({ progress: next })
+        }, 250)
+
+        const lines: string[] = []
+        const onLine = (line: string) => {
+          lines.push(line)
+          if (lines.length > 4) lines.shift()
+          setUpdate({ message: line })
+        }
+
+        await Promise.all([readLines(proc.stdout, onLine), readLines(proc.stderr, onLine), proc.exited]).finally(() => {
+          clearInterval(tick)
+        })
+
+        if (proc.exitCode !== 0) {
+          throw new UpgradeFailedError({
+            stderr: lines.join("\n") || "Update command failed",
+          })
+        }
+
+        setUpdate({ progress: 95, message: "Finishing…" })
+        await $`${process.execPath} --version`.nothrow().quiet().text()
+        setUpdate({ state: "complete", progress: 100, message: "Update installed.", finishedAt: Date.now() })
+
+        const argv = process.argv.slice(1)
+        const command = argv.find((x) => x === "web" || x === "serve")
+        const wantsServer = command === "web" || command === "serve"
+        if (!wantsServer) return
+
+        setUpdate({ message: "Restarting server…" })
+
+        const restart = () => {
+          try {
+            const next = Bun.spawn([process.execPath, ...argv], {
+              env: {
+                ...process.env,
+                OPENHEI_NO_OPEN: "1",
+                OPENHEI_RESTART_WAIT: "1",
+              },
+              stdout: "ignore",
+              stderr: "ignore",
+              stdin: "ignore",
+              detached: true,
+            })
+            next.unref()
+            return next
+          } catch {
+            return
+          }
+        }
+
+        const child = restart()
+        if (!child) return
+
+        // Best effort: stop the current server to free the port.
+        const handle = (await import("@/server/server")).Server.handle()
+        if (handle) {
+          try {
+            await handle.stop(true)
+          } catch {
+            // ignore
+          }
+        }
+
+        await Bun.sleep(250)
+        process.exit(0)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        setUpdate({
+          state: "failed",
+          progress: Math.max(update.progress, 10),
+          error: message,
+          message: "Update failed.",
+          finishedAt: Date.now(),
+        })
+        log.error("update failed", { error: err })
+      }
+    })()
+
+    void updating
+  }
+
   export type Method = Awaited<ReturnType<typeof method>>
 
   export const Event = {
