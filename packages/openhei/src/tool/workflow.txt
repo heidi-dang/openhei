@@ -1,0 +1,7 @@
+Workflow helper for running the multi-agent loop.
+
+Actions:
+- init: deterministically choose a task slug and ensure `tasks/<slug>.md` exists
+- validate: validate task artifacts (routes + required sections)
+- next: resolve next agent from `ROUTE:NEXT=...` markers
+- advance: advance `workflow-runner` stage transitions / retries

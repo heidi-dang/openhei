@@ -27,6 +27,7 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
+import { WorkflowTool } from "./workflow"
 import { Glob } from "../util/glob"
 
 export namespace ToolRegistry {
@@ -139,6 +140,7 @@ export namespace ToolRegistry {
       CodeSearchTool,
       SkillTool,
       ApplyPatchTool,
+      WorkflowTool,
       ...(Flag.OPENHEI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.OPENHEI_EXPERIMENTAL_PLAN_MODE && Flag.OPENHEI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
