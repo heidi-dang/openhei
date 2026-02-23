@@ -15,6 +15,9 @@ import { Identifier } from "@/utils/id"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { buildRequestParts } from "./build-request-parts"
 import { setCursorPosition } from "./editor-dom"
+import { Persist, removePersisted } from "@/utils/persist"
+import { usePlatform } from "@/context/platform"
+import { isNotFoundError } from "@/utils/api-error"
 
 type PendingPrompt = {
   abort: AbortController
@@ -79,6 +82,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
   const layout = useLayout()
   const language = useLanguage()
   const params = useParams()
+  const platform = usePlatform()
 
   const errorMessage = (err: unknown) => {
     if (err && typeof err === "object" && "data" in err) {
@@ -203,23 +207,71 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       input.onNewSessionWorktreeReset?.()
     }
 
-    let session = input.info()
-    if (!session && isNewSession) {
-      session = await client.session
-        .create()
-        .then((x) => x.data ?? undefined)
-        .catch((err) => {
-          showToast({
-            title: language.t("prompt.toast.sessionCreateFailed.title"),
-            description: errorMessage(err),
+    const ensure = async () => {
+      const existing = input.info()
+      if (existing) return existing
+
+      if (isNewSession) {
+        const created = await client.session
+          .create()
+          .then((x) => x.data ?? undefined)
+          .catch((err) => {
+            showToast({
+              title: language.t("prompt.toast.sessionCreateFailed.title"),
+              description: errorMessage(err),
+            })
+            return undefined
           })
-          return undefined
-        })
-      if (session) {
-        layout.handoff.setTabs(base64Encode(sessionDirectory), session.id)
-        navigate(`/${base64Encode(sessionDirectory)}/session/${session.id}`)
+
+        if (created) {
+          layout.handoff.setTabs(base64Encode(sessionDirectory), created.id)
+          navigate(`/${base64Encode(sessionDirectory)}/session/${created.id}`)
+        }
+        return created
       }
+
+      const id = params.id
+      if (!id) return
+
+      const loaded = await client.session
+        .get({ sessionID: id })
+        .then((x) => x.data ?? undefined)
+        .catch(async (err) => {
+          if (!isNotFoundError(err)) throw err
+
+          if (import.meta.env.DEV) {
+            console.info("[session] not found; recreating", {
+              url: `${sdk.url}/session/${id}`,
+              sessionID: id,
+            })
+          }
+
+          removePersisted(Persist.session(sdk.directory, id, "prompt"), platform)
+          removePersisted(Persist.session(sdk.directory, id, "file-view"), platform)
+
+          const created = await client.session.create().then((x) => x.data ?? undefined)
+          if (!created?.id) return
+
+          showToast({
+            title: language.t("prompt.toast.sessionRecovered.title"),
+            description: language.t("prompt.toast.sessionRecovered.description"),
+          })
+
+          navigate(`/${base64Encode(sessionDirectory)}/session/${created.id}`, { replace: true })
+          return created
+        })
+
+      return loaded
     }
+
+    const session = await ensure().catch((err) => {
+      showToast({
+        title: language.t("prompt.toast.promptSendFailed.title"),
+        description: errorMessage(err),
+      })
+      return undefined
+    })
+
     if (!session) {
       showToast({
         title: language.t("prompt.toast.promptSendFailed.title"),

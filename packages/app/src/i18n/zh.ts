@@ -303,6 +303,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "发送命令失败",
   "prompt.toast.promptSendFailed.title": "发送提示失败",
   "prompt.toast.promptSendFailed.description": "无法获取会话",
+  "prompt.toast.sessionRecovered.title": "未找到会话",
+  "prompt.toast.sessionRecovered.description": "未找到之前的会话，已开始新的会话。",
 
   "dialog.mcp.title": "MCPs",
   "dialog.mcp.description": "已启用 {{enabled}} / {{total}}",

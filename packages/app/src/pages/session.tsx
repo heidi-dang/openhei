@@ -31,6 +31,10 @@ import { SessionComposerRegion, createSessionComposerState } from "@/pages/sessi
 import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { showToast } from "@openhei-ai/ui/toast"
+import { Persist, removePersisted } from "@/utils/persist"
+import { usePlatform } from "@/context/platform"
+import { isNotFoundError } from "@/utils/api-error"
 
 export default function Page() {
   const layout = useLayout()
@@ -44,6 +48,7 @@ export default function Page() {
   const sdk = useSDK()
   const prompt = usePrompt()
   const comments = useComments()
+  const platform = usePlatform()
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
@@ -296,12 +301,38 @@ export default function Page() {
 
   const hasScrollGesture = () => Date.now() - ui.scrollGesture < scrollGestureWindowMs
 
+  const recovered = new Set<string>()
   createEffect(() => {
     sdk.directory
     const id = params.id
     if (!id) return
-    void sync.session.sync(id)
-    void sync.session.todo(id)
+    if (recovered.has(id)) return
+    void sync.session
+      .sync(id)
+      .then(() => sync.session.todo(id))
+      .catch(async (err) => {
+        if (!isNotFoundError(err)) return
+        recovered.add(id)
+
+        if (import.meta.env.DEV) {
+          console.info("[session] not found; recovering", {
+            url: `${sdk.url}/session/${id}`,
+            sessionID: id,
+          })
+        }
+
+        removePersisted(Persist.session(sdk.directory, id, "prompt"), platform)
+        removePersisted(Persist.session(sdk.directory, id, "file-view"), platform)
+
+        const created = await sdk.client.session.create().then((x) => x.data).catch(() => undefined)
+        if (!created?.id) return
+
+        showToast({
+          title: language.t("prompt.toast.sessionRecovered.title"),
+          description: language.t("prompt.toast.sessionRecovered.description"),
+        })
+        navigate(`/${params.dir}/session/${created.id}`, { replace: true })
+      })
   })
 
   createEffect(

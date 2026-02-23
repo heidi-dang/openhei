@@ -7,10 +7,14 @@ const createdClients: string[] = []
 const createdSessions: string[] = []
 const sentShell: string[] = []
 const syncedDirectories: string[] = []
+const navigated: string[] = []
+const toasts: Array<{ title: string; description?: string }> = []
 
 let selected = "/repo/worktree-a"
 
 const promptValue: Prompt = [{ type: "text", content: "ls", start: 0, end: 2 }]
+
+let params: Record<string, string | undefined> = {}
 
 const clientFor = (directory: string) => {
   createdClients.push(directory)
@@ -23,6 +27,15 @@ const clientFor = (directory: string) => {
       shell: async () => {
         sentShell.push(directory)
         return { data: undefined }
+      },
+      get: async (input: { sessionID: string }) => {
+        if (input.sessionID === "ses_missing") {
+          throw { name: "NotFoundError", data: { message: "missing" } }
+        }
+        if (input.sessionID === "ses_broken") {
+          throw { name: "UnknownError", data: { message: "boom" } }
+        }
+        return { data: { id: input.sessionID } }
       },
       prompt: async () => ({ data: undefined }),
       command: async () => ({ data: undefined }),
@@ -38,8 +51,11 @@ beforeAll(async () => {
   const rootClient = clientFor("/repo/main")
 
   mock.module("@solidjs/router", () => ({
-    useNavigate: () => () => undefined,
-    useParams: () => ({}),
+    useNavigate: () => (to: string) => {
+      navigated.push(to)
+      return undefined
+    },
+    useParams: () => params,
   }))
 
   mock.module("@openhei-ai/sdk/v2/client", () => ({
@@ -50,11 +66,15 @@ beforeAll(async () => {
   }))
 
   mock.module("@openhei-ai/ui/toast", () => ({
-    showToast: () => 0,
+    showToast: (input: { title: string; description?: string }) => {
+      toasts.push(input)
+      return 0
+    },
   }))
 
   mock.module("@openhei-ai/util/encode", () => ({
     base64Encode: (value: string) => value,
+    checksum: () => "sum",
   }))
 
   mock.module("@/context/local", () => ({
@@ -129,6 +149,12 @@ beforeAll(async () => {
   mock.module("@/context/platform", () => ({
     usePlatform: () => ({
       fetch: fetch,
+      platform: "desktop",
+      storage: () => ({
+        getItem: async () => null,
+        setItem: async () => undefined,
+        removeItem: async () => undefined,
+      }),
     }),
   }))
 
@@ -147,7 +173,10 @@ beforeEach(() => {
   createdSessions.length = 0
   sentShell.length = 0
   syncedDirectories.length = 0
+  navigated.length = 0
+  toasts.length = 0
   selected = "/repo/worktree-a"
+  params = {}
 })
 
 describe("prompt submit worktree selection", () => {
@@ -180,5 +209,61 @@ describe("prompt submit worktree selection", () => {
     expect(createdSessions).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
     expect(sentShell).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
     expect(syncedDirectories).toEqual(["/repo/worktree-a", "/repo/worktree-b"])
+  })
+})
+
+describe("prompt submit stale session recovery", () => {
+  test("404 on session.get recreates session and sends", async () => {
+    params = { id: "ses_missing", dir: "/repo/main" }
+    const submit = createPromptSubmit({
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      mode: () => "shell",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+    await submit.handleSubmit(event)
+
+    expect(createdSessions).toEqual(["/repo/main"])
+    expect(sentShell).toEqual(["/repo/main"])
+    expect(navigated.some((x) => x.includes("/session/session-"))).toBe(true)
+    expect(toasts.some((t) => t.title === "prompt.toast.sessionRecovered.title")).toBe(true)
+  })
+
+  test("non-404 on session.get does not recreate", async () => {
+    params = { id: "ses_broken", dir: "/repo/main" }
+    const submit = createPromptSubmit({
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      mode: () => "shell",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+    await submit.handleSubmit(event)
+
+    expect(createdSessions.length).toBe(0)
+    expect(sentShell.length).toBe(0)
+    expect(toasts.some((t) => t.title === "prompt.toast.sessionRecovered.title")).toBe(false)
+    expect(toasts.some((t) => t.title === "prompt.toast.promptSendFailed.title")).toBe(true)
   })
 })

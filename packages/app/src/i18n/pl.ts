@@ -265,6 +265,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "Nie udało się wysłać polecenia",
   "prompt.toast.promptSendFailed.title": "Nie udało się wysłać zapytania",
   "prompt.toast.promptSendFailed.description": "Nie udało się pobrać sesji",
+  "prompt.toast.sessionRecovered.title": "Nie znaleziono sesji",
+  "prompt.toast.sessionRecovered.description": "Nie znaleziono poprzedniej sesji — rozpoczęto nową sesję.",
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "{{enabled}} z {{total}} włączone",
   "dialog.mcp.empty": "Brak skonfigurowanych MCP",

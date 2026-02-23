@@ -264,6 +264,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "فشل إرسال الأمر",
   "prompt.toast.promptSendFailed.title": "فشل إرسال الموجه",
   "prompt.toast.promptSendFailed.description": "تعذر استرداد الجلسة",
+  "prompt.toast.sessionRecovered.title": "تعذر العثور على الجلسة",
+  "prompt.toast.sessionRecovered.description": "تعذر العثور على الجلسة السابقة، وبدأنا جلسة جديدة.",
   "dialog.mcp.title": "MCPs",
   "dialog.mcp.description": "{{enabled}} من {{total}} مفعل",
   "dialog.mcp.empty": "لم يتم تكوين MCPs",

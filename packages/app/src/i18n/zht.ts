@@ -284,6 +284,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "傳送命令失敗",
   "prompt.toast.promptSendFailed.title": "傳送提示失敗",
   "prompt.toast.promptSendFailed.description": "無法取得工作階段",
+  "prompt.toast.sessionRecovered.title": "找不到工作階段",
+  "prompt.toast.sessionRecovered.description": "找不到先前的工作階段，已開始新的工作階段。",
 
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "已啟用 {{enabled}} / {{total}}",
