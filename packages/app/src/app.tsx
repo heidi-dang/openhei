@@ -1,11 +1,9 @@
 import "@/index.css"
-import { Code } from "@openhei-ai/ui/code"
 import { I18nProvider } from "@openhei-ai/ui/context"
 import { CodeComponentProvider } from "@openhei-ai/ui/context/code"
 import { DialogProvider } from "@openhei-ai/ui/context/dialog"
 import { DiffComponentProvider } from "@openhei-ai/ui/context/diff"
 import { MarkedProvider } from "@openhei-ai/ui/context/marked"
-import { Diff } from "@openhei-ai/ui/diff"
 import { Font } from "@openhei-ai/ui/font"
 import { ThemeProvider } from "@openhei-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
@@ -33,6 +31,8 @@ import { ErrorPage } from "./pages/error"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
+const Diff = lazy(() => import("@openhei-ai/ui/diff").then((m) => ({ default: m.Diff })))
+const Code = lazy(() => import("@openhei-ai/ui/code").then((m) => ({ default: m.Code })))
 const Loading = () => <div class="size-full" />
 
 const HomeRoute = () => (

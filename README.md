@@ -76,6 +76,8 @@ bun run --cwd packages/app dev -- --port 4444
 
 Open `http://localhost:4444`.
 
+PWA install prompts require HTTPS (or `localhost`); see `docs/pwa.md`.
+
 ## Themes
 
 Pick a theme in Settings → Appearance → Theme. This repo includes built-in themes, including `Grok`.

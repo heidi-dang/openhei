@@ -112,7 +112,7 @@ export type PartComponent = Component<MessagePartProps>
 
 export const PART_MAPPING: Record<string, PartComponent | undefined> = {}
 
-const TEXT_RENDER_THROTTLE_MS = 100
+const throttleMs = (len: number) => (len > 4000 ? 300 : len > 2000 ? 200 : 100)
 
 function createThrottledValue(getValue: () => string) {
   const [value, setValue] = createSignal(getValue())
@@ -123,7 +123,7 @@ function createThrottledValue(getValue: () => string) {
     const next = getValue()
     const now = Date.now()
 
-    const remaining = TEXT_RENDER_THROTTLE_MS - (now - last)
+    const remaining = throttleMs(next.length) - (now - last)
     if (remaining <= 0) {
       if (timeout) {
         clearTimeout(timeout)
@@ -1162,7 +1162,9 @@ PART_MAPPING["reasoning"] = function ReasoningPartDisplay(props) {
   return (
     <Show when={throttledText()}>
       <div data-component="reasoning-part">
-        <Markdown text={throttledText()} cacheKey={part.id} />
+        <div data-slot="reasoning-part-scroll" data-scrollable>
+          <Markdown text={throttledText()} cacheKey={part.id} />
+        </div>
       </div>
     </Show>
   )
