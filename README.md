@@ -99,6 +99,8 @@ Learn more about [agents](https://openhei.ai/docs/agents).
 
 For more info on how to configure OpenHei, [**head over to our docs**](https://openhei.ai/docs).
 
+If you're new, start here: [OpenHei Architecture (User View)](./docs/architecture-user.md) (what v2 improves: faster startup, smoother streaming, better reconnect).
+
 ## Contributing
 
 If you're interested in contributing to OpenHei, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
