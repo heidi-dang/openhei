@@ -43,9 +43,18 @@ export namespace Installation {
   export type Info = z.infer<typeof Info>
 
   export async function info() {
+    if (isLocal()) {
+      return {
+        version: VERSION,
+        latest: VERSION,
+      }
+    }
     return {
       version: VERSION,
-      latest: await latest(),
+      latest: await latest().catch((err) => {
+        log.warn("failed to check latest", { error: err })
+        return VERSION
+      }),
     }
   }
 

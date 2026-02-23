@@ -2,12 +2,15 @@ import { describe, expect, mock, test } from "bun:test"
 import { Project } from "../../src/project/project"
 import { Log } from "../../src/util/log"
 import { $ } from "bun"
+import fs from "fs/promises"
 import path from "path"
-import { tmpdir } from "../fixture/fixture"
+import { hasGit, tmpdir } from "../fixture/fixture"
 import { Filesystem } from "../../src/util/filesystem"
 import { GlobalBus } from "../../src/bus/global"
 
 Log.init({ print: false })
+
+process.env.OPENHEI_FAKE_VCS = "git"
 
 const gitModule = await import("../../src/util/git")
 const originalGit = gitModule.git
@@ -69,7 +72,7 @@ describe("Project.fromDirectory", () => {
   test("should handle git repository with no commits", async () => {
     const p = await loadProject()
     await using tmp = await tmpdir()
-    await $`git init`.cwd(tmp.path).quiet()
+    await fs.mkdir(path.join(tmp.path, ".git"), { recursive: true })
 
     const { project } = await p.fromDirectory(tmp.path)
 
@@ -102,7 +105,7 @@ describe("Project.fromDirectory", () => {
   test("keeps git vcs when rev-list exits non-zero with empty output", async () => {
     const p = await loadProject()
     await using tmp = await tmpdir()
-    await $`git init`.cwd(tmp.path).quiet()
+    await fs.mkdir(path.join(tmp.path, ".git"), { recursive: true })
 
     await withMode("rev-list-fail", async () => {
       const { project } = await p.fromDirectory(tmp.path)
@@ -149,7 +152,7 @@ describe("Project.fromDirectory with worktrees", () => {
     expect(project.sandboxes).not.toContain(tmp.path)
   })
 
-  test("should set worktree to root when called from a worktree", async () => {
+  test.skipIf(!hasGit())("should set worktree to root when called from a worktree", async () => {
     const p = await loadProject()
     await using tmp = await tmpdir({ git: true })
 
@@ -171,7 +174,7 @@ describe("Project.fromDirectory with worktrees", () => {
     }
   })
 
-  test("should accumulate multiple worktrees in sandboxes", async () => {
+  test.skipIf(!hasGit())("should accumulate multiple worktrees in sandboxes", async () => {
     const p = await loadProject()
     await using tmp = await tmpdir({ git: true })
 

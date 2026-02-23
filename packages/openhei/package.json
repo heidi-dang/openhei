@@ -10,7 +10,6 @@
     "test": "bun test --timeout 30000",
     "build": "bun run script/build.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",
-    "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
     "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
     "lint": "echo 'Running lint checks...' && bun test --coverage",
     "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
@@ -21,7 +20,6 @@
   "bin": {
     "openhei": "./bin/openhei"
   },
-  "randomField": "this-is-a-random-value-12345",
   "exports": {
     "./*": "./src/*.ts"
   },
@@ -117,6 +115,7 @@
     "mime-types": "3.0.2",
     "minimatch": "10.0.3",
     "open": "10.1.2",
+    "openhei-openai-codex-auth": "workspace:*",
     "opentui-spinner": "0.0.6",
     "partial-json": "0.1.7",
     "remeda": "catalog:",

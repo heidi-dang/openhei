@@ -96,7 +96,7 @@ export namespace Project {
             id: id ?? "global",
             worktree: sandbox,
             sandbox: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.OPENHEI_FAKE_VCS),
+            vcs: Info.shape.vcs.parse(process.env["OPENHEI_FAKE_VCS"]),
           }
         }
 
@@ -119,7 +119,7 @@ export namespace Project {
               id: "global",
               worktree: sandbox,
               sandbox: sandbox,
-              vcs: Info.shape.vcs.parse(Flag.OPENHEI_FAKE_VCS),
+              vcs: Info.shape.vcs.parse(process.env["OPENHEI_FAKE_VCS"]),
             }
           }
 
@@ -149,7 +149,7 @@ export namespace Project {
             id,
             sandbox,
             worktree: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.OPENHEI_FAKE_VCS),
+            vcs: Info.shape.vcs.parse(process.env["OPENHEI_FAKE_VCS"]),
           }
         }
 
@@ -170,7 +170,7 @@ export namespace Project {
             id,
             sandbox,
             worktree: sandbox,
-            vcs: Info.shape.vcs.parse(Flag.OPENHEI_FAKE_VCS),
+            vcs: Info.shape.vcs.parse(process.env["OPENHEI_FAKE_VCS"]),
           }
         }
 
@@ -186,7 +186,7 @@ export namespace Project {
         id: "global",
         worktree: "/",
         sandbox: "/",
-        vcs: Info.shape.vcs.parse(Flag.OPENHEI_FAKE_VCS),
+        vcs: Info.shape.vcs.parse(process.env["OPENHEI_FAKE_VCS"]),
       }
     })
 

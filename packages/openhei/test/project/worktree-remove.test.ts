@@ -5,10 +5,10 @@ import path from "path"
 import { Instance } from "../../src/project/instance"
 import { Worktree } from "../../src/worktree"
 import { Filesystem } from "../../src/util/filesystem"
-import { tmpdir } from "../fixture/fixture"
+import { hasGit, tmpdir } from "../fixture/fixture"
 
 describe("Worktree.remove", () => {
-  test("continues when git remove exits non-zero after detaching", async () => {
+  test.skipIf(!hasGit())("continues when git remove exits non-zero after detaching", async () => {
     await using tmp = await tmpdir({ git: true })
     const root = tmp.path
     const name = `remove-regression-${Date.now().toString(36)}`

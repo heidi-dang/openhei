@@ -27,10 +27,30 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
+import { WorkflowTool } from "./workflow"
 import { Glob } from "../util/glob"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
+
+  function failed(id: string, file: string, err: unknown): Tool.Info {
+    const message = err instanceof Error ? err.message : String(err)
+    return {
+      id,
+      init: async (initCtx) => ({
+        description: `Failed to load tool '${id}'. Fix or install dependencies for: ${file}`,
+        parameters: z.object({}).passthrough(),
+        execute: async () => {
+          const out = await Truncate.output(message, {}, initCtx?.agent)
+          return {
+            title: "",
+            output: out.truncated ? out.content : message,
+            metadata: { truncated: out.truncated, outputPath: out.truncated ? out.outputPath : undefined },
+          }
+        },
+      }),
+    }
+  }
 
   export const state = Instance.state(async () => {
     const custom = [] as Tool.Info[]
@@ -43,9 +63,14 @@ export namespace ToolRegistry {
     if (matches.length) await Config.waitForDependencies()
     for (const match of matches) {
       const namespace = path.basename(match, path.extname(match))
-      const mod = await import(match)
-      for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
-        custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+      try {
+        const mod = await import(match)
+        for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+          custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+        }
+      } catch (err) {
+        log.warn("failed to import tool", { file: match, error: err })
+        custom.push(failed(namespace, match, err))
       }
     }
 
@@ -115,6 +140,7 @@ export namespace ToolRegistry {
       CodeSearchTool,
       SkillTool,
       ApplyPatchTool,
+      WorkflowTool,
       ...(Flag.OPENHEI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.OPENHEI_EXPERIMENTAL_PLAN_MODE && Flag.OPENHEI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),

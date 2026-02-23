@@ -1,0 +1,83 @@
+{
+  "$schema": "https://openhei.ai/desktop-theme.json",
+  "id": "grok",
+  "name": "Grok",
+  "dark": {
+    "seeds": {
+      "neutral": "#a0a0a0",
+      "primary": "#a78bfa",
+      "success": "#34d399",
+      "warning": "#fbbf24",
+      "error": "#f87171",
+      "info": "#60a5fa",
+      "interactive": "#8b5cf6",
+      "diffAdd": "#6ee7b7",
+      "diffDelete": "#fca5a5",
+      "background": "#000000",
+      "text": "#f0f0f0"
+    },
+    "overrides": {
+      "background-base": "#000000",
+      "background-weak": "#0a0a0a",
+      "background-strong": "#111111",
+      "surface-base": "#111111",
+      "surface-base-hover": "#1a1a1a",
+      "surface-raised-base": "#1f1f1f",
+      "surface-float-base": "#0f0f0f",
+      "surface-strong": "#1a1a1a",
+      "text-base": "#f0f0f0",
+      "text-weak": "#a0a0a0",
+      "text-strong": "#e0e0e0",
+      "input-base": "#111111",
+      "input-hover": "#1a1a1a",
+      "input-focus": "#2a2a2a",
+      "border-base": "#222222",
+      "border-weak-base": "#333333",
+      "icon-base": "#a0a0a0",
+      "icon-interactive-base": "#a78bfa",
+      "icon-success-base": "#34d399",
+      "icon-warning-base": "#fbbf24",
+      "icon-critical-base": "#f87171",
+      "icon-info-base": "#60a5fa"
+    }
+  },
+  "light": {
+    "seeds": {
+      "neutral": "#6b7280",
+      "primary": "#7c3aed",
+      "success": "#10b981",
+      "warning": "#f59e0b",
+      "error": "#ef4444",
+      "info": "#3b82f6",
+      "interactive": "#6366f1",
+      "diffAdd": "#6ee7b7",
+      "diffDelete": "#fca5a5",
+      "background": "#f9fafb",
+      "text": "#111827"
+    },
+    "overrides": {
+      "background-base": "#f9fafb",
+      "background-weak": "#f3f4f6",
+      "background-strong": "#ffffff",
+      "surface-base": "#ffffff",
+      "surface-base-hover": "#f3f4f6",
+      "surface-raised-base": "#f9fafb",
+      "surface-float-base": "#ffffff",
+      "surface-strong": "#ffffff",
+      "text-base": "#111827",
+      "text-weak": "#6b7280",
+      "text-strong": "#1f2937",
+      "input-base": "#ffffff",
+      "input-hover": "#f3f4f6",
+      "input-focus": "#e5e7eb",
+      "border-base": "#d1d5db",
+      "border-weak-base": "#e5e7eb",
+      "icon-base": "#6b7280",
+      "icon-interactive-base": "#6366f1",
+      "icon-success-base": "#10b981",
+      "icon-warning-base": "#f59e0b",
+      "icon-critical-base": "#ef4444",
+      "icon-info-base": "#3b82f6"
+    }
+  }
+}

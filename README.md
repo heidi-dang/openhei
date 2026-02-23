@@ -1,15 +1,11 @@
-
-
 <p align="center">
   <a href="https://openhei.ai">
-    <picture>
-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenHei logo">
-    </picture>
+    <img src="packages/ui/src/assets/images/social-share.png" alt="OpenHei — The AI Terminal" width="860" />
   </a>
 </p>
-<p align="center">The open source AI coding agent.</p>
+
+<p align="center">The open-source AI terminal for coding, debugging, and shipping.</p>
+
 <p align="center">
   <a href="https://openhei.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/openhei-ai"><img alt="npm" src="https://img.shields.io/npm/v/openhei-ai?style=flat-square" /></a>
@@ -39,65 +35,52 @@
   <a href="README.bn.md">বাংলা</a>
 </p>
 
-[![OpenHei Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://openhei.ai)
-
 ---
 
-### Installation
+## Install
 
 ```bash
-# YOLO
+# One-line install
 curl -fsSL https://openhei.ai/install | bash
 
 # Package managers
-npm i -g openhei-ai@latest        # or bun/pnpm/yarn
-scoop install openhei             # Windows
-choco install openhei             # Windows
-brew install anomalyco/tap/openhei # macOS and Linux (recommended, always up to date)
-brew install openhei              # macOS and Linux (official brew formula, updated less)
-sudo pacman -S openhei            # Arch Linux (Stable)
-paru -S openhei-bin               # Arch Linux (Latest from AUR)
-mise use -g openhei               # Any OS
-nix run nixpkgs#openhei           # or github:heidi-dang/openhei for latest dev branch
+npm i -g openhei-ai@latest  # or bun/pnpm/yarn
+brew install anomalyco/tap/openhei
 ```
 
-> [!TIP]
-> Remove versions older than 0.1.x before installing.
-
-### Desktop App (BETA)
-
-OpenHei is also available as a desktop application. Download directly from the [releases page](https://github.com/heidi-dang/openhei/releases) or [openhei.ai/download](https://openhei.ai/download).
-
-| Platform              | Download                              |
-| --------------------- | ------------------------------------- |
-| macOS (Apple Silicon) | `openhei-desktop-darwin-aarch64.dmg` |
-| macOS (Intel)         | `openhei-desktop-darwin-x64.dmg`     |
-| Windows               | `openhei-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm`, or AppImage           |
+## Local dev (from this repo)
 
 ```bash
-# macOS (Homebrew)
-brew install --cask openhei-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/openhei-desktop
+# Install OpenHei from the local repo
+./install.sh -repo-local --no-modify-path
+
+# Fast reruns
+./install.sh -repo-local --reuse-build --skip-install --skip-build --no-modify-path
+
+# Symlink install
+./install.sh -repo-local --reuse-build --skip-install --skip-build --no-modify-path --link
+
+# Benchmark installer performance
+./scripts/bench-install.sh
 ```
 
-#### Installation Directory
-
-The install script respects the following priority order for the installation path:
-
-1. `$OPENHEI_INSTALL_DIR` - Custom installation directory
-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
-3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
-4. `$HOME/.openhei/bin` - Default fallback
+### Run the backend + app locally
 
 ```bash
-# Examples
-OPENHEI_INSTALL_DIR=/usr/local/bin curl -fsSL https://openhei.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://openhei.ai/install | bash
+# Backend (API) from packages/openhei
+bun run --cwd packages/openhei --conditions=browser ./src/index.ts serve --port 4096
+
+# App (dashboard) from packages/app
+bun run --cwd packages/app dev -- --port 4444
 ```
 
-### Agents
+Open `http://localhost:4444`.
+
+## Themes
+
+Pick a theme in Settings → Appearance → Theme. This repo includes built-in themes, including `Grok`.
+
+## Agents
 
 OpenHei includes two built-in agents you can switch between with the `Tab` key.
 
@@ -112,19 +95,21 @@ This is used internally and can be invoked using `@general` in messages.
 
 Learn more about [agents](https://openhei.ai/docs/agents).
 
-### Documentation
+## Docs
 
 For more info on how to configure OpenHei, [**head over to our docs**](https://openhei.ai/docs).
 
-### Contributing
+If you're new, start here: [OpenHei Architecture (User View)](./docs/architecture-user.md) (what v2 improves: faster startup, smoother streaming, better reconnect).
+
+## Contributing
 
 If you're interested in contributing to OpenHei, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
 
-### Building on OpenHei
+## Building On OpenHei
 
 If you are working on a project that's related to OpenHei and is using "openhei" as part of its name, for example "openhei-dashboard" or "openhei-mobile", please add a note to your README to clarify that it is not built by the OpenHei team and is not affiliated with us in any way.
 
-### FAQ
+## FAQ
 
 #### How is this different from Claude Code?
 
