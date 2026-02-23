@@ -268,7 +268,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         .then(() => {
           // Ensure messages are synced after shell command
           if (session.id) {
-            debouncedSync(session.id, () => sync.session.sync(session.id))
+            debouncedSync(session.id, () => (sync.session.sync ? sync.session.sync(session.id) : Promise.resolve()))
           }
         })
         .catch((err) => {
@@ -306,7 +306,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           .then(() => {
             // Ensure messages are synced after custom command
             if (session.id) {
-              debouncedSync(session.id, () => sync.session.sync(session.id))
+              debouncedSync(session.id, () => (sync.session.sync ? sync.session.sync(session.id) : Promise.resolve()))
             }
           })
           .catch((err) => {
@@ -432,7 +432,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         // Ensure messages are synced after sending prompt
         // This provides a fallback in case SSE events are delayed/not received
         if (session.id) {
-          debouncedSync(session.id, () => sync.session.sync(session.id))
+          debouncedSync(session.id, () => (sync.session.sync ? sync.session.sync(session.id) : Promise.resolve()))
         }
       } catch (e) {
         // Let the existing error handler deal with this

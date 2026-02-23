@@ -61,9 +61,9 @@
     "@openhei-ai/plugin": "workspace:*",
     "@openhei-ai/sdk": "workspace:*",
     "@types/node": "^24.6.2",
-    "@vitest/ui": "^3.2.4",
+    "@vitest/ui": "^4.0.18",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.18"
   },
   "overrides": {
     "hono": "^4.10.4",
