@@ -6,6 +6,7 @@ import { createSimpleContext } from "@openhei-ai/ui/context"
 import { useGlobalSync } from "./global-sync"
 import { useSDK } from "./sdk"
 import type { Message, Part } from "@openhei-ai/sdk/v2/client"
+import { isNotFoundError } from "@/utils/api-error"
 
 function sortParts(parts: Part[]) {
   return parts.filter((part) => !!part?.id).sort((a, b) => cmp(a.id, b.id))
@@ -241,11 +242,27 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const count = store.message[sessionID]?.length ?? 0
           const limit = hydrated ? (meta.limit[key] ?? messagePageSize) : limitFor(count)
 
-          const sessionReq = hasSession
-            ? Promise.resolve()
-            : retry(() => client.session.get({ sessionID })).then((session) => {
-                const data = session.data
-                if (!data) return
+          return runInflight(inflight, key, async () => {
+            if (!hasSession) {
+              const data = await retry(() => client.session.get({ sessionID }))
+                .then((session) => session.data)
+                .catch((err) => {
+                  if (!isNotFoundError(err)) throw err
+                  setStore(
+                    produce((draft) => {
+                      const match = Binary.search(draft.session, sessionID, (s) => s.id)
+                      if (match.found) draft.session.splice(match.index, 1)
+                      delete draft.message[sessionID]
+                      delete draft.session_diff[sessionID]
+                      delete draft.todo[sessionID]
+                      delete draft.permission[sessionID]
+                      delete draft.question[sessionID]
+                      delete draft.session_status[sessionID]
+                    }),
+                  )
+                  throw err
+                })
+              if (data) {
                 setStore(
                   "session",
                   produce((draft) => {
@@ -257,20 +274,18 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                     draft.splice(match.index, 0, data)
                   }),
                 )
-              })
+              }
+            }
 
-          const messagesReq =
-            hasMessages && hydrated
-              ? Promise.resolve()
-              : loadMessages({
-                  directory,
-                  client,
-                  setStore,
-                  sessionID,
-                  limit,
-                })
-
-          return runInflight(inflight, key, () => Promise.all([sessionReq, messagesReq]).then(() => {}))
+            if (hasMessages && hydrated) return
+            await loadMessages({
+              directory,
+              client,
+              setStore,
+              sessionID,
+              limit,
+            })
+          })
         },
         async diff(sessionID: string) {
           const directory = sdk.directory

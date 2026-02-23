@@ -284,6 +284,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "Не удалось отправить команду",
   "prompt.toast.promptSendFailed.title": "Не удалось отправить запрос",
   "prompt.toast.promptSendFailed.description": "Не удалось получить сессию",
+  "prompt.toast.sessionRecovered.title": "Сессия не найдена",
+  "prompt.toast.sessionRecovered.description": "Предыдущая сессия не найдена — начата новая сессия.",
 
   "dialog.mcp.title": "MCP",
   "dialog.mcp.description": "{{enabled}} из {{total}} включено",

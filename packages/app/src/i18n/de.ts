@@ -270,6 +270,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "Befehl konnte nicht gesendet werden",
   "prompt.toast.promptSendFailed.title": "Eingabe konnte nicht gesendet werden",
   "prompt.toast.promptSendFailed.description": "Sitzung konnte nicht abgerufen werden",
+  "prompt.toast.sessionRecovered.title": "Sitzung nicht gefunden",
+  "prompt.toast.sessionRecovered.description": "Die vorherige Sitzung wurde nicht gefunden – eine neue Sitzung wurde gestartet.",
   "dialog.mcp.title": "MCPs",
   "dialog.mcp.description": "{{enabled}} von {{total}} aktiviert",
   "dialog.mcp.empty": "Keine MCPs konfiguriert",

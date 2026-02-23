@@ -284,6 +284,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "ไม่สามารถส่งคำสั่ง",
   "prompt.toast.promptSendFailed.title": "ไม่สามารถส่งพร้อมท์",
   "prompt.toast.promptSendFailed.description": "ไม่สามารถดึงเซสชันได้",
+  "prompt.toast.sessionRecovered.title": "ไม่พบเซสชัน",
+  "prompt.toast.sessionRecovered.description": "ไม่พบเซสชันก่อนหน้า จึงเริ่มเซสชันใหม่ให้แล้ว",
 
   "dialog.mcp.title": "MCPs",
   "dialog.mcp.description": "{{enabled}} จาก {{total}} ที่เปิดใช้งาน",

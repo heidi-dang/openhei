@@ -285,6 +285,8 @@ export const dict = {
   "prompt.toast.commandSendFailed.title": "Neuspješno slanje komande",
   "prompt.toast.promptSendFailed.title": "Neuspješno slanje upita",
   "prompt.toast.promptSendFailed.description": "Nije moguće dohvatiti sesiju",
+  "prompt.toast.sessionRecovered.title": "Sesija nije pronađena",
+  "prompt.toast.sessionRecovered.description": "Prethodna sesija nije pronađena, započeta je nova sesija.",
 
   "dialog.mcp.title": "MCP-ovi",
   "dialog.mcp.description": "{{enabled}} od {{total}} omogućeno",
