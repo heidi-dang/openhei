@@ -24,6 +24,9 @@ export interface Settings {
     releaseNotes: boolean
     showReasoningSummaries: boolean
   }
+  ml: {
+    qloraEnabled: boolean
+  }
   updates: {
     startup: boolean
   }
@@ -44,6 +47,9 @@ const defaultSettings: Settings = {
     autoSave: true,
     releaseNotes: true,
     showReasoningSummaries: false,
+  },
+  ml: {
+    qloraEnabled: false,
   },
   updates: {
     startup: true,
@@ -128,6 +134,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
+        },
+      },
+      ml: {
+        qloraEnabled: withFallback(() => store.ml?.qloraEnabled, defaultSettings.ml.qloraEnabled),
+        setQLoRAEnabled(value: boolean) {
+          setStore("ml", "qloraEnabled", value)
         },
       },
       updates: {

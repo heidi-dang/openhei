@@ -1975,6 +1975,19 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
+              tools={
+                settings.ml.qloraEnabled() ? (
+                  <Tooltip placement="right" value="QLoRA">
+                    <IconButton
+                      icon="brain"
+                      variant="ghost"
+                      size="large"
+                      onClick={() => navigateWithSidebarReset("/qlora")}
+                      aria-label="QLoRA"
+                    />
+                  </Tooltip>
+                ) : undefined
+              }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
@@ -2040,6 +2053,19 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
+              tools={
+                settings.ml.qloraEnabled() ? (
+                  <Tooltip placement="bottom" value="QLoRA">
+                    <IconButton
+                      icon="brain"
+                      variant="ghost"
+                      size="large"
+                      onClick={() => navigateWithSidebarReset("/qlora")}
+                      aria-label="QLoRA"
+                    />
+                  </Tooltip>
+                ) : undefined
+              }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}

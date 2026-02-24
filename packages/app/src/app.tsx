@@ -31,9 +31,11 @@ import { ErrorPage } from "./pages/error"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
+const QLoRA = lazy(() => import("@/pages/qlora"))
 const Updating = lazy(() => import("@/pages/updating"))
 const Diff = lazy(() => import("@openhei-ai/ui/diff").then((m) => ({ default: m.Diff })))
 const Code = lazy(() => import("@openhei-ai/ui/code").then((m) => ({ default: m.Code })))
+
 const Loading = () => <div class="size-full" />
 
 const HomeRoute = () => (
@@ -48,6 +50,12 @@ const SessionRoute = () => (
       <Session />
     </Suspense>
   </SessionProviders>
+)
+
+const QLoRARoute = () => (
+  <Suspense fallback={<Loading />}>
+    <QLoRA />
+  </Suspense>
 )
 
 const SessionIndexRoute = () => <Navigate href="session" />
@@ -159,6 +167,7 @@ export function AppInterface(props: {
               root={(routerProps) => <RouterRoot appChildren={props.children}>{routerProps.children}</RouterRoot>}
             >
               <Route path="/" component={HomeRoute} />
+              <Route path="/qlora" component={QLoRARoute} />
               <Route
                 path="/updating"
                 component={() => (

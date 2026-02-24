@@ -26,7 +26,10 @@ import type { Plugin, PluginInput } from "@openhei-ai/plugin";
 import type { Auth } from "@openhei-ai/sdk";
 import {
 	createAuthorizationFlow,
+	createDeviceAuthorizationFlow,
 	decodeJWT,
+	DEVICE_URL,
+	exchangeDeviceAuthorization,
 	exchangeAuthorizationCode,
 	parseAuthorizationInput,
 	REDIRECT_URI,
@@ -277,6 +280,20 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							},
 						};
 					},
+					},
+					{
+						label: AUTH_LABELS.OAUTH_DEVICE,
+						type: "oauth" as const,
+						authorize: async () => {
+							const flow = await createDeviceAuthorizationFlow();
+							openBrowserUrl(DEVICE_URL);
+							return {
+								url: DEVICE_URL,
+								method: "auto" as const,
+								instructions: `${AUTH_LABELS.INSTRUCTIONS_DEVICE} ${flow.user_code}`,
+								callback: async () => exchangeDeviceAuthorization(flow),
+							};
+						},
 					},
 					{
 						label: AUTH_LABELS.OAUTH_MANUAL,
