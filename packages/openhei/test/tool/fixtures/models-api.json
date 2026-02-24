@@ -14933,8 +14933,8 @@
     "name": "Kimi For Coding",
     "doc": "https://www.kimi.com/coding/docs/en/third-party-agents.html",
     "models": {
-      "k2p5": {
-        "id": "k2p5",
+      "kimi-k2.5": {
+        "id": "kimi-k2.5",
         "name": "Kimi K2.5",
         "family": "kimi-thinking",
         "attachment": false,
@@ -33244,8 +33244,8 @@
         "cost": { "input": 1, "output": 3 },
         "limit": { "context": 128000, "output": 16384 }
       },
-      "accounts/fireworks/models/kimi-k2p5": {
-        "id": "accounts/fireworks/models/kimi-k2p5",
+      "accounts/fireworks/models/kimi-k2.5": {
+        "id": "accounts/fireworks/models/kimi-k2.5",
         "name": "Kimi K2.5",
         "family": "kimi-thinking",
         "attachment": false,
