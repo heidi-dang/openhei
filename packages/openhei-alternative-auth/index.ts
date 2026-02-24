@@ -18,7 +18,7 @@ const ALTERNATIVE_ENDPOINTS: Record<string, string> = {
     [PROVIDERS.DUCKDUCKGO]: "https://duckduckgo.com/duckchat/v1/chat",
     [PROVIDERS.PERPLEXITY]: "https://www.perplexity.ai/api/v1/chat/completions",
     [PROVIDERS.MISTRAL]: "https://chat.mistral.ai/api/chat/completions",
-    [PROVIDERS.CLAUDE]: "https://claude.ai/api/organizations/${ORG_ID}/chat_sequences",
+    [PROVIDERS.CLAUDE]: "https://claude.ai/api",
     [PROVIDERS.VENICE]: "https://api.venice.ai/api/v1/chat/completions",
     [PROVIDERS.M_COPILOT]: "https://copilot.microsoft.com/api/chat",
 };
@@ -93,7 +93,15 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
 
                         const executeRequest = async (retryOn429 = true): Promise<Response> => {
                             const currentAuth = await getAuth();
-                            const url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input : input.url);
+                            let url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input.toString() : input.url);
+
+                            // Special handling for Claude to avoid invalid endpoint joins
+                            if (providerID === PROVIDERS.CLAUDE) {
+                                if (url.endsWith("/complete") || url.endsWith("/messages")) {
+                                    // Default organization for now, can be extracted from cookies in future
+                                    url = "https://claude.ai/api/organizations/default/chat_sequences";
+                                }
+                            }
 
                             // Initialize options from init or input
                             const options: RequestInit = { ...init };
@@ -114,9 +122,11 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                             if (providerID === PROVIDERS.DUCKDUCKGO) {
                                 if (ddgVqd) headers.set("x-vqd-4", ddgVqd);
                             } else if (currentAuth) {
-                                // Clear placeholder keys that might have been injected by the core to satisfy SDK validation
+                                // Clear placeholder keys that might have been injected by the core
                                 headers.delete("x-api-key");
                                 headers.delete("api-key");
+                                headers.delete("anthropic-api-key");
+                                headers.delete("authorization");
 
                                 if (providerID === PROVIDERS.PERPLEXITY && currentAuth.type === "api") {
                                     headers.set("Authorization", `Bearer ${currentAuth.key}`);
@@ -224,7 +234,7 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                     authorize: async () => {
                         return {
                             provider: PROVIDERS.VENICE,
-                            url: "https://venice.ai/login",
+                            url: "https://venice.ai/sign-in",
                             method: "code" as const,
                             instructions: "Login to Venice AI and paste the authorization code here.",
                             callback: async (input: string) => {
