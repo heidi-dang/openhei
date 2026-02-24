@@ -15,6 +15,7 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return
           if (id.includes("katex")) return "katex"
+          if (id.includes("@pierre/diffs")) return "diffs"
           if (id.includes("@opentui")) return "opentui"
           return "vendor"
         },

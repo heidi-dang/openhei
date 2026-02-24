@@ -10,7 +10,7 @@ import { ProviderIcon } from "@openhei-ai/ui/provider-icon"
 import { Spinner } from "@openhei-ai/ui/spinner"
 import { TextField } from "@openhei-ai/ui/text-field"
 import { showToast } from "@openhei-ai/ui/toast"
-import { createMemo, Match, onCleanup, onMount, Switch } from "solid-js"
+import { createMemo, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { Link } from "@/components/link"
 import { useLanguage } from "@/context/language"
@@ -26,6 +26,12 @@ export function DialogConnectProvider(props: { provider: string }) {
   const globalSDK = useGlobalSDK()
   const platform = usePlatform()
   const language = useLanguage()
+
+  const local = () => {
+    if (typeof window === "undefined") return true
+    const host = window.location.hostname
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+  }
 
   const alive = { value: true }
   const timer = { current: undefined as ReturnType<typeof setTimeout> | undefined }
@@ -249,7 +255,26 @@ export function DialogConnectProvider(props: { provider: string }) {
             key={(i) => i?.m?.label}
             onSelect={async (selected, index) => {
               if (!selected) return
-              selectMethod(selected.index)
+              if (props.provider === "openai" && !local()) {
+                const m = methods()[index]
+                const label = (m?.label ?? "").toLowerCase()
+                if (m?.type === "oauth" && label.includes("browser")) {
+                  showToast({
+                    variant: "error",
+                    title: "Use headless login",
+                    description:
+                      "The browser login redirects to localhost (this device) and will 404 on mobile/remote. Select the headless method instead.",
+                  })
+                  const headless = methods().findIndex(
+                    (x) => x.type === "oauth" && (x.label ?? "").toLowerCase().includes("headless"),
+                  )
+                  if (headless !== -1) {
+                    selectMethod(headless)
+                  }
+                  return
+                }
+              }
+              selectMethod(index)
             }}
           >
             {(i) => (
@@ -262,6 +287,11 @@ export function DialogConnectProvider(props: { provider: string }) {
             )}
           </List>
         </div>
+        <Show when={props.provider === "openai" && !local()}>
+          <div class="text-12-regular text-text-weak">
+            Mobile/remote login: choose the headless method (device code). The browser method redirects to localhost.
+          </div>
+        </Show>
       </>
     )
   }
@@ -439,6 +469,14 @@ export function DialogConnectProvider(props: { provider: string }) {
       })()
     })
 
+    const showCode = createMemo(() => {
+      const value = code()
+      if (!value) return false
+      if (value.length > 32) return false
+      if (value.includes(" ")) return false
+      return true
+    })
+
     return (
       <div class="flex flex-col gap-6">
         <div class="text-14-regular text-text-base">
@@ -446,13 +484,15 @@ export function DialogConnectProvider(props: { provider: string }) {
           <Link href={store.authorization!.url}>{language.t("provider.connect.oauth.auto.visit.link")}</Link>
           {language.t("provider.connect.oauth.auto.visit.suffix", { provider: provider().name })}
         </div>
-        <TextField
-          label={language.t("provider.connect.oauth.auto.confirmationCode")}
-          class="font-mono"
-          value={code()}
-          readOnly
-          copyable
-        />
+        <Show when={showCode()}>
+          <TextField
+            label={language.t("provider.connect.oauth.auto.confirmationCode")}
+            class="font-mono"
+            value={code()}
+            readOnly
+            copyable
+          />
+        </Show>
         <div class="text-14-regular text-text-base flex items-center gap-4">
           <Spinner />
           <span>{language.t("provider.connect.status.waiting")}</span>

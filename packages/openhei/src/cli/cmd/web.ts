@@ -42,6 +42,8 @@ export const WebCommand = cmd({
     UI.println(UI.logo("  "))
     UI.empty()
 
+    const shouldOpen = process.env.OPENHEI_NO_OPEN !== "1"
+
     if (opts.hostname === "0.0.0.0") {
       // Show localhost for local access
       const localhostUrl = `http://localhost:${server.port}`
@@ -67,12 +69,16 @@ export const WebCommand = cmd({
         )
       }
 
-      // Open localhost in browser
-      open(localhostUrl.toString()).catch(() => {})
+      if (shouldOpen) {
+        // Open localhost in browser
+        open(localhostUrl.toString()).catch(() => {})
+      }
     } else {
       const displayUrl = server.url.toString()
       UI.println(UI.Style.TEXT_INFO_BOLD + "  Web interface:    ", UI.Style.TEXT_NORMAL, displayUrl)
-      open(displayUrl).catch(() => {})
+      if (shouldOpen) {
+        open(displayUrl).catch(() => {})
+      }
     }
 
     await new Promise(() => {})

@@ -12,7 +12,7 @@ import {
   untrack,
   type JSX,
 } from "solid-js"
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useLocation, useNavigate, useParams } from "@solidjs/router"
 import { useLayout, LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
@@ -54,6 +54,7 @@ import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
 import { DialogEditProject } from "@/components/dialog-edit-project"
 import { Titlebar } from "@/components/titlebar"
+import { Pwa } from "@/components/pwa"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
 import {
@@ -106,6 +107,7 @@ export default function Layout(props: ParentProps) {
   const notification = useNotification()
   const permission = usePermission()
   const navigate = useNavigate()
+  const location = useLocation()
   const providers = useProviders()
   const dialog = useDialog()
   const command = useCommand()
@@ -298,8 +300,8 @@ export default function Layout(props: ParentProps) {
               {
                 label: language.t("toast.update.action.installRestart"),
                 onClick: async () => {
-                  await platform.update!()
-                  await platform.restart!()
+                  const ret = `${location.pathname}${location.search}${location.hash}`
+                  navigate(`/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(version ?? "")}`)
                 },
               },
               {
@@ -1926,6 +1928,7 @@ export default function Layout(props: ParentProps) {
   return (
     <div class="relative bg-background-base flex-1 min-h-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
+      <Pwa />
       <div class="flex-1 min-h-0 flex">
         <nav
           aria-label={language.t("sidebar.nav.projectsAndSessions")}

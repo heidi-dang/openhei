@@ -7,6 +7,7 @@ import { Switch } from "@openhei-ai/ui/switch"
 import { Tooltip } from "@openhei-ai/ui/tooltip"
 import { useTheme, type ColorScheme } from "@openhei-ai/ui/theme"
 import { showToast } from "@openhei-ai/ui/toast"
+import { useLocation, useNavigate } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSettings, monoFontFamily } from "@/context/settings"
@@ -42,6 +43,8 @@ export const SettingsGeneral: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
   const settings = useSettings()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [store, setStore] = createStore({
     checking: false,
@@ -66,27 +69,28 @@ export const SettingsGeneral: Component = () => {
           return
         }
 
-        const actions =
-          platform.update && platform.restart
-            ? [
-                {
-                  label: language.t("toast.update.action.installRestart"),
-                  onClick: async () => {
-                    await platform.update!()
-                    await platform.restart!()
-                  },
+        const actions = platform.update
+          ? [
+              {
+                label: language.t("toast.update.action.installRestart"),
+                onClick: async () => {
+                  const ret = `${location.pathname}${location.search}${location.hash}`
+                  navigate(
+                    `/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(result.version ?? "")}`,
+                  )
                 },
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
-            : [
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
+              },
+              {
+                label: language.t("toast.update.action.notYet"),
+                onClick: "dismiss" as const,
+              },
+            ]
+          : [
+              {
+                label: language.t("toast.update.action.notYet"),
+                onClick: "dismiss" as const,
+              },
+            ]
 
         showToast({
           persistent: true,
