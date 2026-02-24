@@ -145,9 +145,10 @@ export function DialogConnectProvider(props: { provider: string }) {
       method.label?.toLowerCase().includes("codex subscription")
     ) {
       showToast({
-        variant: "warning",
+        variant: "error",
         title: "May not work from mobile",
-        description: "This flow redirects to localhost:1455 on the device you open it on. Use Device Code or Manual URL Paste if you're not on the OpenHei machine.",
+        description:
+          "This flow redirects to localhost:1455 on the device you open it on. Use Device Code or Manual URL Paste if you're not on the OpenHei machine.",
       })
     }
 
@@ -251,8 +252,8 @@ export function DialogConnectProvider(props: { provider: string }) {
               if (!selected) return
               if (props.provider === "openai" && !local()) {
                 const m = methods()[index]
-                const label = (m?.label ?? "").toLowerCase()
-                if (m?.type === "oauth" && label.includes("browser")) {
+                const label = (m.m?.label ?? "").toLowerCase()
+                if (m.m?.type === "oauth" && label.includes("browser")) {
                   showToast({
                     variant: "error",
                     title: "Use headless login",
@@ -260,7 +261,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                       "The browser login redirects to localhost (this device) and will 404 on mobile/remote. Select the headless method instead.",
                   })
                   const headless = methods().findIndex(
-                    (x) => x.type === "oauth" && (x.label ?? "").toLowerCase().includes("headless"),
+                    (x) => x.m.type === "oauth" && (x.m.label ?? "").toLowerCase().includes("headless"),
                   )
                   if (headless !== -1) {
                     selectMethod(headless)
@@ -276,7 +277,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                 <div class="w-4 h-2 rounded-[1px] bg-input-base shadow-xs-border-base flex items-center justify-center">
                   <div class="w-2.5 h-0.5 ml-0 bg-icon-strong-base hidden" data-slot="list-item-extra-icon" />
                 </div>
-                <span>{methodLabel(i()?.m)}</span>
+                <span>{methodLabel(i.m)}</span>
               </div>
             )}
           </List>

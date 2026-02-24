@@ -759,7 +759,7 @@ export const QLoRARoutes = lazy(() =>
         }
         if (input.teacher.openhei_attach_strict) args.push("--openhei-attach-strict")
 
-        const env = {
+        const env: Record<string, string> = {
           TEACHER_WORKERS: String(input.teacher.teacher_workers),
           TEACHER_BATCH_SIZE: String(input.teacher.teacher_batch_size),
           TEACHER_MAX_TOKENS: String(input.teacher.teacher_max_tokens),
