@@ -7,7 +7,17 @@ export const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 export const AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
 export const TOKEN_URL = "https://auth.openai.com/oauth/token";
 export const REDIRECT_URI = "http://localhost:1455/auth/callback";
+export const DEVICE_URL = "https://auth.openai.com/codex/device";
+export const DEVICE_CODE_URL = "https://auth.openai.com/api/accounts/deviceauth/usercode";
+export const DEVICE_TOKEN_URL = "https://auth.openai.com/api/accounts/deviceauth/token";
+export const DEVICE_REDIRECT_URI = "https://auth.openai.com/deviceauth/callback";
 export const SCOPE = "openid profile email offline_access";
+
+export type DeviceAuth = {
+	device_auth_id: string;
+	user_code: string;
+	interval_ms: number;
+};
 
 /**
  * Generate a random state value for OAuth flow
@@ -95,6 +105,52 @@ export async function exchangeAuthorizationCode(
 		refresh: json.refresh_token,
 		expires: Date.now() + json.expires_in * 1000,
 	};
+}
+
+export async function createDeviceAuthorizationFlow(): Promise<DeviceAuth> {
+	const res = await fetch(DEVICE_CODE_URL, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ client_id: CLIENT_ID }),
+	});
+	if (!res.ok) {
+		console.error("[openai-codex-plugin] deviceauth usercode failed:", res.status);
+		throw new Error("Failed to initiate device authorization");
+	}
+	const json = (await res.json()) as { device_auth_id?: string; user_code?: string; interval?: string };
+	if (!json.device_auth_id || !json.user_code) {
+		console.error("[openai-codex-plugin] deviceauth usercode response missing fields:", json);
+		throw new Error("Invalid device authorization response");
+	}
+	const interval = Math.max(parseInt(json.interval || "5") || 5, 1) * 1000;
+	return { device_auth_id: json.device_auth_id, user_code: json.user_code, interval_ms: interval };
+}
+
+export async function exchangeDeviceAuthorization(flow: DeviceAuth): Promise<TokenResult> {
+	const margin = 3000;
+	while (true) {
+		const res = await fetch(DEVICE_TOKEN_URL, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ device_auth_id: flow.device_auth_id, user_code: flow.user_code }),
+		});
+
+		if (res.ok) {
+			const json = (await res.json()) as { authorization_code?: string; code_verifier?: string };
+			if (!json.authorization_code || !json.code_verifier) {
+				console.error("[openai-codex-plugin] deviceauth token response missing fields:", json);
+				return { type: "failed" };
+			}
+			return exchangeAuthorizationCode(json.authorization_code, json.code_verifier, DEVICE_REDIRECT_URI);
+		}
+
+		if (res.status !== 403 && res.status !== 404) {
+			console.error("[openai-codex-plugin] deviceauth token failed:", res.status);
+			return { type: "failed" };
+		}
+
+		await new Promise((r) => setTimeout(r, flow.interval_ms + margin));
+	}
 }
 
 /**
