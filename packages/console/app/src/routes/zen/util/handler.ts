@@ -28,7 +28,6 @@ import { anthropicHelper } from "./provider/anthropic"
 import { googleHelper } from "./provider/google"
 import { openaiHelper } from "./provider/openai"
 import { oaCompatHelper } from "./provider/openai-compatible"
-import { createRateLimiter } from "./rateLimiter"
 import { createDataDumper } from "./dataDumper"
 import { createTrialLimiter } from "./trialLimiter"
 import { createStickyTracker } from "./stickyProviderTracker"
@@ -81,10 +80,10 @@ export async function handler(
     const zenData = ZenData.list(opts.modelList)
     const modelInfo = validateModel(zenData, model)
     const dataDumper = createDataDumper(sessionId, requestId, projectId)
-    const trialLimiter = createTrialLimiter(modelInfo.trial, ip, ocClient)
+    // If model is explicitly free (allowAnonymous) or has zero cost, treat as unlimited
+    const isFreeModel = modelInfo.allowAnonymous === true || (modelInfo.cost && modelInfo.cost.input === 0 && modelInfo.cost.output === 0)
+    const trialLimiter = isFreeModel ? undefined : createTrialLimiter(modelInfo.trial, ip, ocClient)
     const isTrial = await trialLimiter?.isTrial()
-    const rateLimiter = createRateLimiter(modelInfo.rateLimit, ip, input.request.headers)
-    await rateLimiter?.check()
     const stickyTracker = createStickyTracker(modelInfo.stickyProvider, sessionId)
     const stickyProvider = await stickyTracker?.get()
     const authInfo = await authenticate(modelInfo)
@@ -192,10 +191,9 @@ export async function handler(
     // Handle non-streaming response
     if (!isStream) {
       const json = await res.json()
-      const usageInfo = providerInfo.normalizeUsage(json.usage)
-      const costInfo = calculateCost(modelInfo, usageInfo)
-      await trialLimiter?.track(usageInfo)
-      await rateLimiter?.track()
+              const usageInfo = providerInfo.normalizeUsage(json.usage)
+              const costInfo = calculateCost(modelInfo, usageInfo)
+              await trialLimiter?.track(usageInfo)
       await trackUsage(billingSource, authInfo, modelInfo, providerInfo, usageInfo, costInfo)
       await reload(billingSource, authInfo, costInfo)
 
@@ -239,7 +237,6 @@ export async function handler(
                   "timestamp.last_byte": Date.now(),
                 })
                 dataDumper?.flush()
-                await rateLimiter?.track()
                 const usage = usageParser.retrieve()
                 let cost = "0"
                 if (usage) {
@@ -714,6 +711,11 @@ export async function handler(
       "cost.cache_write_1h": cacheWrite1hCost ? Math.round(cacheWrite1hCost) : undefined,
       "cost.total": Math.round(totalCostInCent),
     })
+    // If the model is explicitly free (allowAnonymous) or has zero cost, skip storing usage and billing updates.
+    if (modelInfo.allowAnonymous === true || (modelInfo.cost && modelInfo.cost.input === 0 && modelInfo.cost.output === 0)) {
+      logger.debug("Skipping usage accounting for free model", { model: modelInfo.id })
+      return { costInMicroCents: 0 }
+    }
 
     if (billingSource === "anonymous") return
     authInfo = authInfo!

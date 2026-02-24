@@ -116,6 +116,52 @@ export namespace ZenData {
         Resource.ZEN_MODELS30.value,
     )
     const { models, liteModels, providers, providerFamilies } = ModelsSchema.parse(json)
+    // Inject default free models if they are not present in the ZEN_MODELS secrets.
+    // This ensures a minimal set of free models is available even if secrets were trimmed.
+    const defaultFreeModels: Partial<z.infer<typeof ModelsSchema>> = {
+      models: {
+        "glm-4.7-free": {
+          name: "GLM 4.7 Free",
+          cost: { input: 0, output: 0, cacheRead: 0 },
+          allowAnonymous: true,
+          providers: [{ id: "opencode", model: "glm-4.7" }],
+        },
+        "minimax-m2.1-free": {
+          name: "MiniMax M2.1 Free",
+          cost: { input: 0, output: 0, cacheRead: 0 },
+          allowAnonymous: true,
+          providers: [{ id: "opencode", model: "minimax-m2.1" }],
+        },
+        "kimi-k2.5-free": {
+          name: "Kimi K2.5 Free",
+          cost: { input: 0, output: 0, cacheRead: 0 },
+          allowAnonymous: true,
+          providers: [{ id: "opencode", model: "kimi-k2.5" }],
+        },
+      },
+      providers: {
+        opencode: { api: "https://opencode.ai/zen", format: "oa-compat" },
+      },
+    }
+
+    // Merge defaults into parsed data when keys are missing
+    for (const [id, defModel] of Object.entries(defaultFreeModels.models ?? {})) {
+      if (!(id in models)) {
+        // @ts-ignore - models typing is validated earlier
+        models[id] = defModel as any
+      }
+    }
+    // Also ensure liteModels include the free entries so "lite" model list shows them
+    for (const [id, defModel] of Object.entries(defaultFreeModels.models ?? {})) {
+      if (!(id in liteModels)) {
+        // @ts-ignore - liteModels typing validated earlier
+        liteModels[id] = defModel as any
+      }
+    }
+    if (!("opencode" in providers) && defaultFreeModels.providers) {
+      // @ts-ignore
+      providers.openhei = defaultFreeModels.providers.openhei as any
+    }
     return {
       models: modelList === "lite" ? liteModels : models,
       providers: Object.fromEntries(

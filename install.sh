@@ -430,6 +430,9 @@ install_from_repo() {
     print_message info "\n${MUTED}Building openhei from source...${NC}"
     cd "$SCRIPT_DIR"
 
+    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    export BUN_TMPDIR="${BUN_TMPDIR:-$HOME/.cache/bun/tmp}"
+    mkdir -p "$BUN_INSTALL" "$BUN_TMPDIR"
     # Ensure dependencies are installed
     if [ "$skip_install" != "true" ]; then
         HUSKY=0 bun install
