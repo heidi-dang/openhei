@@ -436,7 +436,7 @@ export const SettingsQLoRA: Component = () => {
   }
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
+    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-3 pb-10 sm:px-10 sm:pb-10 min-w-0">
       <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
         <div class="flex flex-col gap-2 pt-6 pb-6 max-w-[900px]">
           <h2 class="text-16-medium text-text-strong">QLoRA</h2>
@@ -446,7 +446,7 @@ export const SettingsQLoRA: Component = () => {
         </div>
       </div>
 
-      <div class="flex flex-col gap-8 max-w-[900px]">
+      <div class="flex flex-col gap-8 max-w-[900px] min-w-0">
         <div class="bg-surface-raised-base px-4 rounded-lg">
           <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
             <div class="flex flex-col gap-0.5 min-w-0">
@@ -470,8 +470,8 @@ export const SettingsQLoRA: Component = () => {
         </div>
 
         <div class="bg-surface-raised-base px-4 rounded-lg">
-          <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-            <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 py-3 border-b border-border-weak-base overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+            <div class="flex items-center gap-2 min-w-max pr-4 sm:pr-0 sm:min-w-0">
               {activeTabs.map((t) => (
                 <button
                   type="button"
@@ -535,7 +535,7 @@ export const SettingsQLoRA: Component = () => {
                 <TextField
                   value={store.openhei_attach}
                   onChange={(v) => setStore("openhei_attach", v)}
-                  class="w-[320px]"
+                  class="w-full sm:w-[320px] max-w-full"
                 />
               </Row>
 
@@ -570,7 +570,7 @@ export const SettingsQLoRA: Component = () => {
                   value={(x) => x.id}
                   label={(x) => x.id}
                   onSelect={(x) => x && setStore("teacher_model", x.id)}
-                  class="w-[320px] max-w-full"
+                  class="w-full sm:w-[320px] max-w-full"
                   variant="secondary"
                   size="small"
                   triggerVariant="settings"
@@ -588,7 +588,7 @@ export const SettingsQLoRA: Component = () => {
                   value={(x) => x.id}
                   label={(x) => x.id}
                   onSelect={(x) => x && setStore("base_model", x.id)}
-                  class="w-[320px] max-w-full"
+                  class="w-full sm:w-[320px] max-w-full"
                   variant="secondary"
                   size="small"
                   triggerVariant="settings"
@@ -766,7 +766,7 @@ const clampInt = (value: number, min: number, max: number) => {
 
 const Row: Component<any> = (props) => (
   <div class="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-    <div class="flex flex-col gap-0.5 min-w-0">
+    <div class="flex flex-col gap-0.5 min-w-0 flex-1 sm:flex-none">
       <span class="text-14-medium text-text-strong">
         <span class="inline-flex items-center gap-2">
           <span>{props.title}</span>
@@ -797,5 +797,10 @@ const Help: Component<{ text: string }> = (props) => (
 )
 
 const Num: Component<{ value: number; onChange: (v: number) => void }> = (props) => (
-  <TextField type="number" value={String(props.value)} onChange={(v) => props.onChange(Number(v))} class="w-[120px]" />
+  <TextField
+    type="number"
+    value={String(props.value)}
+    onChange={(v) => props.onChange(Number(v))}
+    class="w-full sm:w-[120px]"
+  />
 )
