@@ -14,6 +14,15 @@ const PROVIDERS = {
     M_COPILOT: "microsoft-copilot",
 };
 
+const ALTERNATIVE_ENDPOINTS: Record<string, string> = {
+    [PROVIDERS.DUCKDUCKGO]: "https://duckduckgo.com/duckchat/v1/chat",
+    [PROVIDERS.PERPLEXITY]: "https://www.perplexity.ai/api/v1/chat/completions",
+    [PROVIDERS.MISTRAL]: "https://chat.mistral.ai/api/chat/completions",
+    [PROVIDERS.CLAUDE]: "https://claude.ai/api/organizations/${ORG_ID}/chat_sequences",
+    [PROVIDERS.VENICE]: "https://api.venice.ai/api/v1/chat/completions",
+    [PROVIDERS.M_COPILOT]: "https://copilot.microsoft.com/api/chat",
+};
+
 const ALTERNATIVE_MODELS: Record<string, any> = {
     [PROVIDERS.DUCKDUCKGO]: {
         "gpt-4o-mini": { name: "GPT-4o Mini (DuckChat)" },
@@ -70,6 +79,7 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
 
                 return {
                     models,
+                    baseURL: ALTERNATIVE_ENDPOINTS[providerID] || "http://localhost",
                     async fetch(input: Request | string | URL, init?: RequestInit): Promise<Response> {
                         // --- Proactive Rate Limit Management ---
 
@@ -82,8 +92,23 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                         }
 
                         const executeRequest = async (retryOn429 = true): Promise<Response> => {
-                            const headers = new Headers(init?.headers);
                             const currentAuth = await getAuth();
+                            const url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input : input.url);
+
+                            // Initialize options from init or input
+                            const options: RequestInit = { ...init };
+                            if (input instanceof Request) {
+                                options.method = options.method || input.method;
+                                options.body = options.body || input.body;
+                                // Merge headers
+                                const mergedHeaders = new Headers(input.headers);
+                                if (init?.headers) {
+                                    new Headers(init.headers).forEach((v, k) => mergedHeaders.set(k, v));
+                                }
+                                options.headers = mergedHeaders;
+                            }
+
+                            const headers = new Headers(options.headers);
 
                             // Inject Provider-Specific Auth
                             if (providerID === PROVIDERS.DUCKDUCKGO) {
@@ -98,7 +123,8 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                                 }
                             }
 
-                            const response = await fetch(input, { ...init, headers });
+                            options.headers = headers;
+                            const response = await fetch(url, options);
 
                             // --- Reactive Rate Limit Management (Reset when hit) ---
                             if (response.status === 429 && retryOn429) {
@@ -107,10 +133,6 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                                 if (providerID === PROVIDERS.DUCKDUCKGO) {
                                     await refreshDDGVqd();
                                     return executeRequest(false); // Retry once after reset
-                                }
-
-                                if (currentAuth.type === "oauth") {
-                                    // Trigger token refresh or re-auth signal
                                 }
                             }
 
