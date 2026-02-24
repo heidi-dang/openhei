@@ -1,0 +1,73 @@
+diff --git a/parser.worker.js b/parser.worker.js
+index f4ca47e196a8bfdc65cfec9329853bbfc8a9e7bd..7cf384969e07bf095cede35d7f99d15f9f7fd177 100644
+--- a/parser.worker.js
++++ b/parser.worker.js
+@@ -380,38 +380,43 @@ class ParserWorker {
+       return { captures: injectionMatches, injectionRanges };
+     }
+     const content = parserState.content;
+-    const injectionCaptures = parserState.queries.injections.captures(parserState.tree.rootNode);
++    const matches = parserState.queries.injections.matches(parserState.tree.rootNode);
+     const languageGroups = new Map;
+     const injectionMapping = parserState.injectionMapping;
+-    for (const capture of injectionCaptures) {
+-      const captureName = capture.name;
+-      if (captureName === "injection.content" || captureName.includes("injection")) {
+-        const nodeType = capture.node.type;
+-        let targetLanguage;
+-        if (injectionMapping?.nodeTypes && injectionMapping.nodeTypes[nodeType]) {
+-          targetLanguage = injectionMapping.nodeTypes[nodeType];
+-        } else if (nodeType === "code_fence_content") {
+-          const parent = capture.node.parent;
+-          if (parent) {
+-            const infoString = parent.children.find((child) => child.type === "info_string");
+-            if (infoString) {
+-              const languageNode = infoString.children.find((child) => child.type === "language");
+-              if (languageNode) {
+-                const languageName = this.getNodeText(languageNode, content);
+-                if (injectionMapping?.infoStringMap && injectionMapping.infoStringMap[languageName]) {
+-                  targetLanguage = injectionMapping.infoStringMap[languageName];
+-                } else {
+-                  targetLanguage = languageName;
++    for (const match of matches) {
++      for (const capture of match.captures) {
++        const captureName = capture.name;
++        if (captureName === "injection.content" || captureName.includes("injection")) {
++          const nodeType = capture.node.type;
++          let targetLanguage;
++          if (match.setProperties && match.setProperties["injection.language"]) {
++            targetLanguage = match.setProperties["injection.language"];
++          }
++          if (!targetLanguage && injectionMapping?.nodeTypes && injectionMapping.nodeTypes[nodeType]) {
++            targetLanguage = injectionMapping.nodeTypes[nodeType];
++          } else if (!targetLanguage && nodeType === "code_fence_content") {
++            const parent = capture.node.parent;
++            if (parent) {
++              const infoString = parent.children.find((child) => child.type === "info_string");
++              if (infoString) {
++                const languageNode = infoString.children.find((child) => child.type === "language");
++                if (languageNode) {
++                  const languageName = this.getNodeText(languageNode, content);
++                  if (injectionMapping?.infoStringMap && injectionMapping.infoStringMap[languageName]) {
++                    targetLanguage = injectionMapping.infoStringMap[languageName];
++                  } else {
++                    targetLanguage = languageName;
++                  }
+                 }
+               }
+             }
+           }
+-        }
+-        if (targetLanguage) {
+-          if (!languageGroups.has(targetLanguage)) {
+-            languageGroups.set(targetLanguage, []);
++          if (targetLanguage) {
++            if (!languageGroups.has(targetLanguage)) {
++              languageGroups.set(targetLanguage, []);
++            }
++            languageGroups.get(targetLanguage).push({ node: capture.node, name: capture.name });
+           }
+-          languageGroups.get(targetLanguage).push({ node: capture.node, name: capture.name });
+         }
+       }
+     }
