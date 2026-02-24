@@ -350,152 +350,26 @@ export namespace SessionPrompt {
       // pending subtask
       // TODO: centralize "invoke tool" logic
       if (task?.type === "subtask") {
-        const taskTool = await TaskTool.init()
         const taskModel = task.model ? await Provider.getModel(task.model.providerID, task.model.modelID) : model
-        const assistantMessage = (await Session.updateMessage({
-          id: Identifier.ascending("message"),
-          role: "assistant",
-          parentID: lastUser.id,
-          sessionID,
-          mode: task.agent,
-          agent: task.agent,
-          variant: lastUser.variant,
-          path: {
-            cwd: Instance.directory,
-            root: Instance.worktree,
-          },
-          cost: 0,
-          tokens: {
-            input: 0,
-            output: 0,
-            reasoning: 0,
-            cache: { read: 0, write: 0 },
-          },
-          modelID: taskModel.id,
-          providerID: taskModel.providerID,
-          time: {
-            created: Date.now(),
-          },
-        })) as MessageV2.Assistant
-        let part = (await Session.updatePart({
-          id: Identifier.ascending("part"),
-          messageID: assistantMessage.id,
-          sessionID: assistantMessage.sessionID,
-          type: "tool",
-          callID: ulid(),
-          tool: TaskTool.id,
-          state: {
-            status: "running",
-            input: {
-              prompt: task.prompt,
-              description: task.description,
-              subagent_type: task.agent,
-              command: task.command,
-            },
-            time: {
-              start: Date.now(),
-            },
-          },
-        })) as MessageV2.ToolPart
-        const taskArgs = {
-          prompt: task.prompt,
-          description: task.description,
-          subagent_type: task.agent,
-          command: task.command,
-        }
-        await Plugin.trigger(
-          "tool.execute.before",
-          {
-            tool: "task",
-            sessionID,
-            callID: part.id,
-          },
-          { args: taskArgs },
-        )
-        let executionError: Error | undefined
         const taskAgent = await Agent.get(task.agent)
-        const taskCtx: Tool.Context = {
-          agent: task.agent,
-          messageID: assistantMessage.id,
-          sessionID: sessionID,
-          abort,
-          callID: part.callID,
-          extra: { bypassAgentCheck: true },
-          messages: msgs,
-          async metadata(input) {
-            await Session.updatePart({
-              ...part,
-              type: "tool",
-              state: {
-                ...part.state,
-                ...input,
-              },
-            } satisfies MessageV2.ToolPart)
-          },
-          async ask(req) {
-            await PermissionNext.ask({
-              ...req,
-              sessionID: sessionID,
-              ruleset: PermissionNext.merge(taskAgent.permission, session.permission ?? []),
-            })
-          },
-        }
-        const result = await taskTool.execute(taskArgs, taskCtx).catch((error) => {
-          executionError = error
-          log.error("subtask execution failed", { error, agent: task.agent, description: task.description })
-          return undefined
-        })
-        const attachments = result?.attachments?.map((attachment) => ({
-          ...attachment,
-          id: Identifier.ascending("part"),
+        const { result } = await invokeTool({
           sessionID,
-          messageID: assistantMessage.id,
-        }))
-        await Plugin.trigger(
-          "tool.execute.after",
-          {
-            tool: "task",
-            sessionID,
-            callID: part.id,
-            args: taskArgs,
+          parentID: lastUser.id,
+          agent: task.agent,
+          model: taskModel,
+          tool: TaskTool,
+          args: {
+            prompt: task.prompt,
+            description: task.description,
+            subagent_type: task.agent,
+            command: task.command,
           },
-          result,
-        )
-        assistantMessage.finish = "tool-calls"
-        assistantMessage.time.completed = Date.now()
-        await Session.updateMessage(assistantMessage)
-        if (result && part.state.status === "running") {
-          await Session.updatePart({
-            ...part,
-            state: {
-              status: "completed",
-              input: part.state.input,
-              title: result.title,
-              metadata: result.metadata,
-              output: result.output,
-              attachments,
-              time: {
-                ...part.state.time,
-                end: Date.now(),
-              },
-            },
-          } satisfies MessageV2.ToolPart)
-        }
-        if (!result) {
-          await Session.updatePart({
-            ...part,
-            state: {
-              status: "error",
-              error: executionError ? `Tool execution failed: ${executionError.message}` : "Tool execution failed",
-              time: {
-                start: part.state.status === "running" ? part.state.time.start : Date.now(),
-                end: Date.now(),
-              },
-              metadata: part.metadata,
-              input: part.state.input,
-            },
-          } satisfies MessageV2.ToolPart)
-        }
+          abort,
+          messages: msgs,
+          variant: lastUser.variant,
+          permissions: PermissionNext.merge(taskAgent.permission, session.permission ?? []),
+          bypassAgentCheck: true,
+        })
 
         if (task.command) {
           // Add synthetic user message to prevent certain reasoning models from erroring
@@ -956,6 +830,168 @@ export namespace SessionPrompt {
     }
 
     return tools
+  }
+
+  /** @internal Exported for testing */
+  export async function invokeTool(input: {
+    sessionID: string
+    parentID: string
+    agent: string
+    model: Provider.Model
+    tool: Tool.Info
+    args: any
+    abort: AbortSignal
+    messages: MessageV2.WithParts[]
+    variant?: string
+    permissions?: PermissionNext.Ruleset
+    bypassAgentCheck?: boolean
+  }) {
+    const tool = await input.tool.init()
+    const assistantMessage = (await Session.updateMessage({
+      id: Identifier.ascending("message"),
+      role: "assistant",
+      parentID: input.parentID,
+      sessionID: input.sessionID,
+      mode: input.agent,
+      agent: input.agent,
+      variant: input.variant,
+      path: {
+        cwd: Instance.directory,
+        root: Instance.worktree,
+      },
+      cost: 0,
+      tokens: {
+        input: 0,
+        output: 0,
+        reasoning: 0,
+        cache: { read: 0, write: 0 },
+      },
+      modelID: input.model.id,
+      providerID: input.model.providerID,
+      time: {
+        created: Date.now(),
+      },
+    })) as MessageV2.Assistant
+
+    let part = (await Session.updatePart({
+      id: Identifier.ascending("part"),
+      messageID: assistantMessage.id,
+      sessionID: assistantMessage.sessionID,
+      type: "tool",
+      callID: ulid(),
+      tool: input.tool.id,
+      state: {
+        status: "running",
+        input: input.args,
+        time: {
+          start: Date.now(),
+        },
+      },
+    })) as MessageV2.ToolPart
+
+    await Plugin.trigger(
+      "tool.execute.before",
+      {
+        tool: input.tool.id,
+        sessionID: input.sessionID,
+        callID: part.id,
+      },
+      { args: input.args },
+    )
+
+    let executionError: Error | undefined
+    const ctx: Tool.Context = {
+      agent: input.agent,
+      messageID: assistantMessage.id,
+      sessionID: input.sessionID,
+      abort: input.abort,
+      callID: part.callID,
+      extra: { bypassAgentCheck: input.bypassAgentCheck },
+      messages: input.messages,
+      async metadata(metadata) {
+        await Session.updatePart({
+          ...part,
+          type: "tool",
+          state: {
+            ...part.state,
+            ...metadata,
+          },
+        } satisfies MessageV2.ToolPart)
+      },
+      async ask(req) {
+        if (input.permissions) {
+          await PermissionNext.ask({
+            ...req,
+            sessionID: input.sessionID,
+            ruleset: input.permissions,
+          })
+        }
+      },
+    }
+
+    const result = await tool.execute(input.args, ctx).catch((error) => {
+      executionError = error
+      log.error("tool execution failed", { error, tool: input.tool.id, args: input.args })
+      return undefined
+    })
+
+    const attachments = result?.attachments?.map((attachment) => ({
+      ...attachment,
+      id: Identifier.ascending("part"),
+      sessionID: input.sessionID,
+      messageID: assistantMessage.id,
+    }))
+
+    await Plugin.trigger(
+      "tool.execute.after",
+      {
+        tool: input.tool.id,
+        sessionID: input.sessionID,
+        callID: part.id,
+        args: input.args,
+      },
+      result,
+    )
+
+    assistantMessage.finish = "tool-calls"
+    assistantMessage.time.completed = Date.now()
+    await Session.updateMessage(assistantMessage)
+
+    if (result && part.state.status === "running") {
+      await Session.updatePart({
+        ...part,
+        state: {
+          status: "completed",
+          input: part.state.input,
+          title: result.title,
+          metadata: result.metadata,
+          output: result.output,
+          attachments,
+          time: {
+            ...part.state.time,
+            end: Date.now(),
+          },
+        },
+      } satisfies MessageV2.ToolPart)
+    }
+
+    if (!result) {
+      await Session.updatePart({
+        ...part,
+        state: {
+          status: "error",
+          error: executionError ? `Tool execution failed: ${executionError.message}` : "Tool execution failed",
+          time: {
+            start: part.state.status === "running" ? part.state.time.start : Date.now(),
+            end: Date.now(),
+          },
+          metadata: part.metadata,
+          input: part.state.input,
+        },
+      } satisfies MessageV2.ToolPart)
+    }
+
+    return { message: assistantMessage, part, result, error: executionError }
   }
 
   /** @internal Exported for testing */
