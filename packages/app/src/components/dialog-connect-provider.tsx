@@ -53,13 +53,7 @@ export function DialogConnectProvider(props: { provider: string }) {
         },
       ],
   )
-  const local = createMemo(() => {
-    if (typeof window === "undefined") return true
-    const host = window.location.hostname
-    if (host === "localhost") return true
-    if (host === "127.0.0.1") return true
-    return false
-  })
+
   const methods = createMemo(() => raw().map((m, index) => ({ m, index })))
   const [store, setStore] = createStore({
     methodIndex: undefined as undefined | number,
