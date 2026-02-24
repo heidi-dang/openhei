@@ -75,7 +75,7 @@ export namespace Provider {
   }
 
   function loadBaseURL(model: Model, options: Record<string, any>) {
-    const raw = options["baseURL"] ?? model.api.url
+    const raw = options["baseURL"] || model.api.url || "http://localhost"
     if (typeof raw !== "string") return raw
     const vars = model.providerID === "google-vertex" ? googleVertexVars(options) : undefined
     return raw.replace(/\$\{([^}]+)\}/g, (match, key) => {
@@ -1078,6 +1078,7 @@ export namespace Provider {
         model.api = model.api ?? { npm: "@ai-sdk/openai-compatible", url: "" }
         model.api.id = model.api.id ?? model.id ?? modelID
         model.api.npm = model.api.npm || "@ai-sdk/openai-compatible"
+        model.api.url = model.api.url ?? ""
         model.headers = model.headers ?? {}
         model.options = model.options ?? {}
         model.capabilities = model.capabilities ?? {
