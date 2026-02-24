@@ -58,7 +58,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
   readonly modelId: OpenAICompatibleChatModelId
   private readonly config: OpenAICompatibleChatConfig
   private readonly failedResponseHandler: ResponseHandler<APICallError>
-  private readonly chunkSchema // type inferred via constructor
+  private readonly chunkSchema: z.ZodType<OpenAICompatibleChatChunk | { error: unknown }>
 
   constructor(modelId: OpenAICompatibleChatModelId, config: OpenAICompatibleChatConfig) {
     this.modelId = modelId
@@ -66,7 +66,9 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
 
     // initialize error handling:
     const errorStructure = config.errorStructure ?? defaultOpenAICompatibleErrorStructure
-    this.chunkSchema = createOpenAICompatibleChatChunkSchema(errorStructure.errorSchema)
+    this.chunkSchema = createOpenAICompatibleChatChunkSchema(errorStructure.errorSchema) as z.ZodType<
+      OpenAICompatibleChatChunk | { error: unknown }
+    >
     this.failedResponseHandler = createJsonErrorResponseHandler(errorStructure)
 
     this.supportsStructuredOutputs = config.supportsStructuredOutputs ?? false
@@ -371,8 +373,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             controller.enqueue({ type: "stream-start", warnings })
           },
 
-          // TODO we lost type safety on Chunk, most likely due to the error schema. MUST FIX
-          transform(chunk, controller) {
+          transform(chunk: ParseResult<OpenAICompatibleChatChunk | { error: unknown }>, controller) {
             // Emit raw chunk if requested (before anything else)
             if (options.includeRawChunks) {
               controller.enqueue({ type: "raw", rawValue: chunk.rawValue })
@@ -391,7 +392,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV2 {
             // handle error chunks:
             if ("error" in value) {
               finishReason = "error"
-              controller.enqueue({ type: "error", error: value.error.message })
+              controller.enqueue({ type: "error", error: (value.error as any).message })
               return
             }
 
@@ -740,41 +741,42 @@ const OpenAICompatibleChatResponseSchema = z.object({
   usage: openaiCompatibleTokenUsageSchema,
 })
 
+const openaiCompatibleChatChunkSchema = z.object({
+  id: z.string().nullish(),
+  created: z.number().nullish(),
+  model: z.string().nullish(),
+  choices: z.array(
+    z.object({
+      delta: z
+        .object({
+          role: z.enum(["assistant"]).nullish(),
+          content: z.string().nullish(),
+          // Copilot-specific reasoning fields
+          reasoning_text: z.string().nullish(),
+          reasoning_opaque: z.string().nullish(),
+          tool_calls: z
+            .array(
+              z.object({
+                index: z.number(),
+                id: z.string().nullish(),
+                function: z.object({
+                  name: z.string().nullish(),
+                  arguments: z.string().nullish(),
+                }),
+              }),
+            )
+            .nullish(),
+        })
+        .nullish(),
+      finish_reason: z.string().nullish(),
+    }),
+  ),
+  usage: openaiCompatibleTokenUsageSchema,
+})
+
+export type OpenAICompatibleChatChunk = z.infer<typeof openaiCompatibleChatChunkSchema>
+
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 const createOpenAICompatibleChatChunkSchema = <ERROR_SCHEMA extends z.core.$ZodType>(errorSchema: ERROR_SCHEMA) =>
-  z.union([
-    z.object({
-      id: z.string().nullish(),
-      created: z.number().nullish(),
-      model: z.string().nullish(),
-      choices: z.array(
-        z.object({
-          delta: z
-            .object({
-              role: z.enum(["assistant"]).nullish(),
-              content: z.string().nullish(),
-              // Copilot-specific reasoning fields
-              reasoning_text: z.string().nullish(),
-              reasoning_opaque: z.string().nullish(),
-              tool_calls: z
-                .array(
-                  z.object({
-                    index: z.number(),
-                    id: z.string().nullish(),
-                    function: z.object({
-                      name: z.string().nullish(),
-                      arguments: z.string().nullish(),
-                    }),
-                  }),
-                )
-                .nullish(),
-            })
-            .nullish(),
-          finish_reason: z.string().nullish(),
-        }),
-      ),
-      usage: openaiCompatibleTokenUsageSchema,
-    }),
-    errorSchema,
-  ])
+  z.union([openaiCompatibleChatChunkSchema, errorSchema])
