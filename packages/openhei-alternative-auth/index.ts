@@ -142,147 +142,189 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
           models,
           baseURL: ALTERNATIVE_ENDPOINTS[providerID] || "http://localhost",
           async fetch(input: Request | string | URL, init?: RequestInit): Promise<Response> {
-            // --- Proactive Rate Limit Management ---
+            try {
+              // --- Proactive Rate Limit Management ---
 
-            // DuckDuckGo: Reset session every 10 messages to avoid hard rate limit
-            if (providerID === PROVIDERS.DUCKDUCKGO) {
-              if (!ddgState.vqd || ddgState.counter >= 10) {
-                await refreshDDGVqd();
-              }
-              ddgState.counter++;
-            }
-
-            const executeRequest = async (retryOnBadToken = true): Promise<Response> => {
-              // --- 418 Cooldown Preflight Check ---
-              if (providerID === PROVIDERS.DUCKDUCKGO && ddgState.challengeUntil && Date.now() < ddgState.challengeUntil) {
-                return new Response(
-                  JSON.stringify({
-                    error: {
-                      message: "DuckDuckGo temporarily challenged this session (418 Anti-bot). Please retry later or switch provider.",
-                      code: "DDG_ERR_CHALLENGE",
-                      retry_after_seconds: Math.ceil((ddgState.challengeUntil - Date.now()) / 1000)
-                    }
-                  }),
-                  { status: 429, headers: { "content-type": "application/json" } }
-                );
-              }
-              const currentAuth = await getAuth();
-              let url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input.toString() : input.url);
-
-              // Special handling for Claude to avoid invalid endpoint joins
-              if (providerID === PROVIDERS.CLAUDE) {
-                if (url.endsWith("/complete") || url.endsWith("/messages")) {
-                  // Default organization for now, can be extracted from cookies in future
-                  url = "https://claude.ai/api/organizations/default/chat_sequences";
-                }
-              }
-
-              // Initialize options from init or input
-              let options: RequestInit = { ...init };
-              if (input instanceof Request) {
-                options.method = options.method || input.method;
-                options.body = options.body || input.body;
-                // Merge headers
-                const mergedHeaders = new Headers(input.headers);
-                if (init?.headers) {
-                  new Headers(init.headers).forEach((v, k) => mergedHeaders.set(k, v));
-                }
-                options.headers = mergedHeaders;
-              }
-
-              const headers = new Headers(options.headers);
-
-              // Handle DuckDuckGo transformation
+              // DuckDuckGo: Reset session every 10 messages to avoid hard rate limit
               if (providerID === PROVIDERS.DUCKDUCKGO) {
-                if (!ddgState.vqd) await refreshDDGVqd();
-
-                headers.set("x-vqd-4", ddgState.vqd || "");
-                if (ddgState.vqdHash) headers.set("x-vqd-hash-1", ddgState.vqdHash);
-                headers.set("accept", "text/event-stream");
-                headers.set("content-type", "application/json");
-                headers.set("origin", "https://duckduckgo.com");
-                headers.set("referer", "https://duckduckgo.com/");
-
-                // Remove OpenAI/Anthropic headers that might cause 400s
-                headers.delete("authorization");
-                headers.delete("x-api-key");
-                headers.delete("api-key");
-                headers.delete("openai-organization");
-                headers.delete("openai-project");
-
-                // Transform body to DDG schema
-                if (options.body && typeof options.body === "string") {
-                  try {
-                    const oai = JSON.parse(options.body);
-                    const ddgBody = {
-                      model: toDDGModel(oai.model || ""),
-                      messages: normalizeDDGMessages(oai.messages || []),
-                    };
-                    options.body = JSON.stringify(ddgBody);
-                  } catch (e) {
-                    logDebug("[AlternativeAuth] DDG Body Parse Error", e);
-                  }
+                if (!ddgState.vqd || ddgState.counter >= 10) {
+                  await refreshDDGVqd();
                 }
-              } else if (currentAuth) {
-                // Clear placeholder keys that might have been injected by the core
-                headers.delete("x-api-key");
-                headers.delete("api-key");
-                headers.delete("anthropic-api-key");
-                headers.delete("authorization");
-
-                if (providerID === PROVIDERS.PERPLEXITY && currentAuth.type === "api") {
-                  headers.set("Authorization", `Bearer ${currentAuth.key}`);
-                } else if (providerID === PROVIDERS.MISTRAL && currentAuth.type === "api") {
-                  headers.set("Cookie", `mistral.auth_token=${currentAuth.key}`);
-                } else if (currentAuth.type === "oauth") {
-                  headers.set("Authorization", `Bearer ${currentAuth.access}`);
-                }
+                ddgState.counter++;
               }
 
-              options.headers = headers;
-              const response = await fetch(url, options);
-
-              // --- Reactive Rate Limit / Token Management ---
-              if (providerID === PROVIDERS.DUCKDUCKGO) {
-                if (response.status === 418) {
-                  // Trigger cooldown state on 418 Anti-bot challenge
-                  ddgState.vqd = null;
-                  ddgState.vqdHash = null;
-                  ddgState.challengeUntil = Date.now() + 15 * 60 * 1000; // 15 minute cooldown
-                  logDebug(`[AlternativeAuth] DDG Challenge 418 Hit! Cooldown started.`);
-
+              const executeRequest = async (retryOnBadToken = true): Promise<Response> => {
+                // --- 418 Cooldown Preflight Check ---
+                if (providerID === PROVIDERS.DUCKDUCKGO && ddgState.challengeUntil && Date.now() < ddgState.challengeUntil) {
                   return new Response(
                     JSON.stringify({
                       error: {
                         message: "DuckDuckGo temporarily challenged this session (418 Anti-bot). Please retry later or switch provider.",
                         code: "DDG_ERR_CHALLENGE",
-                        retry_after_seconds: 900
+                        retry_after_seconds: Math.ceil((ddgState.challengeUntil - Date.now()) / 1000)
                       }
                     }),
                     { status: 429, headers: { "content-type": "application/json" } }
                   );
                 }
+                const currentAuth = await getAuth();
+                let url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input.toString() : input.url);
 
-                if ((response.status === 429 || response.status === 400 || response.status === 403) && retryOnBadToken) {
-                  logDebug(`[AlternativeAuth] DDG Error ${response.status}. Refreshing VQD...`);
-                  await refreshDDGVqd();
+                // Special handling for Claude to avoid invalid endpoint joins
+                if (providerID === PROVIDERS.CLAUDE) {
+                  if (url.endsWith("/complete") || url.endsWith("/messages")) {
+                    // Default organization for now, can be extracted from cookies in future
+                    url = "https://claude.ai/api/organizations/default/chat_sequences";
+                  }
+                }
+
+                // Initialize options from init or input
+                let options: RequestInit = { ...init };
+                if (input instanceof Request) {
+                  options.method = options.method || input.method;
+                  options.body = options.body || input.body;
+                  // Merge headers
+                  const mergedHeaders = new Headers(input.headers);
+                  if (init?.headers) {
+                    new Headers(init.headers).forEach((v, k) => mergedHeaders.set(k, v));
+                  }
+                  options.headers = mergedHeaders;
+                }
+
+                const headers = new Headers(options.headers);
+
+                // Handle DuckDuckGo transformation
+                if (providerID === PROVIDERS.DUCKDUCKGO) {
+                  if (!ddgState.vqd) await refreshDDGVqd();
+
+                  headers.set("x-vqd-4", ddgState.vqd || "");
+                  if (ddgState.vqdHash) headers.set("x-vqd-hash-1", ddgState.vqdHash);
+                  headers.set("accept", "text/event-stream");
+                  headers.set("content-type", "application/json");
+                  headers.set("origin", "https://duckduckgo.com");
+                  headers.set("referer", "https://duckduckgo.com/");
+
+                  // Remove OpenAI/Anthropic headers that might cause 400s
+                  headers.delete("authorization");
+                  headers.delete("x-api-key");
+                  headers.delete("api-key");
+                  headers.delete("openai-organization");
+                  headers.delete("openai-project");
+
+                  // Transform body to DDG schema
+                  if (options.body && typeof options.body === "string") {
+                    try {
+                      const oai = JSON.parse(options.body);
+                      const ddgBody = {
+                        model: toDDGModel(oai.model || ""),
+                        messages: normalizeDDGMessages(oai.messages || []),
+                      };
+                      options.body = JSON.stringify(ddgBody);
+                    } catch (e) {
+                      logDebug("[AlternativeAuth] DDG Body Parse Error", e);
+                    }
+                  }
+                } else if (currentAuth) {
+                  // Clear placeholder keys that might have been injected by the core
+                  headers.delete("x-api-key");
+                  headers.delete("api-key");
+                  headers.delete("anthropic-api-key");
+                  headers.delete("authorization");
+
+                  if (providerID === PROVIDERS.PERPLEXITY && currentAuth.type === "api") {
+                    headers.set("Authorization", `Bearer ${currentAuth.key}`);
+                  } else if (providerID === PROVIDERS.MISTRAL && currentAuth.type === "api") {
+                    headers.set("Cookie", `mistral.auth_token=${currentAuth.key}`);
+                  } else if (currentAuth.type === "oauth") {
+                    headers.set("Authorization", `Bearer ${currentAuth.access}`);
+                  }
+                }
+
+                options.headers = headers;
+                const response = await fetch(url, options);
+
+                // --- Reactive Rate Limit / Token Management ---
+                if (providerID === PROVIDERS.DUCKDUCKGO) {
+                  if (response.status === 418) {
+                    // Trigger cooldown state on 418 Anti-bot challenge
+                    ddgState.vqd = null;
+                    ddgState.vqdHash = null;
+                    ddgState.challengeUntil = Date.now() + 15 * 60 * 1000; // 15 minute cooldown
+                    logDebug(`[AlternativeAuth] DDG Challenge 418 Hit! Cooldown started.`);
+
+                    return new Response(
+                      JSON.stringify({
+                        error: {
+                          message: "DuckDuckGo temporarily challenged this session (418 Anti-bot). Please retry later or switch provider.",
+                          code: "DDG_ERR_CHALLENGE",
+                          retry_after_seconds: 900
+                        }
+                      }),
+                      { status: 429, headers: { "content-type": "application/json" } }
+                    );
+                  }
+
+                  if ((response.status === 429 || response.status === 400 || response.status === 403) && retryOnBadToken) {
+                    logDebug(`[AlternativeAuth] DDG Error ${response.status}. Refreshing VQD...`);
+                    await refreshDDGVqd();
+                    return executeRequest(false);
+                  }
+
+                  // Capture next sequence tokens
+                  const nextVqd = response.headers.get("x-vqd-4");
+                  const nextVqdHash = response.headers.get("x-vqd-hash-1");
+                  if (nextVqd) ddgState.vqd = nextVqd;
+                  if (nextVqdHash) ddgState.vqdHash = nextVqdHash;
+                } else if (response.status === 429 && retryOnBadToken) {
+                  // Generic 429 retry
                   return executeRequest(false);
                 }
 
-                // Capture next sequence tokens
-                const nextVqd = response.headers.get("x-vqd-4");
-                const nextVqdHash = response.headers.get("x-vqd-hash-1");
-                if (nextVqd) ddgState.vqd = nextVqd;
-                if (nextVqdHash) ddgState.vqdHash = nextVqdHash;
-              } else if (response.status === 429 && retryOnBadToken) {
-                // Generic 429 retry
-                return executeRequest(false);
-              }
+                // --- Microsoft Copilot Validation ---
+                if (providerID === PROVIDERS.M_COPILOT) {
+                  if (!response.ok) {
+                    const text = await response.text().catch(() => "");
+                    console.error("[microsoft-copilot upstream error]", {
+                      status: response.status,
+                      contentType: response.headers.get("content-type"),
+                      body: text.slice(0, 800),
+                    });
+                    return new Response(
+                      JSON.stringify({ error: { message: `Microsoft Copilot upstream error ${response.status}`, details: text.slice(0, 500) } }),
+                      { status: response.status, headers: { "content-type": "application/json" } }
+                    );
+                  }
 
-              return response;
-            };
+                  const ct = response.headers.get("content-type") || "";
+                  if (!ct.includes("text/event-stream") && !ct.includes("application/json")) {
+                    const text = await response.text().catch(() => "");
+                    return new Response(
+                      JSON.stringify({ error: { message: `Unexpected Copilot content-type: ${ct}`, details: text.slice(0, 300) } }),
+                      { status: 502, headers: { "content-type": "application/json" } }
+                    );
+                  }
+                }
 
-            return executeRequest();
+                return response;
+              };
+
+              return await executeRequest();
+            } catch (err: any) {
+              console.error("[alternative-auth] unhandled fetch error", {
+                message: err?.message,
+                stack: err?.stack,
+                name: err?.name,
+              });
+              return new Response(
+                JSON.stringify({
+                  error: {
+                    message: "alternative-auth internal error",
+                    details: err?.message ?? String(err),
+                  },
+                }),
+                { status: 500, headers: { "content-type": "application/json" } }
+              );
+            }
           }
         };
       },
