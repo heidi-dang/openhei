@@ -114,6 +114,10 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
                             if (providerID === PROVIDERS.DUCKDUCKGO) {
                                 if (ddgVqd) headers.set("x-vqd-4", ddgVqd);
                             } else if (currentAuth) {
+                                // Clear placeholder keys that might have been injected by the core to satisfy SDK validation
+                                headers.delete("x-api-key");
+                                headers.delete("api-key");
+
                                 if (providerID === PROVIDERS.PERPLEXITY && currentAuth.type === "api") {
                                     headers.set("Authorization", `Bearer ${currentAuth.key}`);
                                 } else if (providerID === PROVIDERS.MISTRAL && currentAuth.type === "api") {

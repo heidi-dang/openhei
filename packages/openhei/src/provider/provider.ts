@@ -1174,6 +1174,9 @@ export namespace Provider {
       const baseURL = loadBaseURL(model, options)
       if (baseURL !== undefined) options["baseURL"] = baseURL
       if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
+      if (options["apiKey"] === undefined && (provider.source === "custom" || options["fetch"])) {
+        options["apiKey"] = "nop"
+      }
       if (model.headers)
         options["headers"] = {
           ...options["headers"],
