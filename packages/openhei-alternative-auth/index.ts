@@ -83,22 +83,41 @@ function normalizeDDGMessages(messages: any[]): Array<{ role: string; content: s
 
 export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => {
   // Proactive State for DuckDuckGo
-  let ddgVqd: string | null = null;
-  let ddgVqdHash: string | null = null;
-  let ddgCounter = 0;
+  let ddgState = {
+    vqd: null as string | null,
+    vqdHash: null as string | null,
+    counter: 0,
+    challengeUntil: 0,
+    refreshPromise: null as Promise<void> | null
+  };
 
   const refreshDDGVqd = async () => {
-    try {
-      const res = await fetch("https://duckduckgo.com/duckchat/v1/status", {
-        headers: { "x-vqd-accept": "1" },
-      });
-      ddgVqd = res.headers.get("x-vqd-4");
-      ddgVqdHash = res.headers.get("x-vqd-hash-1");
-      ddgCounter = 0;
-      logDebug(`[AlternativeAuth] DuckDuckGo VQD Refreshed: ${ddgVqd?.substring(0, 8)}...`);
-    } catch (e) {
-      console.error("[AlternativeAuth] DuckDuckGo Refresh Error", e);
-    }
+    if (ddgState.refreshPromise) return ddgState.refreshPromise;
+
+    ddgState.refreshPromise = (async () => {
+      try {
+        // Add jitter to avoid thundering herd / rapid concurrent hits triggering 418
+        await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
+
+        const res = await fetch("https://duckduckgo.com/duckchat/v1/status", {
+          headers: {
+            "x-vqd-accept": "1",
+            "origin": "https://duckduckgo.com",
+            "referer": "https://duckduckgo.com/"
+          },
+        });
+        ddgState.vqd = res.headers.get("x-vqd-4");
+        ddgState.vqdHash = res.headers.get("x-vqd-hash-1");
+        ddgState.counter = 0;
+        logDebug(`[AlternativeAuth] DuckDuckGo VQD Refreshed: ${ddgState.vqd?.substring(0, 8)}...`);
+      } catch (e) {
+        console.error("[AlternativeAuth] DuckDuckGo Refresh Error", e);
+      } finally {
+        ddgState.refreshPromise = null;
+      }
+    })();
+
+    return ddgState.refreshPromise;
   };
 
   return {
@@ -127,13 +146,26 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
 
             // DuckDuckGo: Reset session every 10 messages to avoid hard rate limit
             if (providerID === PROVIDERS.DUCKDUCKGO) {
-              if (!ddgVqd || ddgCounter >= 10) {
+              if (!ddgState.vqd || ddgState.counter >= 10) {
                 await refreshDDGVqd();
               }
-              ddgCounter++;
+              ddgState.counter++;
             }
 
             const executeRequest = async (retryOnBadToken = true): Promise<Response> => {
+              // --- 418 Cooldown Preflight Check ---
+              if (providerID === PROVIDERS.DUCKDUCKGO && ddgState.challengeUntil && Date.now() < ddgState.challengeUntil) {
+                return new Response(
+                  JSON.stringify({
+                    error: {
+                      message: "DuckDuckGo temporarily challenged this session (418 Anti-bot). Please retry later or switch provider.",
+                      code: "DDG_ERR_CHALLENGE",
+                      retry_after_seconds: Math.ceil((ddgState.challengeUntil - Date.now()) / 1000)
+                    }
+                  }),
+                  { status: 429, headers: { "content-type": "application/json" } }
+                );
+              }
               const currentAuth = await getAuth();
               let url = ALTERNATIVE_ENDPOINTS[providerID] || (typeof input === "string" || input instanceof URL ? input.toString() : input.url);
 
@@ -162,10 +194,10 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
 
               // Handle DuckDuckGo transformation
               if (providerID === PROVIDERS.DUCKDUCKGO) {
-                if (!ddgVqd) await refreshDDGVqd();
+                if (!ddgState.vqd) await refreshDDGVqd();
 
-                headers.set("x-vqd-4", ddgVqd || "");
-                if (ddgVqdHash) headers.set("x-vqd-hash-1", ddgVqdHash);
+                headers.set("x-vqd-4", ddgState.vqd || "");
+                if (ddgState.vqdHash) headers.set("x-vqd-hash-1", ddgState.vqdHash);
                 headers.set("accept", "text/event-stream");
                 headers.set("content-type", "application/json");
                 headers.set("origin", "https://duckduckgo.com");
@@ -211,20 +243,40 @@ export const AlternativeAuthPlugin: Plugin = async ({ client }: PluginInput) => 
               const response = await fetch(url, options);
 
               // --- Reactive Rate Limit / Token Management ---
-              if (response.status === 429 || response.status === 400 || response.status === 403) {
-                if (providerID === PROVIDERS.DUCKDUCKGO && retryOnBadToken) {
+              if (providerID === PROVIDERS.DUCKDUCKGO) {
+                if (response.status === 418) {
+                  // Trigger cooldown state on 418 Anti-bot challenge
+                  ddgState.vqd = null;
+                  ddgState.vqdHash = null;
+                  ddgState.challengeUntil = Date.now() + 15 * 60 * 1000; // 15 minute cooldown
+                  logDebug(`[AlternativeAuth] DDG Challenge 418 Hit! Cooldown started.`);
+
+                  return new Response(
+                    JSON.stringify({
+                      error: {
+                        message: "DuckDuckGo temporarily challenged this session (418 Anti-bot). Please retry later or switch provider.",
+                        code: "DDG_ERR_CHALLENGE",
+                        retry_after_seconds: 900
+                      }
+                    }),
+                    { status: 429, headers: { "content-type": "application/json" } }
+                  );
+                }
+
+                if ((response.status === 429 || response.status === 400 || response.status === 403) && retryOnBadToken) {
                   logDebug(`[AlternativeAuth] DDG Error ${response.status}. Refreshing VQD...`);
                   await refreshDDGVqd();
                   return executeRequest(false);
                 }
-              }
 
-              // Capture next sequence tokens (for DDG)
-              if (providerID === PROVIDERS.DUCKDUCKGO) {
+                // Capture next sequence tokens
                 const nextVqd = response.headers.get("x-vqd-4");
                 const nextVqdHash = response.headers.get("x-vqd-hash-1");
-                if (nextVqd) ddgVqd = nextVqd;
-                if (nextVqdHash) ddgVqdHash = nextVqdHash;
+                if (nextVqd) ddgState.vqd = nextVqd;
+                if (nextVqdHash) ddgState.vqdHash = nextVqdHash;
+              } else if (response.status === 429 && retryOnBadToken) {
+                // Generic 429 retry
+                return executeRequest(false);
               }
 
               return response;
