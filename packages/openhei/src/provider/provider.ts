@@ -1075,8 +1075,11 @@ export namespace Provider {
         model.providerID = model.providerID ?? providerID
         model.name = model.name ?? modelID
         model.status = model.status ?? "active"
-        model.api = model.api ?? { npm: "", url: "" }
+        model.api = model.api ?? { npm: "@ai-sdk/openai-compatible", url: "" }
         model.api.id = model.api.id ?? model.id ?? modelID
+        model.api.npm = model.api.npm || "@ai-sdk/openai-compatible"
+        model.headers = model.headers ?? {}
+        model.options = model.options ?? {}
         model.capabilities = model.capabilities ?? {
           temperature: false,
           reasoning: false,
