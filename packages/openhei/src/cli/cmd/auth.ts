@@ -3,7 +3,7 @@ import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { ModelsDev } from "../../provider/models"
-import { map, pipe, sortBy, values } from "remeda"
+import { filter, map, pipe, sortBy, values } from "remeda"
 import path from "path"
 import os from "os"
 import { Config } from "../../config/config"
@@ -176,16 +176,24 @@ export function resolvePluginProviders(input: {
 
   for (const hook of input.hooks) {
     if (!hook.auth) continue
-    const id = hook.auth.provider
-    if (seen.has(id)) continue
-    seen.add(id)
-    if (Object.hasOwn(input.existingProviders, id)) continue
-    if (input.disabled.has(id)) continue
-    if (input.enabled && !input.enabled.has(id)) continue
-    result.push({
-      id,
-      name: input.providerNames[id] ?? id,
-    })
+    const providerID = hook.auth.provider
+
+    const ids =
+      providerID === "alternative-auth"
+        ? ["duckduckgo", "perplexity", "mistral", "anthropic", "venice", "microsoft-copilot", "alternative-auth"]
+        : [providerID]
+
+    for (const id of ids) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (Object.hasOwn(input.existingProviders, id)) continue
+      if (input.disabled.has(id)) continue
+      if (input.enabled && !input.enabled.has(id)) continue
+      result.push({
+        id,
+        name: input.providerNames[id] ?? id,
+      })
+    }
   }
 
   return result
@@ -196,7 +204,7 @@ export const AuthCommand = cmd({
   describe: "manage credentials",
   builder: (yargs) =>
     yargs.command(AuthLoginCommand).command(AuthLogoutCommand).command(AuthListCommand).demandCommand(),
-  async handler() {},
+  async handler() { },
 })
 
 export const AuthListCommand = cmd({
@@ -283,7 +291,7 @@ export const AuthLoginCommand = cmd({
           prompts.outro("Done")
           return
         }
-        await ModelsDev.refresh().catch(() => {})
+        await ModelsDev.refresh().catch(() => { })
 
         const config = await Config.get()
 
@@ -309,44 +317,106 @@ export const AuthLoginCommand = cmd({
           openrouter: 5,
           vercel: 6,
         }
+        const subscriptionIds = [
+          "openai",
+          "alternative-auth",
+          "microsoft-copilot",
+          "duckduckgo",
+          "perplexity",
+          "mistral",
+          "anthropic",
+          "venice",
+          "subscription-login",
+          "openhei-openai-codex-auth",
+          "github-copilot",
+          "github-copilot-enterprise",
+        ]
         const pluginProviders = resolvePluginProviders({
           hooks: await Plugin.list(),
           existingProviders: providers,
           disabled,
           enabled,
-          providerNames: Object.fromEntries(Object.entries(config.provider ?? {}).map(([id, p]) => [id, p.name])),
+          providerNames: {
+            ...Object.fromEntries(Object.entries(config.provider ?? {}).map(([id, p]) => [id, p.name])),
+            "alternative-auth": "Alternative Subscriptions",
+            "duckduckgo": "DuckDuckGo",
+            "microsoft-copilot": "Microsoft Copilot",
+            "perplexity": "Perplexity",
+            "mistral": "Mistral",
+            "anthropic": "Claude",
+            "venice": "Venice AI",
+          },
         })
-        let provider = await prompts.autocomplete({
-          message: "Select provider",
-          maxItems: 8,
-          options: [
-            ...pipe(
-              providers,
-              values(),
-              sortBy(
-                (x) => priority[x.id] ?? 99,
-                (x) => x.name ?? x.id,
-              ),
-              map((x) => ({
-                label: x.name,
-                value: x.id,
-                hint: {
-                  openhei: "recommended",
-                  anthropic: "Claude Max or API key",
-                  openai: "ChatGPT Plus/Pro or API key",
-                }[x.id],
-              })),
+
+        const options = [
+          ...pipe(
+            providers,
+            values(),
+            filter((x) => !subscriptionIds.includes(x.id)),
+            sortBy(
+              (x) => priority[x.id] ?? 99,
+              (x) => x.name ?? x.id,
             ),
-            ...pluginProviders.map((x) => ({
+            map((x) => ({
+              label: x.name,
+              value: x.id,
+              hint: {
+                openhei: "recommended",
+                anthropic: "Claude Max or API key",
+              }[x.id],
+            })),
+          ),
+          ...pluginProviders
+            .filter((x) => !subscriptionIds.includes(x.id))
+            .map((x) => ({
               label: x.name,
               value: x.id,
               hint: "plugin",
             })),
-            {
-              value: "other",
-              label: "Other",
-            },
-          ],
+          { label: "─── " + UI.Style.TEXT_NORMAL_BOLD + "Subscription Login" + UI.Style.TEXT_DIM + " ───", value: "header", disabled: true },
+          ...pipe(
+            providers,
+            values(),
+            filter((x) => subscriptionIds.includes(x.id)),
+            sortBy(
+              (x) => priority[x.id] ?? 99,
+              (x) => x.name ?? x.id,
+            ),
+            map((x) => ({
+              label:
+                x.id === "github-copilot"
+                  ? "Copilot Premium Subscription"
+                  : x.id === "github-copilot-enterprise"
+                    ? "Copilot Enterprise Subscription"
+                    : x.id === "alternative-auth"
+                      ? "Alternative Subscriptions"
+                      : x.name,
+              value: x.id,
+              hint:
+                x.id === "openai"
+                  ? "ChatGPT Plus/Pro"
+                  : ["github-copilot", "github-copilot-enterprise", "microsoft-copilot"].includes(x.id)
+                    ? "subscription"
+                    : undefined,
+            })),
+          ),
+          ...pluginProviders
+            .filter((x) => subscriptionIds.includes(x.id))
+            .map((x) => ({
+              label: x.id === "alternative-auth" ? "Alternative Subscriptions" : x.name,
+              value: x.id,
+              hint: "subscription",
+            })),
+          {
+            value: "other",
+            label: "Other",
+          },
+        ]
+
+        let provider = await prompts.autocomplete({
+          message: "Select provider",
+          maxItems: 8,
+          options: options.map(opt => ({ ...opt, disabled: opt.value === "header" })),
         })
 
         if (prompts.isCancel(provider)) throw new UI.CancelledError()
@@ -381,10 +451,10 @@ export const AuthLoginCommand = cmd({
         if (provider === "amazon-bedrock") {
           prompts.log.info(
             "Amazon Bedrock authentication priority:\n" +
-              "  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n" +
-              "  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\n" +
-              "Configure via openhei.json options (profile, region, endpoint) or\n" +
-              "AWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
+            "  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n" +
+            "  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\n" +
+            "Configure via openhei.json options (profile, region, endpoint) or\n" +
+            "AWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
           )
         }
 

@@ -21,6 +21,7 @@ const PROVIDER_NOTES = [
   { match: (id: string) => id === "anthropic", key: "dialog.provider.anthropic.note" },
   { match: (id: string) => id.startsWith("github-copilot"), key: "dialog.provider.copilot.note" },
   { match: (id: string) => id === "openai", key: "dialog.provider.openai.note" },
+  { match: (id: string) => id === "alternative-auth", key: "dialog.provider.alternative.note" },
   { match: (id: string) => id === "google", key: "dialog.provider.google.note" },
   { match: (id: string) => id === "openrouter", key: "dialog.provider.openrouter.note" },
   { match: (id: string) => id === "vercel", key: "dialog.provider.vercel.note" },
@@ -32,6 +33,20 @@ export const SettingsProviders: Component = () => {
   const globalSDK = useGlobalSDK()
   const globalSync = useGlobalSync()
   const providers = useProviders()
+  const subscriptionIds = [
+    "openai",
+    "github-copilot",
+    "github-copilot-enterprise",
+    "microsoft-copilot",
+    "alternative-auth",
+    "duckduckgo",
+    "perplexity",
+    "mistral",
+    "anthropic",
+    "venice",
+    "subscription-login",
+    "openhei-openai-codex-auth",
+  ]
 
   const icon = (id: string): IconName => {
     if (iconNames.includes(id as IconName)) return id as IconName
@@ -44,11 +59,19 @@ export const SettingsProviders: Component = () => {
       .filter((p) => p.id !== "openhei" || Object.values(p.models).find((m) => m.cost?.input))
   })
 
+  const subscription = createMemo(() => {
+    const connectedIDs = new Set(connected().map((p) => p.id))
+    return providers
+      .all()
+      .filter((p) => subscriptionIds.includes(p.id) && !connectedIDs.has(p.id))
+      .sort((a, b) => subscriptionIds.indexOf(a.id) - subscriptionIds.indexOf(b.id))
+  })
+
   const popular = createMemo(() => {
     const connectedIDs = new Set(connected().map((p) => p.id))
     const items = providers
       .popular()
-      .filter((p) => !connectedIDs.has(p.id))
+      .filter((p) => !connectedIDs.has(p.id) && !subscriptionIds.includes(p.id))
       .slice()
     items.sort((a, b) => popularProviders.indexOf(a.id) - popularProviders.indexOf(b.id))
     return items
@@ -176,6 +199,42 @@ export const SettingsProviders: Component = () => {
             </Show>
           </div>
         </div>
+
+        <Show when={subscription().length > 0}>
+          <div class="flex flex-col gap-1">
+            <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.providers.section.subscription")}</h3>
+            <div class="bg-surface-raised-base px-4 rounded-lg">
+              <For each={subscription()}>
+                {(item) => (
+                  <div class="flex flex-wrap items-center justify-between gap-4 min-h-16 py-3 border-b border-border-weak-base last:border-none">
+                    <div class="flex flex-col min-w-0">
+                      <div class="flex items-center gap-x-3">
+                        <ProviderIcon id={icon(item.id)} class="size-5 shrink-0 icon-strong-base" />
+                        <span class="text-14-medium text-text-strong">{item.name}</span>
+                        <Show when={item.id === "openai"}>
+                          <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
+                        </Show>
+                      </div>
+                      <Show when={note(item.id)}>
+                        {(key) => <span class="text-12-regular text-text-weak pl-8">{language.t(key())}</span>}
+                      </Show>
+                    </div>
+                    <Button
+                      size="large"
+                      variant="secondary"
+                      icon="plus-small"
+                      onClick={() => {
+                        dialog.show(() => <DialogConnectProvider provider={item.id} />)
+                      }}
+                    >
+                      {language.t("common.connect")}
+                    </Button>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
 
         <div class="flex flex-col gap-1">
           <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.providers.section.popular")}</h3>

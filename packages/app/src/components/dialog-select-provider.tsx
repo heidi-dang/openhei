@@ -24,10 +24,27 @@ export const DialogSelectProvider: Component = () => {
 
   const popularGroup = () => language.t("dialog.provider.group.popular")
   const otherGroup = () => language.t("dialog.provider.group.other")
+  const subscriptionGroup = () => language.t("dialog.provider.group.subscription")
+  const subscriptionIds = [
+    "openai",
+    "github-copilot",
+    "github-copilot-enterprise",
+    "microsoft-copilot",
+    "alternative-auth",
+    "duckduckgo",
+    "perplexity",
+    "mistral",
+    "anthropic",
+    "venice",
+    "subscription-login",
+    "openhei-openai-codex-auth",
+  ]
   const customLabel = () => language.t("settings.providers.tag.custom")
   const note = (id: string) => {
     if (id === "anthropic") return language.t("dialog.provider.anthropic.note")
     if (id === "openai") return language.t("dialog.provider.openai.note")
+    if (id === "alternative-auth") return language.t("dialog.provider.alternative.note")
+    if (id === "microsoft-copilot") return language.t("dialog.provider.mcopilot.note")
     if (id.startsWith("github-copilot")) return language.t("dialog.provider.copilot.note")
   }
 
@@ -44,18 +61,27 @@ export const DialogSelectProvider: Component = () => {
           return [{ id: CUSTOM_ID, name: customLabel() }, ...providers.all()]
         }}
         filterKeys={["id", "name"]}
-        groupBy={(x) => (popularProviders.includes(x.id) ? popularGroup() : otherGroup())}
+        groupBy={(x) => {
+          if (subscriptionIds.includes(x.id)) return subscriptionGroup()
+          return popularProviders.includes(x.id) ? popularGroup() : otherGroup()
+        }}
         sortBy={(a, b) => {
           if (a.id === CUSTOM_ID) return -1
           if (b.id === CUSTOM_ID) return 1
+          if (subscriptionIds.includes(a.id) && subscriptionIds.includes(b.id)) {
+            return subscriptionIds.indexOf(a.id) - subscriptionIds.indexOf(b.id)
+          }
           if (popularProviders.includes(a.id) && popularProviders.includes(b.id))
             return popularProviders.indexOf(a.id) - popularProviders.indexOf(b.id)
           return a.name.localeCompare(b.name)
         }}
         sortGroupsBy={(a, b) => {
           const popular = popularGroup()
+          const subscription = subscriptionGroup()
           if (a.category === popular && b.category !== popular) return -1
           if (b.category === popular && a.category !== popular) return 1
+          if (a.category === subscription && b.category !== subscription) return 1
+          if (b.category === subscription && a.category !== subscription) return -1
           return 0
         }}
         onSelect={(x) => {
@@ -74,7 +100,7 @@ export const DialogSelectProvider: Component = () => {
             <Show when={i.id === CUSTOM_ID}>
               <Tag>{language.t("settings.providers.tag.custom")}</Tag>
             </Show>
-            <Show when={i.id === "openhei"}>
+            <Show when={["openhei", "openai", "github-copilot", "microsoft-copilot"].includes(i.id)}>
               <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
             </Show>
             <Show when={note(i.id)}>{(value) => <div class="text-14-regular text-text-weak">{value()}</div>}</Show>

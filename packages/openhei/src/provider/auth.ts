@@ -9,12 +9,33 @@ import { Auth } from "@/auth"
 
 export namespace ProviderAuth {
   const state = Instance.state(async () => {
-    const methods = pipe(
-      await Plugin.list(),
-      filter((x) => x.auth?.provider !== undefined),
-      map((x) => [x.auth!.provider, x.auth!] as const),
-      fromEntries(),
-    )
+    const methods: Record<string, Hooks["auth"]> = {}
+    for (const hook of await Plugin.list()) {
+      if (!hook.auth) continue
+      const providerID = hook.auth.provider
+
+      if (providerID === "alternative-auth") {
+        const subProviders = [
+          "duckduckgo",
+          "perplexity",
+          "mistral",
+          "anthropic",
+          "venice",
+          "microsoft-copilot",
+          "alternative-auth",
+        ]
+        for (const targetID of subProviders) {
+          methods[targetID] = {
+            ...hook.auth,
+            methods: hook.auth.methods.filter(
+              (m: any) => !m.provider || m.provider === targetID || targetID === "alternative-auth",
+            ),
+          }
+        }
+      } else {
+        methods[providerID] = hook.auth
+      }
+    }
     return { methods, pending: {} as Record<string, AuthOuathResult> }
   })
 
@@ -31,12 +52,12 @@ export namespace ProviderAuth {
   export async function methods() {
     const s = await state().then((x) => x.methods)
     return mapValues(s, (x) =>
-      x.methods.map(
+      x?.methods.map(
         (y): Method => ({
           type: y.type,
           label: y.label,
         }),
-      ),
+      ) ?? [],
     )
   }
 
@@ -58,7 +79,9 @@ export namespace ProviderAuth {
     }),
     async (input): Promise<Authorization | undefined> => {
       const auth = await state().then((s) => s.methods[input.providerID])
+      if (!auth) return
       const method = auth.methods[input.method]
+      if (!method) return
       if (method.type === "oauth") {
         const result = await method.authorize()
         await state().then((s) => (s.pending[input.providerID] = result))

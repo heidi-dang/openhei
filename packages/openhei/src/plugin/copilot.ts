@@ -60,6 +60,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
         return {
           baseURL,
           apiKey: "",
+          models: provider?.models,
           async fetch(request: RequestInfo | URL, init?: RequestInit) {
             const info = await getAuth()
             if (info.type !== "oauth") return fetch(request, init)
@@ -114,7 +115,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
                     isAgent: !(last?.role === "user" && hasNonToolCalls),
                   }
                 }
-              } catch {}
+              } catch { }
               return { isVision: false, isAgent: false }
             })
 

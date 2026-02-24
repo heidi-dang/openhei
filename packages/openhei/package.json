@@ -115,6 +115,7 @@
     "mime-types": "3.0.2",
     "minimatch": "10.0.3",
     "open": "10.1.2",
+    "openhei-alternative-auth": "workspace:*",
     "openhei-openai-codex-auth": "workspace:*",
     "opentui-spinner": "0.0.6",
     "partial-json": "0.1.7",

@@ -22,6 +22,10 @@ export namespace Plugin {
       load: async () => (await import("openhei-openai-codex-auth")).OpenAIAuthPlugin as unknown as PluginInstance,
     },
     {
+      name: "openhei-alternative-auth",
+      load: async () => (await import("openhei-alternative-auth")).AlternativeAuthPlugin as unknown as PluginInstance,
+    },
+    {
       name: "openhei-copilot-auth",
       load: async () => (await import("./copilot")).CopilotAuthPlugin,
     },

@@ -547,7 +547,7 @@ export namespace Provider {
       if (!apiToken) {
         throw new Error(
           "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. " +
-            "Set it via environment variable or run `openhei auth cloudflare-ai-gateway`.",
+          "Set it via environment variable or run `openhei auth cloudflare-ai-gateway`.",
         )
       }
 
@@ -699,13 +699,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
-              },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
-            }
+            cache: {
+              read: model.cost.context_over_200k.cache_read ?? 0,
+              write: model.cost.context_over_200k.cache_write ?? 0,
+            },
+            input: model.cost.context_over_200k.input,
+            output: model.cost.context_over_200k.output,
+          }
           : undefined,
       },
       limit: {
@@ -802,9 +802,20 @@ export namespace Provider {
         return
       }
       const match = database[providerID]
-      if (!match) return
+      if (!match && provider.source !== "custom") return
       // @ts-expect-error
-      providers[providerID] = mergeDeep(match, provider)
+      providers[providerID] = mergeDeep(
+        match ??
+        ({
+          id: providerID,
+          name: provider.name ?? providerID,
+          env: [],
+          options: {},
+          models: {},
+          source: "custom",
+        } as Info),
+        provider,
+      )
     }
 
     // extend database from config
@@ -913,7 +924,8 @@ export namespace Provider {
       }
     }
 
-    for (const plugin of await Plugin.list()) {
+    const plugins = await Plugin.list()
+    for (const plugin of plugins) {
       if (!plugin.auth) continue
       const providerID = plugin.auth.provider
       if (disabled.has(providerID)) continue
@@ -929,15 +941,43 @@ export namespace Provider {
         if (enterpriseAuth) hasAuth = true
       }
 
-      if (!hasAuth) continue
       if (!plugin.auth.loader) continue
 
       // Load for the main provider if auth exists
-      if (auth) {
-        const options = await plugin.auth.loader(() => Auth.get(providerID) as any, database[plugin.auth.provider])
+      const isAlternative = providerID === "alternative-auth"
+      const targetProviders = isAlternative
+        ? ["alternative-auth", "duckduckgo", "perplexity", "mistral", "anthropic", "venice", "microsoft-copilot"]
+        : [providerID]
+
+      for (const targetID of targetProviders) {
+        const targetAuth = await Auth.get(targetID)
+        // Load if we have auth, or if it's alternative auth (to show in connection dialog),
+        // or specifically for duckduckgo which can be used without auth.
+        if (!targetAuth && !isAlternative && targetID !== "duckduckgo") continue
+
+        const options = await plugin.auth.loader(() => Auth.get(targetID) as any, database[targetID] || { id: targetID })
         const opts = options ?? {}
-        const patch: Partial<Info> = providers[providerID] ? { options: opts } : { source: "custom", options: opts }
-        mergeProvider(providerID, patch)
+        const name = iife(() => {
+          if (targetID === "alternative-auth") return "Alternative Subscriptions"
+          if (targetID === "github-copilot") return "GitHub Copilot"
+          if (targetID === "github-copilot-enterprise") return "GitHub Copilot Enterprise"
+          if (targetID === "microsoft-copilot") return "Microsoft Copilot"
+          if (targetID === "duckduckgo") return "DuckDuckGo"
+          if (targetID === "perplexity") return "Perplexity"
+          if (targetID === "mistral") return "Mistral"
+          if (targetID === "anthropic" && isAlternative) return "Claude"
+          if (targetID === "venice") return "Venice AI"
+          if (targetID === "openhei-openai-codex-auth") return "ChatGPT Plus/Pro"
+          return database[targetID]?.name ?? targetID
+        })
+        const patch: Partial<Info> = providers[targetID]
+          ? {
+            name,
+            options: opts,
+            models: { ...providers[targetID].models, ...(opts.models ?? {}) },
+          }
+          : { source: "custom", name, options: opts, models: opts.models ?? {} }
+        mergeProvider(targetID, patch)
       }
 
       // If this is github-copilot plugin, also register for github-copilot-enterprise if auth exists
@@ -952,8 +992,11 @@ export namespace Provider {
             )
             const opts = enterpriseOptions ?? {}
             const patch: Partial<Info> = providers[enterpriseProviderID]
-              ? { options: opts }
-              : { source: "custom", options: opts }
+              ? {
+                options: opts,
+                models: { ...providers[enterpriseProviderID].models, ...(opts.models ?? {}) },
+              }
+              : { source: "custom", options: opts, models: opts.models ?? {} }
             mergeProvider(enterpriseProviderID, patch)
           }
         }
@@ -976,6 +1019,40 @@ export namespace Provider {
       }
     }
 
+    // Register plugin providers even if not connected, so they show up in the connection dialog
+    for (const plugin of plugins) {
+      if (!plugin.auth) continue
+      const providerID = plugin.auth.provider
+      const targetIDs =
+        providerID === "alternative-auth"
+          ? ["alternative-auth", "duckduckgo", "perplexity", "mistral", "anthropic", "venice", "microsoft-copilot"]
+          : [providerID]
+
+      for (const id of targetIDs) {
+        if (disabled.has(id)) continue
+        if (providers[id]) continue
+
+        const match = database[id]
+        const name = iife(() => {
+          if (id === "alternative-auth") return "Alternative Subscriptions"
+          if (id === "github-copilot") return "GitHub Copilot"
+          if (id === "github-copilot-enterprise") return "GitHub Copilot Enterprise"
+          if (id === "microsoft-copilot") return "Microsoft Copilot"
+          if (id === "openhei-openai-codex-auth") return "ChatGPT Plus/Pro"
+          return match?.name ?? id
+        })
+
+        providers[id] = {
+          id,
+          name,
+          env: match?.env ?? [],
+          options: {},
+          source: "custom",
+          models: match?.models ?? {},
+        }
+      }
+    }
+
     // load config
     for (const [providerID, provider] of configProviders) {
       const partial: Partial<Info> = { source: "config" }
@@ -994,7 +1071,43 @@ export namespace Provider {
       const configProvider = config.provider?.[providerID]
 
       for (const [modelID, model] of Object.entries(provider.models)) {
+        model.id = model.id ?? modelID
+        model.providerID = model.providerID ?? providerID
+        model.name = model.name ?? modelID
+        model.status = model.status ?? "active"
+        model.api = model.api ?? { npm: "", url: "" }
         model.api.id = model.api.id ?? model.id ?? modelID
+        model.capabilities = model.capabilities ?? {
+          temperature: false,
+          reasoning: false,
+          attachment: false,
+          toolcall: true,
+          input: {
+            text: true,
+            audio: false,
+            image: false,
+            video: false,
+            pdf: false,
+          },
+          output: {
+            text: true,
+            audio: false,
+            image: false,
+            video: false,
+            pdf: false,
+          },
+        }
+        model.limit = model.limit ?? {
+          context: 0,
+          input: 0,
+          output: 0,
+        }
+        model.cost = model.cost ?? {
+          input: 0,
+          output: 0,
+        }
+        model.release_date = model.release_date ?? ""
+        model.variants = model.variants ?? {}
         if (modelID === "gpt-5-chat-latest" || (providerID === "openrouter" && modelID === "openai/gpt-5-chat"))
           delete provider.models[modelID]
         if (model.status === "alpha" && !Flag.OPENHEI_ENABLE_EXPERIMENTAL_MODELS) delete provider.models[modelID]

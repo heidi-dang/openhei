@@ -145,6 +145,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 				return {
 					apiKey: DUMMY_API_KEY,
 					baseURL: CODEX_BASE_URL,
+					models: (provider as any)?.models,
 					/**
 					 * Custom fetch implementation for Codex API
 					 *
@@ -225,10 +226,10 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					},
 				};
 			},
-				methods: [
-					{
-						label: AUTH_LABELS.OAUTH,
-						type: "oauth" as const,
+			methods: [
+				{
+					label: AUTH_LABELS.OAUTH,
+					type: "oauth" as const,
 					/**
 					 * OAuth authorization flow
 					 *
@@ -277,19 +278,19 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							},
 						};
 					},
+				},
+				{
+					label: AUTH_LABELS.OAUTH_MANUAL,
+					type: "oauth" as const,
+					authorize: async () => {
+						const { pkce, url } = await createAuthorizationFlow();
+						return buildManualOAuthFlow(pkce, url);
 					},
-					{
-						label: AUTH_LABELS.OAUTH_MANUAL,
-						type: "oauth" as const,
-						authorize: async () => {
-							const { pkce, url } = await createAuthorizationFlow();
-							return buildManualOAuthFlow(pkce, url);
-						},
-					},
-					{
-						label: AUTH_LABELS.API_KEY,
-						type: "api" as const,
-					},
+				},
+				{
+					label: AUTH_LABELS.API_KEY,
+					type: "api" as const,
+				},
 			],
 		},
 	};
