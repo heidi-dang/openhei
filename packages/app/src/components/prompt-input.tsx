@@ -916,7 +916,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const draftStorageKey = createMemo(() => draftKey(sdk.directory, params.id))
 
   createEffect(() => {
-    if (!useSettings().flags.get("ui.draft_persist")) return
+    const settings = useSettings()
+    if (!settings.flags.get("ui.draft_persist")) {
+      setShowRestoreBanner(false)
+      return
+    }
     const key = draftStorageKey()
     const existing = readDraft(key)
     setShowRestoreBanner(!!existing)
