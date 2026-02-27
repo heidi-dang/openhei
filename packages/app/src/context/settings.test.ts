@@ -18,3 +18,8 @@ test("density default is comfortable and flag is off", () => {
   expect(DEFAULT_SETTINGS.general.density).toBe("comfortable")
   expect(DEFAULT_SETTINGS.flags["ui.density_modes"]).toBe(false)
 })
+
+test("whatsNewPhase5 dismissal defaults to false", () => {
+  // The What's New banner should appear by default (not dismissed).
+  expect(DEFAULT_SETTINGS.general.dismissedWhatsNewPhase5).toBe(false)
+})

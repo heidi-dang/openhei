@@ -617,6 +617,12 @@ export const dict = {
   "settings.general.experimental.notice.description":
     "Try new composer features like Send Options and Composer Palette. These are off by default and available under Experimental.",
   "settings.general.experimental.notice.dismiss": "Dismiss",
+
+  "whatsNew.phase5.title": "New: Phase 5 Experimental Features",
+  "whatsNew.phase5.description":
+    "Thinking Drawer, Send Options, Slash Palette, Draft Persist, and Density Modes are now available. Enable them in Settings → General → Experimental.",
+  "whatsNew.phase5.openSettings": "Open Settings",
+  "whatsNew.phase5.dismiss": "Dismiss",
   "prompt.sendOptions.option.default": "Default",
   "prompt.sendOptions.option.no_reply": "No reply",
   "prompt.sendOptions.option.plan": "Plan",

@@ -30,6 +30,8 @@ export interface Settings {
     sendOption?: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority"
     // Dismissed flag for an experimental discovery notice in Settings UI.
     dismissedExperimentalNotice?: boolean
+    // Dismissed flag for the Phase 5 "What's new" banner.
+    dismissedWhatsNewPhase5?: boolean
     // Controls how the thinking/summary drawer behaves when the feature is enabled.
     // This is a user preference only - the feature gate remains `flags["ui.thinking_drawer"]`.
     // Allowed values:
@@ -75,6 +77,7 @@ const defaultSettings: Settings = {
     autoSave: true,
     releaseNotes: true,
     dismissedExperimentalNotice: false,
+    dismissedWhatsNewPhase5: false,
     sendOption: "default",
     showReasoningSummaries: false,
     density: "comfortable",
@@ -221,6 +224,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setDismissedExperimentalNotice(value: boolean) {
           setStore("general", "dismissedExperimentalNotice", value)
+        },
+        dismissedWhatsNewPhase5: withFallback(
+          () => store.general?.dismissedWhatsNewPhase5 as boolean | undefined,
+          false,
+        ),
+        setDismissedWhatsNewPhase5(value: boolean) {
+          setStore("general", "dismissedWhatsNewPhase5", value)
         },
         setSendOption(value: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority") {
           setStore("general", "sendOption", value)
