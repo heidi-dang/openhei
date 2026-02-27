@@ -278,3 +278,8 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
     }
   },
 })
+
+// Export the default settings so tests and docs can reason about the
+// initial feature-flag state without instantiating the UI context.
+// This is a non-invasive export used only for verification and docs.
+export const DEFAULT_SETTINGS = defaultSettings
