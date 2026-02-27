@@ -44,6 +44,8 @@ export interface Settings {
     "ui.scroll_anchor": boolean
     "ui.stop_stream": boolean
     "ui.tool_cards": boolean
+    "ui.step_timeline": boolean
+    "ui.error_cards": boolean
     "ui.thinking_drawer": boolean
     "ui.composer_palette": boolean
     "ui.density_modes": boolean
@@ -78,6 +80,8 @@ const defaultSettings: Settings = {
     "ui.scroll_anchor": false,
     "ui.stop_stream": false,
     "ui.tool_cards": false,
+    "ui.step_timeline": false,
+    "ui.error_cards": false,
     "ui.thinking_drawer": false,
     "ui.composer_palette": false,
     "ui.density_modes": false,
