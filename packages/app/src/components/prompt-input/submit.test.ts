@@ -304,6 +304,35 @@ describe("prompt submit stale session recovery", () => {
     delete (globalThis as any).__prompt_selected_send_option
   })
 
+  test("selectedSendOption accessor is used when provided", async () => {
+    params = { id: "ses_ok", dir: "/repo/main" }
+    const submit = createPromptSubmit({
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+      // Provide the selected send option via accessor
+      selectedSendOption: () => "plan",
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+    await submit.handleSubmit(event)
+
+    expect(promptAsyncCalls.length).toBeGreaterThan(0)
+    const call = promptAsyncCalls[promptAsyncCalls.length - 1]
+    const textPart = call.input.parts.find((p: any) => p.type === "text")
+    expect(textPart.metadata?.send_option).toBe("plan")
+  })
+
   test("draft persist flag OFF => no storage read/write", async () => {
     // Ensure flag off
     const settings = await import("@/context/settings")
