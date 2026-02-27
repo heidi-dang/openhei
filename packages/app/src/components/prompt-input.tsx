@@ -1291,7 +1291,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     options={["default", "no_reply", "priority"]}
                     current={"default"}
                     onSelect={(value) => {
-                      ;(window as any).__prompt_selected_send_option = value
+                      setSelectedSendOption(value === "default" ? undefined : value)
                     }}
                     aria-label="Send options"
                     variant="ghost"
