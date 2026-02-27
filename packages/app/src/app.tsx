@@ -8,7 +8,7 @@ import { Font } from "@openhei-ai/ui/font"
 import { ThemeProvider } from "@openhei-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
 import { Navigate, Route, Router, useNavigate } from "@solidjs/router"
-import { ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
+import { ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense, onCleanup, onMount } from "solid-js"
 import { Button } from "@openhei-ai/ui/button"
 import { CommandProvider } from "@/context/command"
 import { CommentsProvider } from "@/context/comments"
@@ -30,6 +30,8 @@ import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
 import { ErrorPage } from "./pages/error"
+import { useGlobalSDK } from "@/context/global-sdk"
+import { useGlobalSync } from "@/context/global-sync"
 
 const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
@@ -105,9 +107,6 @@ function AppShellProviders(props: ParentProps) {
 }
 
 function DensityRootWrapper(props: ParentProps) {
-  // Use the Settings context when available. Keep behavior identical when
-  // the feature flag is OFF by default by not adding the data-density
-  // attribute (CSS defaults correspond to "comfortable").
   const settings = useSettings()
 
   const density = settings && settings.flags.get("ui.density_modes") ? settings.general.density() : undefined
@@ -206,11 +205,79 @@ export function AppInterface(props: {
   defaultServer: ServerConnection.Key
   servers?: Array<ServerConnection.Any>
 }) {
+  function ResumeHandler() {
+    const sdk = useGlobalSDK()
+    const sync = useGlobalSync()
+
+    const THRESHOLD_MS = 30_000
+    const DEDUPE_MS = 1200 // 1.2s dedupe for bursts
+    const REFRESH_THROTTLE_MS = 5_000 // don't refresh snapshot more than once per 5s
+
+    let lastHandlerAt = 0
+    let lastRefreshAt = 0
+
+    const onResume = () => {
+      try {
+        const now = Date.now()
+        if (now - lastHandlerAt < DEDUPE_MS) return
+        lastHandlerAt = now
+
+        if (typeof navigator !== "undefined" && !navigator.onLine) return
+
+        // If we have a recent realtime event, skip reconnect/refresh
+        if (sdk && typeof sdk.lastRealtimeAt === "function") {
+          const last = sdk.lastRealtimeAt()
+          if (now - last < THRESHOLD_MS) return
+        }
+
+        // Force reconnect of the event stream (idempotent)
+        try {
+          sdk?.forceReconnectIfStale?.(THRESHOLD_MS)
+        } catch {
+          // best-effort
+        }
+
+        // Refresh a lightweight snapshot only if we haven't refreshed recently
+        if (now - lastRefreshAt > REFRESH_THROTTLE_MS) {
+          lastRefreshAt = now
+          // Use bootstrap() which is a safe refresh path; if you prefer a lighter
+          // endpoint we can replace this with a /status call.
+          void sync.bootstrap()
+        }
+
+        // Ask service worker to update (if present)
+        try {
+          void navigator.serviceWorker?.ready.then((r) => r.update?.()).catch(() => undefined)
+        } catch {
+          /* noop */
+        }
+      } catch {
+        /* noop */
+      }
+    }
+
+    onMount(() => {
+      document.addEventListener("visibilitychange", onResume)
+      window.addEventListener("focus", onResume)
+      window.addEventListener("pageshow", onResume)
+      window.addEventListener("online", onResume)
+    })
+
+    onCleanup(() => {
+      document.removeEventListener("visibilitychange", onResume)
+      window.removeEventListener("focus", onResume)
+      window.removeEventListener("pageshow", onResume)
+      window.removeEventListener("online", onResume)
+    })
+
+    return null
+  }
   return (
     <ServerProvider defaultServer={props.defaultServer} servers={props.servers}>
       <ServerKey>
         <GlobalSDKProvider>
           <GlobalSyncProvider>
+            <ResumeHandler />
             <Router
               root={(routerProps) => <RouterRoot appChildren={props.children}>{routerProps.children}</RouterRoot>}
             >
