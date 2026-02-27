@@ -1231,7 +1231,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </Show>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2">
+          <div class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 overflow-x-hidden">
             <input
               ref={fileInputRef}
               type="file"
@@ -1253,10 +1253,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               }}
             >
               <Show when={showRestoreBanner()}>
-                <div class="pointer-events-auto absolute -top-10 right-0 bg-surface-2 rounded px-3 py-2 shadow-sm">
-                  <span class="text-13-regular">Restore draft?</span>
+                <div class="pointer-events-auto absolute -top-10 right-0 bg-surface-2 rounded px-3 py-2 shadow-sm flex items-center gap-2">
+                  <span class="text-13-regular hidden sm:inline">Restore draft?</span>
+                  <span class="text-13-regular sm:hidden">Draft:</span>
                   <button
-                    class="ml-2 text-blue-600"
+                    class="ml-1 sm:ml-2 text-blue-600 px-2 py-1.5 min-h-[40px] sm:min-h-0"
                     onClick={() => {
                       const key = draftStorageKey()
                       const txt = readDraft(key)
@@ -1270,7 +1271,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     Restore
                   </button>
                   <button
-                    class="ml-2 text-text-weak"
+                    class="ml-1 sm:ml-2 text-text-weak px-2 py-1.5 min-h-[40px] sm:min-h-0"
                     onClick={() => {
                       removeDraft(draftStorageKey())
                       setShowRestoreBanner(false)
@@ -1281,7 +1282,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </div>
               </Show>
               <Show when={settings.flags.get("ui.send_options")}>
-                <div class="pointer-events-auto mr-1">
+                <div class="pointer-events-auto mr-1 sm:mr-2">
                   <Select
                     data-action="prompt-send-option"
                     size="compact"
@@ -1292,6 +1293,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     }}
                     aria-label="Send options"
                     variant="ghost"
+                    class="min-h-[44px] sm:min-h-0"
                   />
                 </div>
               </Show>
@@ -1304,7 +1306,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   data-action="prompt-attach"
                   type="button"
                   variant="ghost"
-                  class="size-8 p-0"
+                  class="size-8 p-0 sm:size-8 min-h-[44px] sm:min-h-8"
                   onClick={pick}
                   disabled={store.mode !== "normal"}
                   tabIndex={store.mode === "normal" ? undefined : -1}
@@ -1341,7 +1343,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   tabIndex={store.mode === "normal" ? undefined : -1}
                   icon={working() ? "stop" : "arrow-up"}
                   variant="primary"
-                  class="size-8"
+                  class="size-8 sm:size-8 min-h-[44px] sm:min-h-8"
                   aria-label={working() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
                 />
               </Tooltip>
@@ -1496,7 +1498,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
             {/* Palette overlay (flag-gated) */}
             <Show when={settings.flags.get("ui.composer_palette") && palette.open()}>
-              <div class="absolute left-2 top-full mt-1">
+              <div class="absolute left-2 right-2 top-full mt-1 sm:left-2 sm:right-auto">
                 <Palette
                   palette={palette}
                   onSelect={(id) => {
