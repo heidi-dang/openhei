@@ -11,7 +11,14 @@ export const modKey = process.platform === "darwin" ? "Meta" : "Control"
 export const terminalToggleKey = "Control+Backquote"
 
 export function createSdk(directory?: string) {
-  return createOpencodeClient({ baseUrl: serverUrl, directory, throwOnError: true })
+  return createOpencodeClient({
+    baseUrl: serverUrl,
+    directory,
+    throwOnError: true,
+    headers: {
+      Authorization: `Basic ${base64Encode("admin:password")}`,
+    },
+  })
 }
 
 export async function getWorktree() {

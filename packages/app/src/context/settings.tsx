@@ -38,6 +38,13 @@ export interface Settings {
   permissions: {
     autoApprove: boolean
   }
+  flags: {
+    "ui.streaming_status": boolean
+    "ui.tool_cards": boolean
+    "ui.thinking_drawer": boolean
+    "ui.composer_palette": boolean
+    "ui.density_modes": boolean
+  }
   notifications: NotificationSettings
   sounds: SoundSettings
 }
@@ -61,6 +68,13 @@ const defaultSettings: Settings = {
   keybinds: {},
   permissions: {
     autoApprove: false,
+  },
+  flags: {
+    "ui.streaming_status": false,
+    "ui.tool_cards": false,
+    "ui.thinking_drawer": false,
+    "ui.composer_palette": false,
+    "ui.density_modes": false,
   },
   notifications: {
     agent: true,
@@ -179,6 +193,14 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         autoApprove: withFallback(() => store.permissions?.autoApprove, defaultSettings.permissions.autoApprove),
         setAutoApprove(value: boolean) {
           setStore("permissions", "autoApprove", value)
+        },
+      },
+      flags: {
+        get: <K extends keyof Settings["flags"]>(key: K) => {
+          return withFallback(() => store.flags?.[key], defaultSettings.flags[key])()
+        },
+        set: <K extends keyof Settings["flags"]>(key: K, value: boolean) => {
+          setStore("flags", key, value)
         },
       },
       notifications: {
