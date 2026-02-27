@@ -1,0 +1,43 @@
+---
+title: Optional local plugins
+description: How to opt-in to optional local plugin installs
+---
+
+Some plugins are optional and may be maintained outside this repository. They are not installed by default to keep the installer deterministic and the repo portable.
+
+Opt-in installer flag
+
+To let the installer attempt to install optional local plugins when performing a local repo install, pass `--with-plugins`:
+
+```bash
+./install.sh --local-repo --with-plugins
+```
+
+Behavior:
+
+- The installer performs best-effort clones of optional plugin repos. Missing upstream repositories will produce a WARN message and the installer continues.
+- By default the installer does not clone or modify `~/.config/openhei/plugins/`.
+
+Manual install
+
+To install a plugin manually into the global plugin directory:
+
+```bash
+# clone into XDG config plugins dir
+git clone <repo-url> "$HOME/.config/openhei/plugins/<plugin-name>"
+
+# verify
+ls -la "$HOME/.config/openhei/plugins/<plugin-name>"
+```
+
+Rollback / remove
+
+To remove a manually installed plugin:
+
+```bash
+rm -rf "$HOME/.config/openhei/plugins/<plugin-name>"
+```
+
+Notes
+
+- Prefer publishing to npm or adding a plugin via the `plugin` array in your local `openhei.json` project config for reproducible deployments.
