@@ -138,6 +138,16 @@ The thinking drawer shows model reasoning/thinking before the final response.
 4. Switch between compact and comfortable modes
 5. Verify the UI layout adjusts accordingly
 
+#### Density modes (polish) checks
+
+1. Enable `ui.density_modes` via Settings > General > Experimental or by toggling the flag in `settings.v3`.
+2. Switch presets between `Comfortable`, `Compact`, and `Spacious` from Settings.
+3. Verify the timeline row gaps and composer padding change (comfort <-> compact <-> spacious).
+4. Verify overlays (palette, draft banner, thinking drawer) remain overlay-only and do not shift layout.
+5. Mobile quick checks (iPhone Safari):
+   - In console run: `document.documentElement.scrollWidth === window.innerWidth` — should be `true`.
+   - Verify touch scrolling is smooth for lists (no page hijack) and list containers use touch scrolling.
+
 ## Manual Mobile Checks (iPhone Safari)
 
 These checks are for the mobile UX fixes in Phase 5-3:

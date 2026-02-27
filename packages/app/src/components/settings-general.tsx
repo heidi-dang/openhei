@@ -370,29 +370,36 @@ export const SettingsGeneral: Component = () => {
               onChange={(checked) => settings.flags.set("ui.density_modes", checked)}
             />
             <Show when={settings.flags.get("ui.density_modes")}>
-              <Select
-                size="small"
-                variant="secondary"
-                options={[
-                  {
-                    value: "comfortable",
-                    label: (language.t as any)("settings.general.row.densityModes.option.comfortable"),
-                  },
-                  { value: "compact", label: (language.t as any)("settings.general.row.densityModes.option.compact") },
-                  {
-                    value: "spacious",
-                    label: (language.t as any)("settings.general.row.densityModes.option.spacious"),
-                  },
-                ]}
-                current={{
-                  value: settings.general.density(),
-                  label: (language.t as any)("settings.general.row.densityModes.option." + settings.general.density()),
-                }}
-                value={(o: any) => o.value}
-                label={(o: any) => o.label}
-                onSelect={(option: any) => option && settings.general.setDensity(option.value)}
-                triggerVariant="settings"
-              />
+              <div class="min-h-[44px] flex items-center">
+                <Select
+                  size="small"
+                  variant="secondary"
+                  options={[
+                    {
+                      value: "comfortable",
+                      label: (language.t as any)("settings.general.row.densityModes.option.comfortable"),
+                    },
+                    {
+                      value: "compact",
+                      label: (language.t as any)("settings.general.row.densityModes.option.compact"),
+                    },
+                    {
+                      value: "spacious",
+                      label: (language.t as any)("settings.general.row.densityModes.option.spacious"),
+                    },
+                  ]}
+                  current={{
+                    value: settings.general.density(),
+                    label: (language.t as any)(
+                      "settings.general.row.densityModes.option." + settings.general.density(),
+                    ),
+                  }}
+                  value={(o: any) => o.value}
+                  label={(o: any) => o.label}
+                  onSelect={(option: any) => option && settings.general.setDensity(option.value)}
+                  triggerVariant="settings"
+                />
+              </div>
             </Show>
           </div>
         </SettingsRow>

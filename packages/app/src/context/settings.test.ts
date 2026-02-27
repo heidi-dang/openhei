@@ -10,3 +10,11 @@ test("all ui flags default to false", () => {
     expect((flags as any)[k]).toBe(false)
   }
 })
+
+test("density default is comfortable and flag is off", () => {
+  // DEFAULT_SETTINGS is the canonical source of truth for defaults used in the
+  // settings provider init. Ensure the density default remains comfortable
+  // and the feature gate is off to avoid accidental UX changes.
+  expect(DEFAULT_SETTINGS.general.density).toBe("comfortable")
+  expect(DEFAULT_SETTINGS.flags["ui.density_modes"]).toBe(false)
+})
