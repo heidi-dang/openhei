@@ -26,6 +26,7 @@ type BuildRequestPartsInput = {
   messageID: string
   sessionID: string
   sessionDirectory: string
+  sendOption?: string
 }
 
 const absolute = (directory: string, path: string) => {
@@ -95,6 +96,7 @@ export function buildRequestParts(input: BuildRequestPartsInput) {
       id: Identifier.ascending("part"),
       type: "text",
       text: input.text,
+      metadata: input.sendOption ? { send_option: input.sendOption } : undefined,
     },
   ]
 

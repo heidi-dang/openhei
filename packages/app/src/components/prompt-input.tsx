@@ -46,6 +46,7 @@ import {
   promptLength,
 } from "./prompt-input/history"
 import { createPromptSubmit } from "./prompt-input/submit"
+import { useSettings } from "@/context/settings"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
@@ -897,6 +898,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
+    selectedSendOption: () => (window as any).__prompt_selected_send_option ?? undefined,
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -1174,6 +1176,21 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 "opacity-0 translate-y-2 scale-95 pointer-events-none": store.mode !== "normal",
               }}
             >
+              <Show when={useSettings().flags.get("ui.send_options")}>
+                <div class="pointer-events-auto mr-1">
+                  <Select
+                    data-action="prompt-send-option"
+                    size="compact"
+                    options={["default", "no_reply", "priority"]}
+                    current={"default"}
+                    onSelect={(value) => {
+                      ;(window as any).__prompt_selected_send_option = value
+                    }}
+                    aria-label="Send options"
+                    variant="ghost"
+                  />
+                </div>
+              </Show>
               <TooltipKeybind
                 placement="top"
                 title={language.t("prompt.action.attachFile")}
