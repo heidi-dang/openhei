@@ -1,0 +1,43 @@
+[data-component="tool-card"] {
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--background-stronger);
+  padding: 8px;
+}
+.tool-card-header {
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.tool-card-body {
+  padding-top: 8px;
+}
+.tool-card-output {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.tool-card-truncated-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tool-card-truncated-label {
+  font-size: 12px;
+  color: var(--text-weak);
+}
+.tool-card-show-more,
+.tool-card-show-less {
+  font-size: 12px;
+  color: var(--text-link);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.tool-card-show-more:hover,
+.tool-card-show-less:hover {
+  color: var(--text-link-hover);
+}
