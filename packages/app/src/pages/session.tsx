@@ -1054,10 +1054,11 @@ export default function Page() {
           classList={{
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
             "flex-1": true,
-            "md:flex-none": desktopSidePanelOpen(),
+            "w-full md:flex-none": desktopSidePanelOpen(),
+            "hidden md:flex": !isDesktop() && store.mobileTab === "changes",
           }}
           style={{
-            width: sessionPanelWidth(),
+            width: isDesktop() ? sessionPanelWidth() : "100%",
           }}
         >
           <div class="flex-1 min-h-0 overflow-hidden">
@@ -1219,7 +1220,13 @@ export default function Page() {
           </Show>
         </div>
 
-        <SessionSidePanel reviewPanel={reviewPanel} activeDiff={tree.activeDiff} focusReviewDiff={focusReviewDiff} />
+        <SessionSidePanel
+          reviewPanel={reviewPanel}
+          activeDiff={tree.activeDiff}
+          focusReviewDiff={focusReviewDiff}
+          mobileTab={store.mobileTab}
+          isDesktop={isDesktop()}
+        />
       </div>
 
       <TerminalPanel />
