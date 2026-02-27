@@ -199,9 +199,10 @@ export function SessionSidePanel(props: {
         classList={{
           "flex-1": reviewOpen(),
           "shrink-0": !reviewOpen(),
-          "w-full": !isDesktop(),
+          "w-full absolute inset-0 z-10 bg-background-base": !isDesktop(),
+          "hidden": !isDesktop() && props.mobileTab !== "changes",
         }}
-        style={{ width: !isDesktop() ? "100%" : reviewOpen() ? undefined : `${layout.fileTree.width()}px` }}
+        style={{ width: !isDesktop() ? undefined : reviewOpen() ? undefined : `${layout.fileTree.width()}px` }}
       >
         <Show when={reviewOpen()}>
           <div class="flex-1 min-w-0 h-full">
