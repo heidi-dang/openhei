@@ -38,7 +38,7 @@ export function createPalette() {
 export default function Palette(props: { palette: ReturnType<typeof createPalette>; onSelect: (cmd: string) => void }) {
   const p = props.palette
   return (
-    <div class="absolute z-50 max-h-[200px] w-full sm:w-[260px] overflow-y-auto bg-surface-1 border border-divider rounded shadow-md mt-1 sm:mt-1">
+    <div class="absolute left-2 top-full z-50 max-h-[200px] w-[calc(100%-1rem)] sm:w-[260px] overflow-y-auto bg-surface-1 border border-divider rounded shadow-md mt-1 sm:left-0">
       <div class="p-1">
         {p.filtered().map((cmd, idx) => (
           <div
