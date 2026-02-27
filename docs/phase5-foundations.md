@@ -1,4 +1,4 @@
-Phase 5 — Foundations
+Phase 5 - Foundations
 
 This small doc summarizes the Phase 5 foundations work (P5-1). It is intentionally
 short and non-prescriptive: the goal is hygiene and guardrails around feature
@@ -12,8 +12,8 @@ Scope
 
 Acceptance
 
-- branch created from latest `main` (fast-forward)
-- all flags default OFF in `DEFAULT_SETTINGS`
+- branch created from latest main (fast-forward)
+- all flags default OFF in DEFAULT_SETTINGS
 - typecheck/tests/build pass
 
 Notes
