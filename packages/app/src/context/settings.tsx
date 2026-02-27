@@ -2,6 +2,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@openhei-ai/ui/context"
 import { persisted } from "@/utils/persist"
+import { normalizeDensity } from "@/components/density.helper"
 
 export interface NotificationSettings {
   agent: boolean

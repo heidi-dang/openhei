@@ -23,7 +23,7 @@ import { PermissionProvider } from "@/context/permission"
 import { usePlatform } from "@/context/platform"
 import { PromptProvider } from "@/context/prompt"
 import { type ServerConnection, ServerProvider, useServer } from "@/context/server"
-import { SettingsProvider } from "@/context/settings"
+import { SettingsProvider, useSettings } from "@/context/settings"
 import "./styles/density.css"
 import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
@@ -104,17 +104,13 @@ function AppShellProviders(props: ParentProps) {
 }
 
 function DensityRootWrapper(props: ParentProps) {
-  const settings = (() => {
-    try {
-      // lazy require to avoid circular imports at module load time
-      const mod = require("@/context/settings")
-      return mod.use()
-    } catch (e) {
-      return undefined
-    }
-  })()
+  // Use the Settings context when available. Keep behavior identical when
+  // the feature flag is OFF by default by not adding the data-density
+  // attribute (CSS defaults correspond to "comfortable").
+  const settings = useSettings()
 
-  const density = settings ? settings.general.density() : "comfortable"
+  const density = settings && settings.flags.get("ui.density_modes") ? settings.general.density() : undefined
+
   return (
     <div class="density-root" data-density={density}>
       {props.children}
