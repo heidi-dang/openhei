@@ -621,6 +621,9 @@ export const dict = {
   "settings.general.row.thinkingDrawer.description": "Show reasoning/thinking drawer for assistant messages",
   "settings.general.row.densityModes.title": "Density modes",
   "settings.general.row.densityModes.description": "Enable compact and comfortable density modes",
+  "settings.general.row.densityModes.option.comfortable": "Comfortable",
+  "settings.general.row.densityModes.option.compact": "Compact",
+  "settings.general.row.densityModes.option.spacious": "Spacious",
 
   "settings.general.row.language.title": "Language",
   "settings.general.row.language.description": "Change the display language for OpenHei",

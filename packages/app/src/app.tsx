@@ -23,7 +23,8 @@ import { PermissionProvider } from "@/context/permission"
 import { usePlatform } from "@/context/platform"
 import { PromptProvider } from "@/context/prompt"
 import { type ServerConnection, ServerProvider, useServer } from "@/context/server"
-import { SettingsProvider } from "@/context/settings"
+import { SettingsProvider, useSettings } from "@/context/settings"
+import "./styles/density.css"
 import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
@@ -89,7 +90,9 @@ function AppShellProviders(props: ParentProps) {
             <ModelsProvider>
               <CommandProvider>
                 <HighlightsProvider>
-                  <Layout>{props.children}</Layout>
+                  <Layout>
+                    <DensityRootWrapper>{props.children}</DensityRootWrapper>
+                  </Layout>
                 </HighlightsProvider>
               </CommandProvider>
             </ModelsProvider>
@@ -97,6 +100,21 @@ function AppShellProviders(props: ParentProps) {
         </LayoutProvider>
       </PermissionProvider>
     </SettingsProvider>
+  )
+}
+
+function DensityRootWrapper(props: ParentProps) {
+  // Use the Settings context when available. Keep behavior identical when
+  // the feature flag is OFF by default by not adding the data-density
+  // attribute (CSS defaults correspond to "comfortable").
+  const settings = useSettings()
+
+  const density = settings && settings.flags.get("ui.density_modes") ? settings.general.density() : undefined
+
+  return (
+    <div class="density-root" data-density={density}>
+      {props.children}
+    </div>
   )
 }
 
