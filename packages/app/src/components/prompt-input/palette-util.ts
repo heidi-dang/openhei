@@ -6,5 +6,5 @@ export function shouldOpenPalette(flagsEnabled: boolean, rawText: string) {
 }
 
 export function stripSlashPrefix(text: string, cmd: string) {
-  return text.replace(new RegExp(`^/${cmd}\s?`), "")
+  return text.replace(new RegExp(`^/${cmd}\s?`), "").replace(/^\s+/, "")
 }
