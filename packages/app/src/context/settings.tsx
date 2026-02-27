@@ -25,6 +25,11 @@ export interface Settings {
     releaseNotes: boolean
     showReasoningSummaries: boolean
     density?: "comfortable" | "compact" | "spacious"
+    // Persisted user-selected send option for the composer. Use the string
+    // "default" to indicate the logical default (no metadata attached).
+    sendOption?: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority"
+    // Dismissed flag for an experimental discovery notice in Settings UI.
+    dismissedExperimentalNotice?: boolean
     // Controls how the thinking/summary drawer behaves when the feature is enabled.
     // This is a user preference only - the feature gate remains `flags["ui.thinking_drawer"]`.
     // Allowed values:
@@ -69,6 +74,8 @@ const defaultSettings: Settings = {
   general: {
     autoSave: true,
     releaseNotes: true,
+    dismissedExperimentalNotice: false,
+    sendOption: "default",
     showReasoningSummaries: false,
     density: "comfortable",
     thinkingDrawerMode: "auto",
@@ -187,6 +194,36 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setDensity(value: "comfortable" | "compact" | "spacious") {
           setStore("general", "density", value)
+        },
+        sendOption: withFallback(
+          () =>
+            store.general?.sendOption as
+              | "default"
+              | "no_reply"
+              | "plan"
+              | "act"
+              | "explain"
+              | "search"
+              | "priority"
+              | undefined,
+          defaultSettings.general.sendOption as
+            | "default"
+            | "no_reply"
+            | "plan"
+            | "act"
+            | "explain"
+            | "search"
+            | "priority",
+        ),
+        dismissedExperimentalNotice: withFallback(
+          () => store.general?.dismissedExperimentalNotice as boolean | undefined,
+          false,
+        ),
+        setDismissedExperimentalNotice(value: boolean) {
+          setStore("general", "dismissedExperimentalNotice", value)
+        },
+        setSendOption(value: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority") {
+          setStore("general", "sendOption", value)
         },
       },
       ml: {

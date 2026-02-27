@@ -613,6 +613,10 @@ export const dict = {
 
   "settings.general.row.sendOptions.title": "Send options",
   "settings.general.row.sendOptions.description": "Show send options dropdown in composer (plan, no reply, priority)",
+  "settings.general.experimental.notice.title": "Discover experimental Phase 5 features",
+  "settings.general.experimental.notice.description":
+    "Try new composer features like Send Options and Composer Palette. These are off by default and available under Experimental.",
+  "settings.general.experimental.notice.dismiss": "Dismiss",
   "prompt.sendOptions.option.default": "Default",
   "prompt.sendOptions.option.no_reply": "No reply",
   "prompt.sendOptions.option.plan": "Plan",

@@ -320,6 +320,28 @@ export const SettingsGeneral: Component = () => {
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.experimental")}</h3>
 
       <div class="bg-surface-raised-base px-4 rounded-lg">
+        <Show when={!settings.general.dismissedExperimentalNotice()}>
+          <div class="mb-3 p-3 bg-surface-3 rounded flex items-start gap-3">
+            <div class="flex-1">
+              <div class="text-13-medium text-text-strong">
+                {language.t("settings.general.experimental.notice.title")}
+              </div>
+              <div class="text-12-regular text-text-weak">
+                {language.t("settings.general.experimental.notice.description")}
+              </div>
+            </div>
+            <div class="flex-shrink-0">
+              <Button
+                size="small"
+                variant="ghost"
+                onClick={() => settings.general.setDismissedExperimentalNotice(true)}
+                aria-label={language.t("settings.general.experimental.notice.dismiss")}
+              >
+                {language.t("common.dismiss")}
+              </Button>
+            </div>
+          </div>
+        </Show>
         <SettingsRow
           title={language.t("settings.general.row.sendOptions.title")}
           description={language.t("settings.general.row.sendOptions.description")}
