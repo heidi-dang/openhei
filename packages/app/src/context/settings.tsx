@@ -23,6 +23,12 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     showReasoningSummaries: boolean
+    // Controls how the thinking/summary drawer behaves when the feature is enabled.
+    // This is a user preference only - the feature gate remains `flags["ui.thinking_drawer"]`.
+    // Allowed values:
+    //  - 'auto'  : show summaries only for messages that include a reasoning_summary
+    //  - 'always': render the drawer for assistant messages even if reasoning_summary is missing
+    //  - 'never' : never render (useful as a user preference independent of the feature flag)
     thinkingDrawerMode?: "auto" | "always" | "never"
   }
   ml: {
