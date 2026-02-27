@@ -23,6 +23,10 @@ import { useSettings } from "@/context/settings"
 import { SessionHeader, NewSessionView } from "@/components/session"
 import { StreamingStatus } from "@/components/session/streaming-status"
 import { StreamingBanner, type BannerType } from "@/components/session/streaming-banner"
+import TimelineNodes from "@/components/session/timeline-nodes/timeline-nodes"
+import ErrorCard from "@/components/session/error-card/error-card"
+import "@/components/session/timeline-nodes/timeline-nodes.css"
+import "@/components/session/error-card/error-card.css"
 import { same } from "@/utils/same"
 import { createOpenReviewFile } from "@/pages/session/helpers"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
@@ -1131,6 +1135,35 @@ export default function Page() {
                       status="completed"
                       durationMs={1200}
                       output={"This is an example output\nline2\nline3\n..."}
+                    />
+                  </div>
+                </Show>
+                <Show when={stepTimelineEnabled()}>
+                  <div class="px-4 pb-4">
+                    <TimelineNodes
+                      steps={[
+                        {
+                          id: "planner",
+                          label: "Planner",
+                          status: "completed",
+                          durationMs: 1200,
+                          anchorId: "message-123",
+                        },
+                        { id: "runner", label: "Runner", status: "running", durationMs: 800 },
+                        { id: "reviewer", label: "Reviewer", status: "pending" },
+                        { id: "self-audit", label: "Self-audit", status: "pending" },
+                      ]}
+                    />
+                  </div>
+                </Show>
+                <Show when={errorCardsEnabled()}>
+                  <div class="px-4 pb-4">
+                    <ErrorCard
+                      id="error-1"
+                      title="Tool execution failed"
+                      message="Command 'npm run build' exited with code 1"
+                      details={"npm ERR! missing script: build\nnpm ERR! \nSee 'npm run' for available scripts."}
+                      onRetry={() => console.log("retry clicked")}
                     />
                   </div>
                 </Show>
