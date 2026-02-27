@@ -1282,7 +1282,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </div>
               </Show>
               <Show when={settings.flags.get("ui.send_options")}>
-                <div class="pointer-events-auto mr-1 sm:mr-2">
+                <div class="pointer-events-auto mr-1 sm:mr-2 min-h-[44px] min-w-[44px] flex items-center sm:min-h-0 sm:min-w-0">
                   <Select
                     data-action="prompt-send-option"
                     size="compact"
@@ -1293,7 +1293,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     }}
                     aria-label="Send options"
                     variant="ghost"
-                    class="min-h-[44px] sm:min-h-0"
                   />
                 </div>
               </Show>
@@ -1306,7 +1305,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   data-action="prompt-attach"
                   type="button"
                   variant="ghost"
-                  class="size-8 p-0 sm:size-8 min-h-[44px] sm:min-h-8"
+                  class="size-8 p-0 min-h-[44px] min-w-[44px] sm:size-8 sm:min-h-8 sm:min-w-8"
                   onClick={pick}
                   disabled={store.mode !== "normal"}
                   tabIndex={store.mode === "normal" ? undefined : -1}
@@ -1343,7 +1342,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   tabIndex={store.mode === "normal" ? undefined : -1}
                   icon={working() ? "stop" : "arrow-up"}
                   variant="primary"
-                  class="size-8 sm:size-8 min-h-[44px] sm:min-h-8"
+                  class="size-8 min-h-[44px] min-w-[44px] sm:size-8 sm:min-h-8 sm:min-w-8"
                   aria-label={working() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
                 />
               </Tooltip>
