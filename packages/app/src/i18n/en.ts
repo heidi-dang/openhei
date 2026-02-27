@@ -613,6 +613,13 @@ export const dict = {
 
   "settings.general.row.sendOptions.title": "Send options",
   "settings.general.row.sendOptions.description": "Show send options dropdown in composer (plan, no reply, priority)",
+  "prompt.sendOptions.option.default": "Default",
+  "prompt.sendOptions.option.no_reply": "No reply",
+  "prompt.sendOptions.option.plan": "Plan",
+  "prompt.sendOptions.option.act": "Act",
+  "prompt.sendOptions.option.explain": "Explain",
+  "prompt.sendOptions.option.search": "Search",
+  "prompt.sendOptions.option.priority": "Priority",
   "settings.general.row.composerPalette.title": "Composer palette",
   "settings.general.row.composerPalette.description": "Enable / command palette with keyboard navigation",
   "settings.general.row.draftPersist.title": "Draft persistence",

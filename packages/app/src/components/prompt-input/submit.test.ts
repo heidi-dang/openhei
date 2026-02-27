@@ -301,6 +301,35 @@ describe("prompt submit stale session recovery", () => {
     expect(textPart.metadata?.send_option).toBe("no_reply")
   })
 
+  test("default selection omits metadata", async () => {
+    params = { id: "ses_ok", dir: "/repo/main" }
+    const submit = createPromptSubmit({
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+      // simulate logical default by returning undefined
+      selectedSendOption: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+    await submit.handleSubmit(event)
+
+    expect(promptAsyncCalls.length).toBeGreaterThan(0)
+    const call = promptAsyncCalls[promptAsyncCalls.length - 1]
+    const textPart = call.input.parts.find((p: any) => p.type === "text")
+    expect(textPart.metadata?.send_option).toBeUndefined()
+  })
+
   test("selectedSendOption accessor is used when provided", async () => {
     params = { id: "ses_ok", dir: "/repo/main" }
     const submit = createPromptSubmit({
