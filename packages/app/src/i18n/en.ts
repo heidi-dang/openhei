@@ -609,6 +609,18 @@ export const dict = {
   "settings.general.section.updates": "Updates",
   "settings.general.section.sounds": "Sound effects",
   "settings.general.section.display": "Display",
+  "settings.general.section.experimental": "Experimental",
+
+  "settings.general.row.sendOptions.title": "Send options",
+  "settings.general.row.sendOptions.description": "Show send options dropdown in composer (plan, no reply, priority)",
+  "settings.general.row.composerPalette.title": "Composer palette",
+  "settings.general.row.composerPalette.description": "Enable / command palette with keyboard navigation",
+  "settings.general.row.draftPersist.title": "Draft persistence",
+  "settings.general.row.draftPersist.description": "Save draft messages and restore on page reload",
+  "settings.general.row.thinkingDrawer.title": "Thinking drawer",
+  "settings.general.row.thinkingDrawer.description": "Show reasoning/thinking drawer for assistant messages",
+  "settings.general.row.densityModes.title": "Density modes",
+  "settings.general.row.densityModes.description": "Enable compact and comfortable density modes",
 
   "settings.general.row.language.title": "Language",
   "settings.general.row.language.description": "Change the display language for OpenHei",

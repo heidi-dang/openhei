@@ -315,6 +315,64 @@ export const SettingsGeneral: Component = () => {
     </div>
   )
 
+  const ExperimentalSection = () => (
+    <div class="flex flex-col gap-1">
+      <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.experimental")}</h3>
+
+      <div class="bg-surface-raised-base px-4 rounded-lg">
+        <SettingsRow
+          title={language.t("settings.general.row.sendOptions.title")}
+          description={language.t("settings.general.row.sendOptions.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.send_options")}
+            onChange={(checked) => settings.flags.set("ui.send_options", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.composerPalette.title")}
+          description={language.t("settings.general.row.composerPalette.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.composer_palette")}
+            onChange={(checked) => settings.flags.set("ui.composer_palette", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.draftPersist.title")}
+          description={language.t("settings.general.row.draftPersist.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.draft_persist")}
+            onChange={(checked) => settings.flags.set("ui.draft_persist", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.thinkingDrawer.title")}
+          description={language.t("settings.general.row.thinkingDrawer.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.thinking_drawer")}
+            onChange={(checked) => settings.flags.set("ui.thinking_drawer", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.densityModes.title")}
+          description={language.t("settings.general.row.densityModes.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.density_modes")}
+            onChange={(checked) => settings.flags.set("ui.density_modes", checked)}
+          />
+        </SettingsRow>
+      </div>
+    </div>
+  )
+
   const NotificationsSection = () => (
     <div class="flex flex-col gap-1">
       <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.notifications")}</h3>
@@ -466,6 +524,8 @@ export const SettingsGeneral: Component = () => {
 
       <div class="flex flex-col gap-8 w-full">
         <AppearanceSection />
+
+        <ExperimentalSection />
 
         <NotificationsSection />
 
