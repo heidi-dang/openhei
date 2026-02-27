@@ -49,6 +49,7 @@ import { createPromptSubmit } from "./prompt-input/submit"
 import { draftKey, readDraft, writeDraft, removeDraft } from "./prompt-input/draft-persist"
 import { useSettings } from "@/context/settings"
 import Palette, { createPalette } from "./prompt-input/palette"
+import { stripSlashPrefix } from "./prompt-input/palette-util"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
@@ -109,6 +110,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
+  const settings = useSettings()
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -615,16 +617,17 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       handleSlashSelect(item)
     }
     // Palette selection handling
-    if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+    if (settings.flags.get("ui.composer_palette") && palette.open()) {
       const items = palette.filtered()
       if (items.length === 0) return
       const idx = Math.max(0, Math.min(palette.activeIndex(), items.length - 1))
       const item = items[idx]
       if (item) {
-        // On select: remove leading `/cmd` from prompt and set selected send option
+        // On select: remove leading `/cmd` from prompt using the shared
+        // utility so behavior is consistent with tests.
         const rawParts = prompt.current()
         const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
-        const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+        const remainder = stripSlashPrefix(text, item.id)
         mirror.input = true
         prompt.set([{ type: "text", content: remainder, start: 0, end: remainder.length }], remainder.length)
         setSelectedSendOption(item.id)
@@ -767,7 +770,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const slashMatch = rawText.match(/^\/(\S*)$/)
 
       // composer palette (flag-gated): open when input begins with '/'
-      if (useSettings().flags.get("ui.composer_palette")) {
+      if (settings.flags.get("ui.composer_palette")) {
         const paletteMatch = rawText.match(/^\/(\S*)/)
         if (paletteMatch) {
           palette.setQuery(paletteMatch[1] ?? "")
@@ -794,7 +797,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     mirror.input = true
     prompt.set([...rawParts, ...images], cursorPosition)
-    if (useSettings().flags.get("ui.draft_persist")) {
+    if (settings.flags.get("ui.draft_persist")) {
       const key = draftStorageKey()
       // store plain text only
       const rawText = prompt
@@ -951,7 +954,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const draftStorageKey = createMemo(() => draftKey(sdk.directory, params.id))
 
   createEffect(() => {
-    const settings = useSettings()
     if (!settings.flags.get("ui.draft_persist")) {
       setShowRestoreBanner(false)
       return
@@ -999,7 +1001,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     if (event.key === "Escape") {
       // Close composer palette first if open
-      if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+      if (settings.flags.get("ui.composer_palette") && palette.open()) {
         palette.setOpen(false)
         event.preventDefault()
         event.stopPropagation()
@@ -1057,7 +1059,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
 
-    if (store.popover || (useSettings().flags.get("ui.composer_palette") && palette.open())) {
+    if (store.popover || (settings.flags.get("ui.composer_palette") && palette.open())) {
       if (event.key === "Tab") {
         selectPopoverActive()
         event.preventDefault()
@@ -1066,7 +1068,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const nav = event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Enter"
       const ctrlNav = ctrl && (event.key === "n" || event.key === "p")
       if (nav || ctrlNav) {
-        if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+        if (settings.flags.get("ui.composer_palette") && palette.open()) {
           // handle palette navigation
           if (event.key === "ArrowUp") {
             palette.setActiveIndex(Math.max(0, palette.activeIndex() - 1))
@@ -1283,8 +1285,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   </button>
                 </div>
               </Show>
-              <Show when={useSettings().flags.get("ui.send_options")}>
-                <div class="pointer-events-auto mr-1">
+              <Show when={settings.flags.get("ui.send_options")}>
+                <div class="pointer-events-auto mr-1 min-h-[44px] min-w-[44px]">
                   <Select
                     data-action="prompt-send-option"
                     size="compact"
@@ -1307,7 +1309,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   data-action="prompt-attach"
                   type="button"
                   variant="ghost"
-                  class="size-8 p-0"
+                  class="size-8 p-0 min-h-[44px] min-w-[44px]"
                   onClick={pick}
                   disabled={store.mode !== "normal"}
                   tabIndex={store.mode === "normal" ? undefined : -1}
@@ -1344,7 +1346,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   tabIndex={store.mode === "normal" ? undefined : -1}
                   icon={working() ? "stop" : "arrow-up"}
                   variant="primary"
-                  class="size-8"
+                  class="size-8 min-h-[44px] min-w-[44px]"
                   aria-label={working() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
                 />
               </Tooltip>
@@ -1498,7 +1500,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               </Show>
             </div>
             {/* Palette overlay (flag-gated) */}
-            <Show when={useSettings().flags.get("ui.composer_palette") && palette.open()}>
+            <Show when={settings.flags.get("ui.composer_palette") && palette.open()}>
               <div class="absolute left-2 top-full mt-1">
                 <Palette
                   palette={palette}
