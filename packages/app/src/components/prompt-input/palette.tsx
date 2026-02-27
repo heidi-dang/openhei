@@ -38,15 +38,18 @@ export function createPalette() {
 export default function Palette(props: { palette: ReturnType<typeof createPalette>; onSelect: (cmd: string) => void }) {
   const p = props.palette
   return (
-    <div class="absolute z-50 w-[260px] bg-surface-1 border border-divider rounded shadow-md mt-1">
+    <div class="absolute z-50 w-[260px] bg-surface-1 border border-divider rounded shadow-md mt-1 max-h-[200px] overflow-y-auto">
       <div class="p-2">
         {p.filtered().map((cmd, idx) => (
           <div
-            classList={{ "px-2 py-1 rounded": true, "bg-surface-2": idx === p.activeIndex() }}
+            classList={{
+              "px-3 py-2 rounded min-h-[44px] flex items-center": true,
+              "bg-surface-2": idx === p.activeIndex(),
+            }}
             onMouseEnter={() => p.setActiveIndex(idx)}
             onClick={() => props.onSelect(cmd.id)}
           >
-            <span class="text-13-regular">{cmd.title}</span>
+            <span class="text-14-regular">{cmd.title}</span>
           </div>
         ))}
       </div>
