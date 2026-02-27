@@ -820,4 +820,13 @@ export const dict = {
   "workspace.reset.archived.one": "1 session will be archived.",
   "workspace.reset.archived.many": "{{count}} sessions will be archived.",
   "workspace.reset.note": "This will reset the workspace to match the default branch.",
+
+  "streaming.status.streaming": "Streaming",
+  "streaming.status.reconnecting": "Reconnecting",
+  "streaming.status.resyncing": "Resyncing",
+  "streaming.status.stopping": "Stopping...",
+  "streaming.status.stopTimeout": "Stop timed out; stream may still be active",
+  "streaming.stop": "Stop",
+  "streaming.banner.replaying": "Replaying from cursor...",
+  "streaming.banner.resync": "Resync required",
 }

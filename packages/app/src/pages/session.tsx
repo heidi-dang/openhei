@@ -19,7 +19,10 @@ import { UserMessage } from "@openhei-ai/sdk/v2"
 import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
 import { useComments } from "@/context/comments"
+import { useSettings } from "@/context/settings"
 import { SessionHeader, NewSessionView } from "@/components/session"
+import { StreamingStatus } from "@/components/session/streaming-status"
+import { StreamingBanner, type BannerType } from "@/components/session/streaming-banner"
 import { same } from "@/utils/same"
 import { createOpenReviewFile } from "@/pages/session/helpers"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
@@ -49,6 +52,11 @@ export default function Page() {
   const prompt = usePrompt()
   const comments = useComments()
   const platform = usePlatform()
+  const settings = useSettings()
+
+  const sessionStatus = createMemo(() => sync.data.session_status[params.id ?? ""] ?? { type: "idle" })
+  const streamingStatusEnabled = createMemo(() => settings.current.flags["ui.streaming_status"])
+  const streamBannersEnabled = createMemo(() => settings.current.flags["ui.stream_banners"])
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
@@ -324,7 +332,10 @@ export default function Page() {
         removePersisted(Persist.session(sdk.directory, id, "prompt"), platform)
         removePersisted(Persist.session(sdk.directory, id, "file-view"), platform)
 
-        const created = await sdk.client.session.create().then((x) => x.data).catch(() => undefined)
+        const created = await sdk.client.session
+          .create()
+          .then((x) => x.data)
+          .catch(() => undefined)
         if (!created?.id) return
 
         showToast({
@@ -1043,54 +1054,69 @@ export default function Page() {
           <div class="flex-1 min-h-0 overflow-hidden">
             <Switch>
               <Match when={params.id}>
-                <Show when={activeMessage()}>
-                  <MessageTimeline
-                    mobileChanges={mobileChanges()}
-                    mobileFallback={reviewContent({
-                      diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
-                      loadingClass: "px-4 py-4 text-text-weak",
-                      emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
-                    })}
-                    scroll={ui.scroll}
-                    onResumeScroll={resumeScroll}
-                    setScrollRef={setScrollRef}
-                    onScheduleScrollState={scheduleScrollState}
-                    onAutoScrollHandleScroll={autoScroll.handleScroll}
-                    onMarkScrollGesture={markScrollGesture}
-                    hasScrollGesture={hasScrollGesture}
-                    isDesktop={isDesktop()}
-                    onScrollSpyScroll={scrollSpy.onScroll}
-                    onAutoScrollInteraction={autoScroll.handleInteraction}
-                    centered={centered()}
-                    setContentRef={(el) => {
-                      content = el
-                      autoScroll.contentRef(el)
-
-                      const root = scroller
-                      if (root) scheduleScrollState(root)
-                    }}
-                    turnStart={store.turnStart}
-                    onRenderEarlier={() => setStore("turnStart", 0)}
-                    historyMore={historyMore()}
-                    historyLoading={historyLoading()}
-                    onLoadEarlier={() => {
-                      const id = params.id
-                      if (!id) return
-                      setStore("turnStart", 0)
-                      sync.session.history.loadMore(id)
-                    }}
-                    renderedUserMessages={renderedUserMessages()}
-                    anchor={anchor}
-                    onRegisterMessage={scrollSpy.register}
-                    onUnregisterMessage={scrollSpy.unregister}
-                    lastUserMessageID={lastUserMessage()?.id}
-                  />
+                <Show when={streamingStatusEnabled()}>
+                  <div class="px-4 pt-3">
+                    <StreamingStatus status={sessionStatus} sessionID={() => params.id} />
+                  </div>
                 </Show>
+                <Show
+                  when={
+                    streamBannersEnabled() &&
+                    (sessionStatus().type === "replay" || sessionStatus().type === "resync_required")
+                  }
+                >
+                  <div class="px-4 pt-2">
+                    <StreamingBanner
+                      type={sessionStatus().type === "resync_required" ? "resync_required" : "replaying"}
+                    />
+                  </div>
+                </Show>
+                <MessageTimeline
+                  mobileChanges={mobileChanges()}
+                  mobileFallback={reviewContent({
+                    diffStyle: "unified",
+                    classes: {
+                      root: "pb-8",
+                      header: "px-4",
+                      container: "px-4",
+                    },
+                    loadingClass: "px-4 py-4 text-text-weak",
+                    emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
+                  })}
+                  scroll={ui.scroll}
+                  onResumeScroll={resumeScroll}
+                  setScrollRef={setScrollRef}
+                  onScheduleScrollState={scheduleScrollState}
+                  onAutoScrollHandleScroll={autoScroll.handleScroll}
+                  onMarkScrollGesture={markScrollGesture}
+                  hasScrollGesture={hasScrollGesture}
+                  isDesktop={isDesktop()}
+                  onScrollSpyScroll={scrollSpy.onScroll}
+                  onAutoScrollInteraction={autoScroll.handleInteraction}
+                  centered={centered()}
+                  setContentRef={(el) => {
+                    content = el
+                    autoScroll.contentRef(el)
+
+                    const root = scroller
+                    if (root) scheduleScrollState(root)
+                  }}
+                  turnStart={store.turnStart}
+                  onRenderEarlier={() => setStore("turnStart", 0)}
+                  historyMore={historyMore()}
+                  historyLoading={historyLoading()}
+                  onLoadEarlier={() => {
+                    const id = params.id
+                    if (!id) return
+                    setStore("turnStart", 0)
+                    sync.session.history.loadMore(id)
+                  }}
+                  renderedUserMessages={renderedUserMessages()}
+                  anchor={anchor}
+                  onRegisterMessage={scrollSpy.register}
+                  onUnregisterMessage={scrollSpy.unregister}
+                  lastUserMessageID={lastUserMessage()?.id}
+                />
               </Match>
               <Match when={true}>
                 <NewSessionView

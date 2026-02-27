@@ -2,7 +2,8 @@
 # Development launcher to run OpenHei from source with the local dashboard
 
 export OPENHEI_DASHBOARD_DIR="$(pwd)/packages/app/dist"
-export OPENHEI_SERVER_PASSWORD="admin" # Optional: set a password for local testing
+export OPENHEI_SERVER_USERNAME="admin"
+export OPENHEI_SERVER_PASSWORD="password"
 
 echo "Starting OpenHei from source..."
 echo "Using Dashboard: $OPENHEI_DASHBOARD_DIR"

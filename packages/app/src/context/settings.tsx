@@ -40,6 +40,9 @@ export interface Settings {
   }
   flags: {
     "ui.streaming_status": boolean
+    "ui.stream_banners": boolean
+    "ui.scroll_anchor": boolean
+    "ui.stop_stream": boolean
     "ui.tool_cards": boolean
     "ui.thinking_drawer": boolean
     "ui.composer_palette": boolean
@@ -71,6 +74,9 @@ const defaultSettings: Settings = {
   },
   flags: {
     "ui.streaming_status": false,
+    "ui.stream_banners": false,
+    "ui.scroll_anchor": false,
+    "ui.stop_stream": false,
     "ui.tool_cards": false,
     "ui.thinking_drawer": false,
     "ui.composer_palette": false,
