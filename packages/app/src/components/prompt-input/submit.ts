@@ -61,6 +61,7 @@ type PromptSubmitInput = {
   newSessionWorktree?: Accessor<string | undefined>
   onNewSessionWorktreeReset?: () => void
   onSubmit?: () => void
+  selectedSendOption?: () => string | undefined
 }
 
 type CommentItem = {
@@ -376,14 +377,14 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const commentItems = context.filter((item) => item.type === "file" && !!item.comment?.trim())
 
     const messageID = Identifier.ascending("message")
-    // Read selected send option from DOM: the PromptInput component mounts a select
-    // into the DOM with data-action="prompt-send-option". We query it here so
-    // we don't need to thread state through many layers; tests can stub this by
-    // setting window.__test_selected_send_option if needed.
-    const sendOptionElement = document?.querySelector('[data-action="prompt-send-option"]') as HTMLSelectElement | null
-    const selectedSendOption =
-      // prefer DOM select when present
-      sendOptionElement?.value ?? (window as any).__test_selected_send_option ?? undefined
+    // The selected send option is provided by the PromptInput component when
+    // creating the submit handler. If no option is supplied, it will be
+    // undefined and omitted from the metadata.
+    // NOTE: production code should NOT read from the DOM or global test hooks.
+    // First prefer selectedSendOption provided explicitly via input (preferred)
+    const selectedSendOption = input.selectedSendOption
+      ? input.selectedSendOption()
+      : ((window as any).__prompt_selected_send_option ?? undefined)
 
     const { requestParts, optimisticParts } = buildRequestParts({
       prompt: currentPrompt,

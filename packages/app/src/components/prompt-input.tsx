@@ -898,6 +898,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
+    selectedSendOption: () => (window as any).__prompt_selected_send_option ?? undefined,
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -1182,7 +1183,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     size="compact"
                     options={["default", "no_reply", "priority"]}
                     current={"default"}
-                    onSelect={() => undefined}
+                    onSelect={(value) => {
+                      ;(window as any).__prompt_selected_send_option = value
+                    }}
                     aria-label="Send options"
                     variant="ghost"
                   />

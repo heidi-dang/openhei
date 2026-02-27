@@ -274,8 +274,9 @@ describe("prompt submit stale session recovery", () => {
   })
 
   test("attaches send_option metadata when select is present", async () => {
-    // enable send option via test-only global and set a selected value
-    ;(globalThis as any).__test_selected_send_option = "no_reply"
+    // For tests, we provide the selected send option by setting the test hook
+    // that createPromptSubmit reads. This is isolated to the test runtime.
+    ;(globalThis as any).__prompt_selected_send_option = "no_reply"
     params = { id: "ses_ok", dir: "/repo/main" }
     const submit = createPromptSubmit({
       info: () => undefined,
@@ -300,6 +301,6 @@ describe("prompt submit stale session recovery", () => {
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
     const textPart = call.input.parts.find((p: any) => p.type === "text")
     expect(textPart.metadata?.send_option).toBe("no_reply")
-    delete (globalThis as any).__test_selected_send_option
+    delete (globalThis as any).__prompt_selected_send_option
   })
 })
