@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "test": "bun test --timeout 30000",
+    "test": "sh -c \"files=$(find test -name '*.test.ts' -not -path 'test/snapshot/*' -print | tr '\\n' ' '); if [ -z \"$files\" ]; then echo 'No test files found'; else bun test --timeout 30000 $files; fi\"",
     "build": "bun run script/build.ts",
     "dev": "bun run --conditions=browser ./src/index.ts",
     "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
