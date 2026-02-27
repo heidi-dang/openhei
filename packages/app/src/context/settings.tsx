@@ -49,6 +49,7 @@ export interface Settings {
     "ui.error_cards": boolean
     "ui.thinking_drawer": boolean
     "ui.send_options": boolean
+    "ui.draft_persist": boolean
     "ui.composer_palette": boolean
     "ui.density_modes": boolean
   }
@@ -87,6 +88,7 @@ const defaultSettings: Settings = {
     "ui.error_cards": false,
     "ui.thinking_drawer": false,
     "ui.send_options": false,
+    "ui.draft_persist": false,
     "ui.composer_palette": false,
     "ui.density_modes": false,
   },
