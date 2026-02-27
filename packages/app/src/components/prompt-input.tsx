@@ -110,6 +110,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const language = useLanguage()
   const platform = usePlatform()
   const settings = useSettings()
+  // Narrow alias for send option values used across this component
+  type SendOption = "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority"
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -239,7 +241,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   })
 
   const palette = createPalette()
-  const [selectedSendOption, setSelectedSendOption] = createSignal<string | undefined>(undefined)
 
   const commentCount = createMemo(() => {
     if (store.mode === "shell") return 0
@@ -625,7 +626,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const idx = Math.max(0, Math.min(palette.activeIndex(), items.length - 1))
       const item = items[idx]
       if (item) {
-        setSelectedSendOption(item.id)
+        settings.general.setSendOption(item.id as SendOption)
         palette.setOpen(false)
       }
     }
@@ -939,9 +940,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
-    // Prefer using explicit local state for selected send option. This avoids
-    // relying on a global test bridge in production.
-    selectedSendOption: () => selectedSendOption(),
+    // Use persisted settings for selected send option. Map the logical
+    // "default" to undefined so no metadata is attached on submit.
+    selectedSendOption: () => (settings.general.sendOption() === "default" ? undefined : settings.general.sendOption()),
   })
 
   // Draft persistence banner state
@@ -1286,10 +1287,24 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   <Select
                     data-action="prompt-send-option"
                     size="compact"
-                    options={["default", "no_reply", "priority"]}
-                    current={"default"}
-                    onSelect={(value) => {
-                      setSelectedSendOption(value === "default" ? undefined : value)
+                    options={[
+                      { value: "default", label: (language.t as any)("prompt.sendOptions.option.default") },
+                      { value: "no_reply", label: (language.t as any)("prompt.sendOptions.option.no_reply") },
+                      { value: "plan", label: (language.t as any)("prompt.sendOptions.option.plan") },
+                      { value: "act", label: (language.t as any)("prompt.sendOptions.option.act") },
+                      { value: "explain", label: (language.t as any)("prompt.sendOptions.option.explain") },
+                      { value: "search", label: (language.t as any)("prompt.sendOptions.option.search") },
+                      { value: "priority", label: (language.t as any)("prompt.sendOptions.option.priority") },
+                    ]}
+                    current={{
+                      value: settings.general.sendOption(),
+                      label: (language.t as any)("prompt.sendOptions.option." + settings.general.sendOption()),
+                    }}
+                    value={(o: any) => o.value}
+                    label={(o: any) => o.label}
+                    onSelect={(option: any) => {
+                      if (!option) return
+                      settings.general.setSendOption(option.value as SendOption)
                     }}
                     aria-label="Send options"
                     variant="ghost"
@@ -1512,7 +1527,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                       [{ type: "text", content: remainder, start: 0, end: remainder.length }],
                       remainder.length,
                     )
-                    setSelectedSendOption(item.id)
+                    settings.general.setSendOption(item.id as SendOption)
                     palette.setOpen(false)
                   }}
                 />
