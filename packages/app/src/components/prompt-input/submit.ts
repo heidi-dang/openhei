@@ -381,11 +381,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     // The selected send option is provided by the PromptInput component when
     // creating the submit handler. If no option is supplied, it will be
     // undefined and omitted from the metadata.
-    // NOTE: production code should NOT read from the DOM or global test hooks.
-    // First prefer selectedSendOption provided explicitly via input (preferred)
-    const selectedSendOption = input.selectedSendOption
-      ? input.selectedSendOption()
-      : ((window as any).__prompt_selected_send_option ?? undefined)
+    const selectedSendOption = input.selectedSendOption?.()
 
     const { requestParts, optimisticParts } = buildRequestParts({
       prompt: currentPrompt,
