@@ -92,6 +92,16 @@ The slash command palette lets you quickly select send options (/plan, /act, /ex
 7. Click "Restore" - verify the text is restored
 8. Click "Discard" - verify the text is cleared
 
+#### Draft stale policy (new)
+
+1. Ensure `ui.draft_persist` is enabled and reload
+2. Create a draft in the composer (do not send)
+3. In DevTools > Application > Local Storage, find the key starting with `draft.v2.` and edit its `ts_ms` to a timestamp older than 7 days
+4. Reload the page - the "Restore draft?" banner should NOT appear
+5. Confirm the stale key is removed from localStorage (best-effort)
+6. Create a fresh draft and reload - the banner should appear and restoring should populate the composer
+7. Verify overlay behavior on mobile (no layout shift)
+
 ### ui.thinking_drawer
 
 The thinking drawer shows model reasoning/thinking before the final response.
