@@ -7,8 +7,9 @@ import { MarkedProvider } from "@openhei-ai/ui/context/marked"
 import { Font } from "@openhei-ai/ui/font"
 import { ThemeProvider } from "@openhei-ai/ui/theme"
 import { MetaProvider } from "@solidjs/meta"
-import { Navigate, Route, Router } from "@solidjs/router"
+import { Navigate, Route, Router, useNavigate } from "@solidjs/router"
 import { ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
+import { Button } from "@openhei-ai/ui/button"
 import { CommandProvider } from "@/context/command"
 import { CommentsProvider } from "@/context/comments"
 import { FileProvider } from "@/context/file"
@@ -113,7 +114,36 @@ function DensityRootWrapper(props: ParentProps) {
 
   return (
     <div class="density-root" data-density={density}>
+      <Show when={settings && !settings.general.dismissedWhatsNewPhase5()}>
+        <WhatsNewPhase5Banner onDismiss={() => settings!.general.setDismissedWhatsNewPhase5(true)} />
+      </Show>
       {props.children}
+    </div>
+  )
+}
+
+function WhatsNewPhase5Banner(props: { onDismiss: () => void }) {
+  const language = useLanguage()
+  const navigate = useNavigate()
+
+  const openSettings = () => {
+    navigate("/settings")
+  }
+
+  return (
+    <div class="fixed top-0 left-0 right-0 z-50 bg-surface-3 border-b border-border-weak-base px-4 py-3 flex items-center gap-3 shadow-md">
+      <div class="flex-1 min-w-0">
+        <div class="text-13-medium text-text-strong">{language.t("whatsNew.phase5.title")}</div>
+        <div class="text-12-regular text-text-weak truncate">{language.t("whatsNew.phase5.description")}</div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <Button size="small" variant="primary" onClick={openSettings}>
+          {language.t("whatsNew.phase5.openSettings")}
+        </Button>
+        <Button size="small" variant="ghost" onClick={props.onDismiss}>
+          {language.t("whatsNew.phase5.dismiss")}
+        </Button>
+      </div>
     </div>
   )
 }
