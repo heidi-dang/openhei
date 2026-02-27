@@ -56,16 +56,30 @@ location.reload()
 
 ### ui.composer_palette
 
-1. Enable the flag as described above
+The slash command palette lets you quickly select send options (/plan, /act, /explain, /search) from the composer.
+
+**Desktop verification:**
+
+1. Enable the flag in Settings > Experimental
 2. Reload the page
 3. Focus on the composer input
 4. Type `/` at the start of the input
 5. Verify a palette appears with commands: `/plan`, `/act`, `/explain`, `/search`
-6. Use arrow keys to navigate (up/down)
+6. Use arrow keys to navigate (up/down) - active item scrolls into view
 7. Press Enter or Tab to select a command
 8. Verify the command prefix is stripped from the text
 9. Press Escape to close the palette
-10. Mobile: Tap a command to select it
+
+**Mobile (iPhone Safari) verification:**
+
+1. Enable the flag in Settings > Experimental
+2. Reload the page
+3. Tap composer to focus
+4. Type `/` - palette should appear under composer (no layout shift)
+5. Scroll palette list (if long) - smooth scroll, no page hijack
+6. Tap outside palette - should close reliably
+7. Tap an option - closes palette, strips `/cmd ` prefix, keeps remainder
+8. No horizontal scroll should occur at any point
 
 ### ui.draft_persist
 
