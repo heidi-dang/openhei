@@ -1,36 +1,57 @@
-import { describe, expect, test, beforeAll, beforeEach, mock } from "bun:test"
-import { createSignal } from "solid-js"
+import { describe, expect, test, beforeAll, mock } from "bun:test"
+import { createPalette } from "./palette"
+import { shouldOpenPalette, stripSlashPrefix } from "./palette-util"
+import { buildRequestParts } from "./build-request-parts"
 
-// Lightweight tests to assert palette gating and selection behavior.
 beforeAll(() => {
-  mock.module("@/context/prompt", () => ({
-    usePrompt: () => ({
-      current: () => [{ type: "text", content: "/plan do something", start: 0, end: 18 }],
-      reset: () => undefined,
-      set: () => undefined,
-      context: { items: () => [] },
-    }),
-  }))
-  mock.module("@/context/sync", () => ({
-    useSync: () => ({ data: { command: [] } }),
-  }))
-  mock.module("@/context/local", () => ({ useLocal: () => ({}) }))
-  mock.module("@/context/layout", () => ({ useLayout: () => ({ handoff: { setTabs: () => undefined } }) }))
-  mock.module("@/context/sdk", () => ({ useSDK: () => ({ directory: "/repo/main", client: {} }) }))
-  mock.module("@/context/language", () => ({ useLanguage: () => ({ t: (k: string) => k }) }))
-  mock.module("@/context/platform", () => ({ usePlatform: () => ({ platform: "desktop", storage: () => null }) }))
+  mock.module("@/context/sync", () => ({ useSync: () => ({ data: { command: [] } }) }))
 })
 
-describe("palette createPalette", () => {
-  test("filters and active index behavior", async () => {
-    const { createPalette } = require("./palette")
+describe("composer palette (unit) tests", () => {
+  test("flag gating: should not open when flag is off", () => {
+    const result = shouldOpenPalette(false, "/plan do this")
+    expect(result.open).toBe(false)
+  })
+
+  test("flag on opens and ESC (programmatic) closes palette", () => {
+    const result = shouldOpenPalette(true, "/pl rest")
+    expect(result.open).toBe(true)
+    const p = createPalette()
+    p.setOpen(true)
+    expect(p.open()).toBe(true)
+    // simulate ESC by programmatic close
+    p.setOpen(false)
+    expect(p.open()).toBe(false)
+  })
+
+  test("arrow navigation + select (logical): active index and strip behavior", () => {
     const p = createPalette()
     p.setOpen(true)
     p.setQuery("pl")
     expect(p.filtered().length).toBeGreaterThan(0)
-    expect(p.activeIndex()).toBe(0)
-    p.setActiveIndex(1)
-    expect(p.activeIndex()).toBe(1)
-    p.setOpen(false)
+    p.setActiveIndex(0)
+    const items = p.filtered()
+    const item = items[p.activeIndex()]
+    expect(item).toBeTruthy()
+    const text = "/" + item.id + " remaining text"
+    const remainder = stripSlashPrefix(text, item.id)
+    expect(remainder).toBe("remaining text")
+  })
+
+  test("selection sets metadata.send_option via buildRequestParts", () => {
+    const prompt = [{ type: "text", content: "hello", start: 0, end: 5 }]
+    const { requestParts } = buildRequestParts({
+      prompt,
+      context: [],
+      images: [],
+      text: "hello",
+      sessionID: "s1",
+      messageID: "m1",
+      sessionDirectory: "/repo",
+      sendOption: "plan",
+    })
+    const textPart = requestParts.find((p: any) => p.type === "text")
+    expect(textPart).toBeTruthy()
+    expect(textPart.metadata?.send_option).toBe("plan")
   })
 })
