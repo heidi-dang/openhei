@@ -80,11 +80,31 @@ location.reload()
 
 ### ui.thinking_drawer
 
-1. Enable the flag as described above
-2. Reload the page
-3. Send a prompt that triggers a reasoning/thinking response
-4. Verify a drawer expands below the message showing thinking/reasoning
-5. Verify it can be collapsed/expanded
+The thinking drawer shows model reasoning/thinking before the final response.
+
+**Manual verification steps:**
+
+1. **Flag OFF (default):**
+   - With flag OFF, no drawer button should appear on any message
+   - Verify by disabling the flag and checking messages show no "Thinking" trigger
+
+2. **Flag ON + mode = auto:**
+   - Enable the flag in Settings > Experimental
+   - Set thinking drawer mode to "auto"
+   - Send a prompt that triggers reasoning
+   - Verify: drawer button shows with duration (e.g., "Thinking 3.2s")
+   - Click/press Enter to expand - summary content appears
+   - Click again to collapse
+
+3. **Flag ON + mode = always:**
+   - Set thinking drawer mode to "always"
+   - Verify drawer button appears even without reasoning_summary
+   - (Duration shows "0s" or similar when no timing data)
+
+4. **Keyboard accessibility:**
+   - Tab to drawer trigger
+   - Press Enter or Space - should toggle open/close
+   - Screen reader should announce "Thinking, expanded/collapsed"
 
 ### ui.density_modes
 

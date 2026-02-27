@@ -34,6 +34,7 @@ export const ThinkingDrawer: Component<Props> = (props) => {
         tabIndex={0}
         aria-expanded={open()}
         aria-controls={`${props.id}-content`}
+        aria-label={i18n.t("ui.sessionTurn.status.thinking")}
         data-slot="thinking-drawer-trigger"
         onClick={() => setOpen(!open())}
         onKeyDown={onKeyDown}
