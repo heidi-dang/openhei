@@ -74,7 +74,7 @@ export namespace ProviderError {
         if (errMsg && typeof errMsg === "string") {
           return `${msg}: ${errMsg}`
         }
-      } catch { }
+      } catch {}
 
       return `${msg}: ${e.responseBody}`
     }).trim()
@@ -98,16 +98,16 @@ export namespace ProviderError {
 
   export type ParsedStreamError =
     | {
-      type: "context_overflow"
-      message: string
-      responseBody: string
-    }
+        type: "context_overflow"
+        message: string
+        responseBody: string
+      }
     | {
-      type: "api_error"
-      message: string
-      isRetryable: boolean
-      responseBody: string
-    }
+        type: "api_error"
+        message: string
+        isRetryable: boolean
+        responseBody: string
+      }
 
   export function parseStreamError(input: unknown): ParsedStreamError | undefined {
     const body = json(input)
@@ -127,14 +127,18 @@ export namespace ProviderError {
         return {
           type: "api_error",
           message: "Quota exceeded. Check your plan and billing details.",
-          isRetryable: true,
+          // Streamed provider errors are best treated as non-retryable by default
+          // (avoid retry storms from service-side quota signals). Tests expect
+          // non-retryable for these response-stream error codes.
+          isRetryable: false,
           responseBody,
         }
       case "usage_not_included":
         return {
           type: "api_error",
           message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus.",
-          isRetryable: true,
+          // Treat this as non-retryable for streamed error messages.
+          isRetryable: false,
           responseBody,
         }
       case "invalid_prompt":
@@ -149,19 +153,19 @@ export namespace ProviderError {
 
   export type ParsedAPICallError =
     | {
-      type: "context_overflow"
-      message: string
-      responseBody?: string
-    }
+        type: "context_overflow"
+        message: string
+        responseBody?: string
+      }
     | {
-      type: "api_error"
-      message: string
-      statusCode?: number
-      isRetryable: boolean
-      responseHeaders?: Record<string, string>
-      responseBody?: string
-      metadata?: Record<string, string>
-    }
+        type: "api_error"
+        message: string
+        statusCode?: number
+        isRetryable: boolean
+        responseHeaders?: Record<string, string>
+        responseBody?: string
+        metadata?: Record<string, string>
+      }
 
   export function parseAPICallError(input: { providerID: string; error: APICallError }): ParsedAPICallError {
     const m = message(input.providerID, input.error)
