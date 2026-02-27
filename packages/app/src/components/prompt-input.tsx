@@ -49,7 +49,6 @@ import { createPromptSubmit } from "./prompt-input/submit"
 import { draftKey, readDraft, writeDraft, removeDraft } from "./prompt-input/draft-persist"
 import { useSettings } from "@/context/settings"
 import Palette, { createPalette } from "./prompt-input/palette"
-import { stripSlashPrefix } from "./prompt-input/palette-util"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
@@ -616,20 +615,16 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const item = items.find((entry) => entry.id === active) ?? items[0]
       handleSlashSelect(item)
     }
-    // Palette selection handling
+    // Palette selection handling: keep runtime change minimal in this fix.
+    // The palette command parsing/strip logic lives in the palette-specific
+    // patch. Here we only set the selected send option and close the palette
+    // to avoid touching prompt text in this PR.
     if (settings.flags.get("ui.composer_palette") && palette.open()) {
       const items = palette.filtered()
       if (items.length === 0) return
       const idx = Math.max(0, Math.min(palette.activeIndex(), items.length - 1))
       const item = items[idx]
       if (item) {
-        // On select: remove leading `/cmd` from prompt using the shared
-        // utility so behavior is consistent with tests.
-        const rawParts = prompt.current()
-        const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
-        const remainder = stripSlashPrefix(text, item.id)
-        mirror.input = true
-        prompt.set([{ type: "text", content: remainder, start: 0, end: remainder.length }], remainder.length)
         setSelectedSendOption(item.id)
         palette.setOpen(false)
       }
