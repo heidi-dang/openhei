@@ -470,13 +470,49 @@ export namespace Config {
   async function loadPlugin(dir: string) {
     const plugins: string[] = []
 
-    for (const item of await Glob.scan("{plugin,plugins}/*.{ts,js}", {
+    // Scan plugin directories for either direct plugin files or plugin packages
+    for (const item of await Glob.scan("{plugin,plugins}/*", {
       cwd: dir,
       absolute: true,
       dot: true,
       symlink: true,
     })) {
-      plugins.push(pathToFileURL(item).href)
+      try {
+        const stat = await fs.stat(item).catch(() => null)
+        if (!stat) continue
+
+        if (stat.isFile()) {
+          if (item.endsWith(".ts") || item.endsWith(".js")) plugins.push(pathToFileURL(item).href)
+          continue
+        }
+
+        if (stat.isDirectory()) {
+          // Prefer package.json main field if present
+          const pkgPath = path.join(item, "package.json")
+          if (await Filesystem.exists(pkgPath)) {
+            const pkg = await Filesystem.readJson<{ main?: string }>(pkgPath).catch(() => null)
+            if (pkg?.main) {
+              const mainPath = path.resolve(item, pkg.main)
+              if (await Filesystem.exists(mainPath)) {
+                plugins.push(pathToFileURL(mainPath).href)
+                continue
+              }
+            }
+          }
+
+          // Fallback to common entry filenames
+          const candidates = ["index.ts", "index.js", "dist/index.js", "dist/index.ts"]
+          for (const c of candidates) {
+            const p = path.join(item, c)
+            if (await Filesystem.exists(p)) {
+              plugins.push(pathToFileURL(p).href)
+              break
+            }
+          }
+        }
+      } catch (err) {
+        log.warn("failed to load plugin entry", { dir: item, err })
+      }
     }
     return plugins
   }
@@ -492,13 +528,32 @@ export namespace Config {
    * getPluginName("@scope/pkg@1.0.0") // "@scope/pkg"
    */
   export function getPluginName(plugin: string): string {
+    // file:// URLs -> filename without extension
     if (plugin.startsWith("file://")) {
       return path.parse(new URL(plugin).pathname).name
     }
-    const lastAt = plugin.lastIndexOf("@")
-    if (lastAt > 0) {
-      return plugin.substring(0, lastAt)
+
+    // file:relative paths (e.g. file:../plugin or file:./plugin/index.js)
+    if (plugin.startsWith("file:")) {
+      const rel = plugin.slice("file:".length)
+      return path.parse(rel).name
     }
+
+    // Scoped package with version: "@scope/pkg@1.2.3"
+    // Find the second '@' (the version separator) when the string starts with '@'
+    if (plugin.startsWith("@")) {
+      const secondAt = plugin.indexOf("@", 1)
+      if (secondAt > 0) return plugin.substring(0, secondAt)
+      return plugin
+    }
+
+    // Non-scoped packages: split on the last @ if present (name@version)
+    const lastAt = plugin.lastIndexOf("@")
+    if (lastAt > 0) return plugin.substring(0, lastAt)
+
+    // Paths (local directories) like "path/to/local" -> basename
+    if (plugin.includes("/")) return path.basename(plugin)
+
     return plugin
   }
 
@@ -523,6 +578,7 @@ export namespace Config {
     const uniqueSpecifiers: string[] = []
 
     for (const specifier of plugins.toReversed()) {
+      // Normalize names for dedupe comparison so scoped vs non-scoped are handled
       const name = getPluginName(specifier)
       if (!seenNames.has(name)) {
         seenNames.add(name)

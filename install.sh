@@ -510,8 +510,98 @@ install_from_repo() {
     chmod 755 "${INSTALL_DIR}/openhei"
 }
 
+# Auto-install opencode-morph-fast-apply plugin for local repo installs
+install_opencode_morph_plugin() {
+    # Only run for local repo installs
+    local plugin_repo="https://github.com/JRedeker/opencode-morph-fast-apply.git"
+    XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+    local plugins_dir="$XDG_CONFIG_HOME/openhei/plugins"
+    local plugin_dir="$plugins_dir/opencode-morph-fast-apply"
+
+    mkdir -p "$plugins_dir"
+
+    print_message info "${MUTED}Installing plugin:${NC} opencode-morph-fast-apply -> $plugin_dir"
+
+    if command -v git >/dev/null 2>&1; then
+        if [ -d "$plugin_dir/.git" ]; then
+            print_message info "${MUTED}Updating existing plugin at:${NC} $plugin_dir"
+            git -C "$plugin_dir" pull --ff-only || git -C "$plugin_dir" fetch --all --prune || true
+        else
+            git clone --depth 1 "$plugin_repo" "$plugin_dir" || true
+        fi
+        return
+    fi
+
+    # Fallback to curl+tar if git is not available
+    if command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
+        tmp=$(mktemp -d)
+        for branch in main master; do
+            url="https://github.com/JRedeker/opencode-morph-fast-apply/archive/refs/heads/${branch}.tar.gz"
+            if curl -fsSL "$url" -o "$tmp/plugin.tar.gz"; then
+                mkdir -p "$plugin_dir"
+                tar -xzf "$tmp/plugin.tar.gz" -C "$tmp"
+                extracted_dir=$(find "$tmp" -maxdepth 1 -type d -name "opencode-morph-fast-apply-*" | head -n1)
+                if [ -n "$extracted_dir" ]; then
+                    rm -rf "$plugin_dir"
+                    mv "$extracted_dir" "$plugin_dir"
+                fi
+                rm -rf "$tmp"
+                return
+            fi
+        done
+        rm -rf "$tmp"
+    fi
+
+    print_message warning "Could not install opencode-morph-fast-apply plugin (git/curl/tar not available or network error)."
+}
+
+install_dynamic_pruning_plugin() {
+    local plugin_repo="https://github.com/JRedeker/opencode-dynamic-context-pruning.git"
+    XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+    local plugins_dir="$XDG_CONFIG_HOME/openhei/plugins"
+    local plugin_dir="$plugins_dir/opencode-dynamic-context-pruning"
+
+    mkdir -p "$plugins_dir"
+
+    print_message info "${MUTED}Installing plugin:${NC} opencode-dynamic-context-pruning -> $plugin_dir"
+
+    if command -v git >/dev/null 2>&1; then
+        if [ -d "$plugin_dir/.git" ]; then
+            print_message info "${MUTED}Updating existing plugin at:${NC} $plugin_dir"
+            git -C "$plugin_dir" pull --ff-only || git -C "$plugin_dir" fetch --all --prune || true
+        else
+            git clone --depth 1 "$plugin_repo" "$plugin_dir" || true
+        fi
+        return
+    fi
+
+    if command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
+        tmp=$(mktemp -d)
+        for branch in main master; do
+            url="https://github.com/JRedeker/opencode-dynamic-context-pruning/archive/refs/heads/${branch}.tar.gz"
+            if curl -fsSL "$url" -o "$tmp/plugin.tar.gz"; then
+                mkdir -p "$plugin_dir"
+                tar -xzf "$tmp/plugin.tar.gz" -C "$tmp"
+                extracted_dir=$(find "$tmp" -maxdepth 1 -type d -name "opencode-dynamic-context-pruning-*" | head -n1)
+                if [ -n "$extracted_dir" ]; then
+                    rm -rf "$plugin_dir"
+                    mv "$extracted_dir" "$plugin_dir"
+                fi
+                rm -rf "$tmp"
+                return
+            fi
+        done
+        rm -rf "$tmp"
+    fi
+
+    print_message warning "Could not install opencode-dynamic-context-pruning plugin (git/curl/tar not available or network error)."
+}
+
 if [ "$local_repo" = "true" ]; then
     install_from_repo
+    # Install external OpenCode plugins into the user's global plugin dir
+    install_opencode_morph_plugin
+    install_dynamic_pruning_plugin
 elif [ -n "$binary_path" ]; then
     install_from_binary
 else
