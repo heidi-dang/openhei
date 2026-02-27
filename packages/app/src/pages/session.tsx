@@ -29,6 +29,8 @@ import { createScrollSpy } from "@/pages/session/scroll-spy"
 import { SessionReviewTab, type DiffStyle, type SessionReviewTabProps } from "@/pages/session/review-tab"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { MessageTimeline } from "@/pages/session/message-timeline"
+import ToolCard from "@/components/session/tool-cards/tool-card"
+import "@/components/session/tool-cards/tool-card.css"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { SessionComposerRegion, createSessionComposerState } from "@/pages/session/composer"
 import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
@@ -57,6 +59,9 @@ export default function Page() {
   const sessionStatus = createMemo(() => sync.data.session_status[params.id ?? ""] ?? { type: "idle" })
   const streamingStatusEnabled = createMemo(() => settings.current.flags["ui.streaming_status"])
   const streamBannersEnabled = createMemo(() => settings.current.flags["ui.stream_banners"])
+  const toolCardsEnabled = createMemo(() => settings.current.flags["ui.tool_cards"])
+  const stepTimelineEnabled = createMemo(() => settings.current.flags["ui.step_timeline"])
+  const errorCardsEnabled = createMemo(() => settings.current.flags["ui.error_cards"])
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
@@ -1117,6 +1122,18 @@ export default function Page() {
                   onUnregisterMessage={scrollSpy.unregister}
                   lastUserMessageID={lastUserMessage()?.id}
                 />
+                <Show when={toolCardsEnabled()}>
+                  <div class="px-4 pb-4">
+                    <ToolCard
+                      id="tool-1"
+                      title="Example Tool"
+                      subtitle="runs a command"
+                      status="completed"
+                      durationMs={1200}
+                      output={"This is an example output\nline2\nline3\n..."}
+                    />
+                  </div>
+                </Show>
               </Match>
               <Match when={true}>
                 <NewSessionView

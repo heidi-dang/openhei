@@ -1,0 +1,22 @@
+[data-component="tool-card"] {
+  border: 1px solid var(--border-base);
+  border-radius: 8px;
+  background: var(--background-stronger);
+  padding: 8px;
+}
+.tool-card-header {
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.tool-card-body {
+  padding-top: 8px;
+}
+.tool-card-output {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.tool-card-show-more {
+  margin-top: 6px;
+}
