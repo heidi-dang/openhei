@@ -41,6 +41,7 @@ export const dict = {
   "ui.sessionTurn.status.runningCommands": "Running commands",
   "ui.sessionTurn.status.thinking": "Thinking",
   "ui.sessionTurn.status.thinkingWithTopic": "Thinking - {{topic}}",
+  "ui.thinking.no_summary": "No summary",
   "ui.sessionTurn.status.gatheringThoughts": "Gathering thoughts",
   "ui.sessionTurn.status.consideringNextSteps": "Considering next steps",
 
@@ -115,4 +116,9 @@ export const dict = {
   "ui.question.multiHint": "Select all answers that apply",
   "ui.question.singleHint": "Select one answer",
   "ui.question.custom.placeholder": "Type your answer...",
+  "settings.general.row.thinkingDrawer.title": "Thinking drawer",
+  "settings.general.row.thinkingDrawer.description": "Show a short, safe summary of the assistant's thinking.",
+  "settings.general.row.thinkingDrawer.option.auto": "Auto",
+  "settings.general.row.thinkingDrawer.option.always": "Always",
+  "settings.general.row.thinkingDrawer.option.never": "Never",
 }

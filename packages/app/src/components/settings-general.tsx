@@ -283,6 +283,34 @@ export const SettingsGeneral: Component = () => {
             />
           </div>
         </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.thinkingDrawer.title")}
+          description={language.t("settings.general.row.thinkingDrawer.description")}
+        >
+          <div data-action="settings-thinking-drawer-mode">
+            <Select
+              options={[
+                { value: "auto", label: language.t("settings.general.row.thinkingDrawer.option.auto") },
+                { value: "always", label: language.t("settings.general.row.thinkingDrawer.option.always") },
+                { value: "never", label: language.t("settings.general.row.thinkingDrawer.option.never") },
+              ]}
+              current={{
+                value: settings.general.thinkingDrawerMode(),
+                // language.t has a narrow literal key union; this dynamic key is safe here so cast to any
+                label: (language.t as any)(
+                  "settings.general.row.thinkingDrawer.option." + settings.general.thinkingDrawerMode(),
+                ),
+              }}
+              value={(o: any) => o.value}
+              label={(o: any) => o.label}
+              onSelect={(option: any) => option && settings.general.setThinkingDrawerMode(option.value)}
+              variant="secondary"
+              size="small"
+              triggerVariant="settings"
+            />
+          </div>
+        </SettingsRow>
       </div>
     </div>
   )
