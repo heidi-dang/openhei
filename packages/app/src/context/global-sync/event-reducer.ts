@@ -166,6 +166,7 @@ export function applyDirectoryEvent(input: {
     }
     case "message.updated": {
       const info = (event.properties as { info: Message }).info
+      performance.mark(`stream-message-updated-${info.id}`)
       const messages = input.store.message[info.sessionID]
       if (!messages) {
         input.setStore("message", info.sessionID, [info])
@@ -241,6 +242,7 @@ export function applyDirectoryEvent(input: {
     }
     case "message.part.delta": {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
+      performance.mark(`stream-part-delta-${props.messageID}-${props.partID}`)
       const parts = input.store.part[props.messageID]
       if (!parts) break
       const result = Binary.search(parts, props.partID, (p) => p.id)
@@ -252,7 +254,7 @@ export function applyDirectoryEvent(input: {
           const part = draft[result.index]
           const field = props.field as keyof typeof part
           const existing = part[field] as string | undefined
-          ;(part[field] as string) = (existing ?? "") + props.delta
+            ; (part[field] as string) = (existing ?? "") + props.delta
         }),
       )
       break

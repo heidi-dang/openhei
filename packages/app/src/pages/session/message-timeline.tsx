@@ -521,32 +521,46 @@ export function MessageTimeline(props: {
               </div>
             </Show>
             <For each={props.renderedUserMessages}>
-              {(message) => (
-                <div
-                  id={props.anchor(message.id)}
-                  data-message-id={message.id}
-                  ref={(el) => {
-                    props.onRegisterMessage(el, message.id)
-                    onCleanup(() => props.onUnregisterMessage(message.id))
-                  }}
-                  classList={{
-                    "min-w-0 w-full max-w-full": true,
-                    "md:max-w-200 2xl:max-w-[1000px]": props.centered,
-                  }}
-                >
-                  <SessionTurn
-                    sessionID={sessionID() ?? ""}
-                    messageID={message.id}
-                    lastUserMessageID={props.lastUserMessageID}
-                    showReasoningSummaries={settings.general.showReasoningSummaries()}
-                    classes={{
-                      root: "min-w-0 w-full relative",
-                      content: "flex flex-col justify-between !overflow-visible",
-                      container: "w-full px-4 md:px-5",
+              {(message) => {
+                performance.mark(`message-render-start-${message.id}`)
+                onCleanup(() => performance.clearMarks(`message-render-start-${message.id}`))
+
+                createEffect(() => {
+                  performance.mark(`message-render-end-${message.id}`)
+                  performance.measure(
+                    `message-render-${message.id}`,
+                    `message-render-start-${message.id}`,
+                    `message-render-end-${message.id}`
+                  )
+                })
+
+                return (
+                  <div
+                    id={props.anchor(message.id)}
+                    data-message-id={message.id}
+                    ref={(el) => {
+                      props.onRegisterMessage(el, message.id)
+                      onCleanup(() => props.onUnregisterMessage(message.id))
                     }}
-                  />
-                </div>
-              )}
+                    classList={{
+                      "min-w-0 w-full max-w-full": true,
+                      "md:max-w-200 2xl:max-w-[1000px]": props.centered,
+                    }}
+                  >
+                    <SessionTurn
+                      sessionID={sessionID() ?? ""}
+                      messageID={message.id}
+                      lastUserMessageID={props.lastUserMessageID}
+                      showReasoningSummaries={settings.general.showReasoningSummaries()}
+                      classes={{
+                        root: "min-w-0 w-full relative",
+                        content: "flex flex-col justify-between !overflow-visible",
+                        container: "w-full px-4 md:px-5",
+                      }}
+                    />
+                  </div>
+                )
+              }}
             </For>
           </div>
         </ScrollView>
