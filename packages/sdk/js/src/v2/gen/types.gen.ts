@@ -590,6 +590,14 @@ export type SessionStatus =
   | {
       type: "busy"
     }
+  | {
+      type: "replay"
+      message?: string
+    }
+  | {
+      type: "resync_required"
+      message?: string
+    }
 
 export type EventSessionStatus = {
   type: "session.status"

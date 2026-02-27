@@ -1059,9 +1059,16 @@ export default function Page() {
                     <StreamingStatus status={sessionStatus} sessionID={() => params.id} />
                   </div>
                 </Show>
-                <Show when={streamBannersEnabled() && sessionStatus().type !== "idle"}>
+                <Show
+                  when={
+                    streamBannersEnabled() &&
+                    (sessionStatus().type === "replay" || sessionStatus().type === "resync_required")
+                  }
+                >
                   <div class="px-4 pt-2">
-                    <StreamingBanner type={sessionStatus().type === "retry" ? "replaying" : "replaying"} />
+                    <StreamingBanner
+                      type={sessionStatus().type === "resync_required" ? "resync_required" : "replaying"}
+                    />
                   </div>
                 </Show>
                 <MessageTimeline
