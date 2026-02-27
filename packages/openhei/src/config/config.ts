@@ -528,13 +528,32 @@ export namespace Config {
    * getPluginName("@scope/pkg@1.0.0") // "@scope/pkg"
    */
   export function getPluginName(plugin: string): string {
+    // file:// URLs -> filename without extension
     if (plugin.startsWith("file://")) {
       return path.parse(new URL(plugin).pathname).name
     }
-    const lastAt = plugin.lastIndexOf("@")
-    if (lastAt > 0) {
-      return plugin.substring(0, lastAt)
+
+    // file:relative paths (e.g. file:../plugin or file:./plugin/index.js)
+    if (plugin.startsWith("file:")) {
+      const rel = plugin.slice("file:".length)
+      return path.parse(rel).name
     }
+
+    // Scoped package with version: "@scope/pkg@1.2.3"
+    // Find the second '@' (the version separator) when the string starts with '@'
+    if (plugin.startsWith("@")) {
+      const secondAt = plugin.indexOf("@", 1)
+      if (secondAt > 0) return plugin.substring(0, secondAt)
+      return plugin
+    }
+
+    // Non-scoped packages: split on the last @ if present (name@version)
+    const lastAt = plugin.lastIndexOf("@")
+    if (lastAt > 0) return plugin.substring(0, lastAt)
+
+    // Paths (local directories) like "path/to/local" -> basename
+    if (plugin.includes("/")) return path.basename(plugin)
+
     return plugin
   }
 
@@ -559,6 +578,7 @@ export namespace Config {
     const uniqueSpecifiers: string[] = []
 
     for (const specifier of plugins.toReversed()) {
+      // Normalize names for dedupe comparison so scoped vs non-scoped are handled
       const name = getPluginName(specifier)
       if (!seenNames.has(name)) {
         seenNames.add(name)
