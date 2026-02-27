@@ -38,11 +38,7 @@ export function createPalette() {
 export default function Palette(props: { palette: ReturnType<typeof createPalette>; onSelect: (cmd: string) => void }) {
   const p = props.palette
   return (
-<<<<<<< HEAD
     <div class="absolute left-2 top-full z-50 max-h-[200px] w-[calc(100%-1rem)] sm:w-[260px] overflow-y-auto bg-surface-1 border border-divider rounded shadow-md mt-1 sm:left-0">
-=======
-    <div class="absolute z-50 max-h-[200px] w-full sm:w-[260px] overflow-y-auto bg-surface-1 border border-divider rounded shadow-md mt-1 sm:mt-1">
->>>>>>> cd167d1 (ui(phase5-3): mobile UX fixes (tap targets 44px, palette overflow, width))
       <div class="p-1">
         {p.filtered().map((cmd, idx) => (
           <div
