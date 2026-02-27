@@ -18,6 +18,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
@@ -27,6 +31,9 @@ jobs:
       # commits, use the GitHub Actions noreply bot identity instead.
 
       - name: Run unit tests
+        env:
+          GIT_TRACE: 1
+          GIT_CURL_VERBOSE: 1
         run: bun turbo test
 
   e2e:
