@@ -470,13 +470,49 @@ export namespace Config {
   async function loadPlugin(dir: string) {
     const plugins: string[] = []
 
-    for (const item of await Glob.scan("{plugin,plugins}/*.{ts,js}", {
+    // Scan plugin directories for either direct plugin files or plugin packages
+    for (const item of await Glob.scan("{plugin,plugins}/*", {
       cwd: dir,
       absolute: true,
       dot: true,
       symlink: true,
     })) {
-      plugins.push(pathToFileURL(item).href)
+      try {
+        const stat = await fs.stat(item).catch(() => null)
+        if (!stat) continue
+
+        if (stat.isFile()) {
+          if (item.endsWith(".ts") || item.endsWith(".js")) plugins.push(pathToFileURL(item).href)
+          continue
+        }
+
+        if (stat.isDirectory()) {
+          // Prefer package.json main field if present
+          const pkgPath = path.join(item, "package.json")
+          if (await Filesystem.exists(pkgPath)) {
+            const pkg = await Filesystem.readJson<{ main?: string }>(pkgPath).catch(() => null)
+            if (pkg?.main) {
+              const mainPath = path.resolve(item, pkg.main)
+              if (await Filesystem.exists(mainPath)) {
+                plugins.push(pathToFileURL(mainPath).href)
+                continue
+              }
+            }
+          }
+
+          // Fallback to common entry filenames
+          const candidates = ["index.ts", "index.js", "dist/index.js", "dist/index.ts"]
+          for (const c of candidates) {
+            const p = path.join(item, c)
+            if (await Filesystem.exists(p)) {
+              plugins.push(pathToFileURL(p).href)
+              break
+            }
+          }
+        }
+      } catch (err) {
+        log.warn("failed to load plugin entry", { dir: item, err })
+      }
     }
     return plugins
   }
