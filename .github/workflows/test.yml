@@ -9,7 +9,8 @@ on:
 jobs:
   unit:
     name: unit (linux)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    # Use GitHub-hosted runner to avoid relying on unavailable self-hosted runners
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
