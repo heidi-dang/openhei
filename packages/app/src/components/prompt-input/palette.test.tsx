@@ -1,6 +1,5 @@
 import { describe, expect, test, beforeAll, mock } from "bun:test"
-import { createPalette } from "./palette"
-import { shouldOpenPalette, stripSlashPrefix } from "./palette-util"
+import { createPalette, shouldOpenPalette, stripSlashPrefix } from "./palette"
 import { buildRequestParts } from "./build-request-parts"
 import type { Prompt } from "@/context/prompt"
 

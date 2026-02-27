@@ -35,6 +35,25 @@ export function createPalette() {
   }
 }
 
+/**
+ * Small helper used by tests and caller code to decide whether the palette
+ * should open. Kept here to consolidate tiny helpers that were previously
+ * defined in a separate file.
+ */
+export function shouldOpenPalette(flag: boolean, text: string) {
+  if (!flag) return { open: false }
+  if (!text) return { open: false }
+  return { open: text.startsWith("/") }
+}
+
+export function stripSlashPrefix(text: string, cmd: string) {
+  const prefix = `/${cmd}`
+  if (!text.startsWith(prefix)) return text
+  let rest = text.slice(prefix.length)
+  if (rest.startsWith(" ")) rest = rest.slice(1)
+  return rest
+}
+
 export default function Palette(props: { palette: ReturnType<typeof createPalette>; onSelect: (cmd: string) => void }) {
   const p = props.palette
   return (
