@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { type Config } from "./gen/types.gen.js"
 
 export type ServerOptions = {
@@ -31,7 +34,13 @@ export async function createOpencodeServer(options?: ServerOptions) {
   const args = [`serve`, `--hostname=${options.hostname}`, `--port=${options.port}`]
   if (options.config?.logLevel) args.push(`--log-level=${options.config.logLevel}`)
 
-  const proc = spawn(`openhei`, args, {
+  // Prefer a local openhei wrapper from the monorepo if available so we
+  // don't depend on an installed CLI in $PATH during tests/runs.
+  const __dirname = path.dirname(fileURLToPath(import.meta.url))
+  const localBin = path.join(__dirname, "../../../openhei/bin/openhei")
+  const command = fs.existsSync(localBin) ? localBin : "openhei"
+
+  const proc = spawn(command, args, {
     signal: options.signal,
     env: {
       ...process.env,
@@ -106,7 +115,11 @@ export function createOpencodeTui(options?: TuiOptions) {
     args.push(`--agent=${options.agent}`)
   }
 
-  const proc = spawn(`openhei`, args, {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url))
+  const localBin = path.join(__dirname, "../../../openhei/bin/openhei")
+  const command = fs.existsSync(localBin) ? localBin : "openhei"
+
+  const proc = spawn(command, args, {
     signal: options?.signal,
     stdio: "inherit",
     env: {
