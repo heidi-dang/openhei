@@ -79,13 +79,13 @@ const migrations = await Promise.all(
     const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(name)
     const timestamp = match
       ? Date.UTC(
-        Number(match[1]),
-        Number(match[2]) - 1,
-        Number(match[3]),
-        Number(match[4]),
-        Number(match[5]),
-        Number(match[6]),
-      )
+          Number(match[1]),
+          Number(match[2]) - 1,
+          Number(match[3]),
+          Number(match[4]),
+          Number(match[5]),
+          Number(match[6]),
+        )
       : 0
     return { sql, timestamp }
   }),
@@ -98,66 +98,66 @@ const allTargets: {
   abi?: "musl"
   avx2?: false
 }[] = [
-    {
-      os: "linux",
-      arch: "arm64",
-    },
-    {
-      os: "linux",
-      arch: "x64",
-    },
-    {
-      os: "linux",
-      arch: "x64",
-      avx2: false,
-    },
-    {
-      os: "linux",
-      arch: "arm64",
-      abi: "musl",
-    },
-    {
-      os: "linux",
-      arch: "x64",
-      abi: "musl",
-    },
-    {
-      os: "linux",
-      arch: "x64",
-      abi: "musl",
-      avx2: false,
-    },
-    {
-      os: "darwin",
-      arch: "arm64",
-    },
-    {
-      os: "darwin",
-      arch: "x64",
-    },
-    {
-      os: "darwin",
-      arch: "x64",
-      avx2: false,
-    },
-    {
-      os: "win32",
-      arch: "x64",
-    },
-    {
-      os: "win32",
-      arch: "x64",
-      avx2: false,
-    },
-  ]
+  {
+    os: "linux",
+    arch: "arm64",
+  },
+  {
+    os: "linux",
+    arch: "x64",
+  },
+  {
+    os: "linux",
+    arch: "x64",
+    avx2: false,
+  },
+  {
+    os: "linux",
+    arch: "arm64",
+    abi: "musl",
+  },
+  {
+    os: "linux",
+    arch: "x64",
+    abi: "musl",
+  },
+  {
+    os: "linux",
+    arch: "x64",
+    abi: "musl",
+    avx2: false,
+  },
+  {
+    os: "darwin",
+    arch: "arm64",
+  },
+  {
+    os: "darwin",
+    arch: "x64",
+  },
+  {
+    os: "darwin",
+    arch: "x64",
+    avx2: false,
+  },
+  {
+    os: "win32",
+    arch: "x64",
+  },
+  {
+    os: "win32",
+    arch: "x64",
+    avx2: false,
+  },
+]
 
 const targets = singleFlag
   ? allTargets.filter((item) => {
-    if (item.os !== process.platform || item.arch !== process.arch) return false
-    if (item.avx2 === false) return baselineFlag
-    if (item.abi !== undefined) return false
-    return true
-  })
+      if (item.os !== process.platform || item.arch !== process.arch) return false
+      if (item.avx2 === false) return baselineFlag
+      if (item.abi !== undefined) return false
+      return true
+    })
   : allTargets
 
 if (skipDashboard) {
@@ -194,7 +194,9 @@ for (const item of targets) {
   await $`mkdir -p dist/${name}/bin`
   await $`cp -r ../../packages/app/dist dist/${name}/dashboard`
 
-  const parserWorker = fs.realpathSync(path.join(path.dirname(require.resolve("@opentui/core/package.json")), "parser.worker.js"))
+  const parserWorker = fs.realpathSync(
+    path.join(path.dirname(require.resolve("@opentui/core/package.json")), "parser.worker.js"),
+  )
   const workerPath = "./src/cli/cmd/tui/worker.ts"
 
   // Use platform-specific bunfs root path based on target OS
@@ -223,6 +225,8 @@ for (const item of targets) {
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       OPENHEI_WORKER_PATH: workerPath,
       OPENHEI_CHANNEL: `'${Script.channel}'`,
+      OPENHEI_GIT_SHA: `'${Script.gitSha}'`,
+      OPENHEI_BUILD_TIME: `'${Script.buildTime}'`,
       OPENHEI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })

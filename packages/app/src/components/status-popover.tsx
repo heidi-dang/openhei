@@ -17,6 +17,14 @@ import { useSync } from "@/context/sync"
 import { checkServerHealth, type ServerHealth } from "@/utils/server-health"
 import { DialogSelectServer } from "./dialog-select-server"
 
+type DebugInfo = {
+  buildId: string
+  gitSha: string | null
+  buildTime: string | null
+  version: string
+  channel: string
+}
+
 const pollMs = 10_000
 
 const pluginEmptyMessage = (value: string, file: string): JSXElement => {
@@ -159,6 +167,37 @@ const useMcpToggle = (input: {
   return { loading, toggle }
 }
 
+const useDebugInfo = (fetcher: typeof fetch) => {
+  const [debug, setDebug] = createSignal<DebugInfo | null>(null)
+  const [loading, setLoading] = createSignal(true)
+
+  createEffect(() => {
+    let dead = false
+
+    const fetchDebug = async () => {
+      try {
+        const defaultUrl = "http://localhost:4096"
+        const res = await fetcher(`${defaultUrl}/global/debug`)
+        if (res.ok) {
+          const data = await res.json()
+          if (!dead) setDebug(data)
+        }
+      } catch {
+        // Debug endpoint not available
+      } finally {
+        if (!dead) setLoading(false)
+      }
+    }
+
+    void fetchDebug()
+    onCleanup(() => {
+      dead = true
+    })
+  })
+
+  return { debug, loading }
+}
+
 export function StatusPopover() {
   const sync = useSync()
   const sdk = useSDK()
@@ -196,6 +235,7 @@ export function StatusPopover() {
     })
     return serverHealthy && !anyMcpIssue
   })
+  const { debug, loading: debugLoading } = useDebugInfo(fetcher)
 
   return (
     <Popover
@@ -251,6 +291,9 @@ export function StatusPopover() {
             <Tabs.Trigger value="plugins" data-slot="tab" class="text-12-regular">
               {pluginCount() > 0 ? `${pluginCount()} ` : ""}
               {language.t("status.popover.tab.plugins")}
+            </Tabs.Trigger>
+            <Tabs.Trigger value="debug" data-slot="tab" class="text-12-regular">
+              Debug
             </Tabs.Trigger>
           </Tabs.List>
 
@@ -406,6 +449,53 @@ export function StatusPopover() {
                       </div>
                     )}
                   </For>
+                </Show>
+              </div>
+            </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="debug">
+            <div class="flex flex-col px-2 pb-2">
+              <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
+                <Show
+                  when={!debugLoading()}
+                  fallback={<div class="text-14-regular text-text-base text-center my-auto">Loading...</div>}
+                >
+                  <Show
+                    when={debug()}
+                    fallback={
+                      <div class="text-14-regular text-text-base text-center my-auto">Debug info unavailable</div>
+                    }
+                  >
+                    <div class="flex flex-col gap-2">
+                      <div class="flex items-center justify-between">
+                        <span class="text-12-regular text-text-weak">Version</span>
+                        <span class="text-12-regular text-text-base">{debug()?.version}</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-12-regular text-text-weak">Channel</span>
+                        <span class="text-12-regular text-text-base">{debug()?.channel}</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-12-regular text-text-weak">Build ID</span>
+                        <span class="text-12-regular text-text-base font-mono">{debug()?.buildId}</span>
+                      </div>
+                      <Show when={debug()?.gitSha}>
+                        <div class="flex items-center justify-between">
+                          <span class="text-12-regular text-text-weak">Git SHA</span>
+                          <span class="text-12-regular text-text-base font-mono truncate max-w-[180px]">
+                            {debug()?.gitSha}
+                          </span>
+                        </div>
+                      </Show>
+                      <Show when={debug()?.buildTime}>
+                        <div class="flex items-center justify-between">
+                          <span class="text-12-regular text-text-weak">Build Time</span>
+                          <span class="text-12-regular text-text-base">{debug()?.buildTime}</span>
+                        </div>
+                      </Show>
+                    </div>
+                  </Show>
                 </Show>
               </div>
             </div>

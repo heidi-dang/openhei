@@ -34,6 +34,7 @@ type Doctor = {
   gpu?: string
   disk?: { path: string; free_bytes: number }
   active?: { run_id: string; pid: number; started_at: string }
+  diagnostics?: any
 }
 
 type Stack = {
@@ -113,6 +114,8 @@ export const SettingsQLoRA: Component = () => {
     openhei_agent: "",
     openhei_start: true,
     openhei_attach_strict: false,
+    heidi_engine_python: "",
+    heidi_engine_path: "",
 
     stack: "python",
     max_repos: preset.safe.max_repos,
@@ -189,6 +192,8 @@ export const SettingsQLoRA: Component = () => {
       openhei_start: store.openhei_start,
       openhei_attach_strict: store.openhei_attach_strict,
     },
+    heidi_engine_python: store.heidi_engine_python,
+    heidi_engine_path: store.heidi_engine_path,
   })
 
   // Compare fields for dirty state. We map logical fields to tabs so we can show per-tab dirty badges.
@@ -397,6 +402,11 @@ export const SettingsQLoRA: Component = () => {
     if (d.version) parts.push(`heidi-engine: ${d.version}`)
     if (d.gpu) parts.push(`GPU: ${d.gpu.split("\n")[0]}`)
     if (d.disk) parts.push(`Disk free: ${Math.round(d.disk.free_bytes / 1024 / 1024 / 1024)} GB`)
+    // diagnostics
+    const diag = (d as any).diagnostics
+    if (diag?.sys_executable) parts.push(`Checked executable: ${diag.sys_executable}`)
+    if (diag?.install_cmd) parts.push(`Install command: ${diag.install_cmd}`)
+    if ((d as any).import_err) parts.push(`Import error: ${(d as any).import_err}`)
     return parts
   })
 
@@ -450,6 +460,8 @@ export const SettingsQLoRA: Component = () => {
         openhei_agent: t?.openhei_agent ?? s.openhei_agent,
         openhei_start: t?.openhei_start ?? s.openhei_start,
         openhei_attach_strict: t?.openhei_attach_strict ?? s.openhei_attach_strict,
+        heidi_engine_python: t?.heidi_engine_python ?? s.heidi_engine_python,
+        heidi_engine_path: t?.heidi_engine_path ?? s.heidi_engine_path,
       }))
     } catch (err) {
       // ignore server errors — UI can still function with local values
@@ -575,6 +587,64 @@ export const SettingsQLoRA: Component = () => {
                   onChange={(v) => setStore("openhei_attach", v)}
                   class="w-full sm:w-[320px] max-w-full"
                 />
+              </Row>
+
+              <Row
+                title="heidi_engine_python"
+                desc="Interpreter used to run heidi-engine"
+                help="Full path to the Python interpreter to use for heidi-engine (optional). Use the 'Check' button to validate."
+              >
+                <div class="flex gap-2 items-center">
+                  <TextField
+                    value={store.heidi_engine_python}
+                    onChange={(v) => setStore("heidi_engine_python", v)}
+                    class="w-full sm:w-[320px] max-w-full"
+                  />
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await save()
+                        await docActions.refetch()
+                        showToast({ title: "Checked", description: "Doctor refreshed with configured python" })
+                      } catch (e: any) {
+                        showToast({ title: "Check failed", description: String(e?.message ?? e) })
+                      }
+                    }}
+                  >
+                    Check
+                  </Button>
+                </div>
+              </Row>
+
+              <Row
+                title="heidi_engine_path"
+                desc="Path to heidi-engine tool dir"
+                help="Directory where heidi-engine is installed (optional). Doctor will prefer .venv under this dir when resolving python."
+              >
+                <div class="flex gap-2 items-center">
+                  <TextField
+                    value={store.heidi_engine_path}
+                    onChange={(v) => setStore("heidi_engine_path", v)}
+                    class="w-full sm:w-[320px] max-w-full"
+                  />
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await save()
+                        await docActions.refetch()
+                        showToast({ title: "Checked", description: "Doctor refreshed with configured tool path" })
+                      } catch (e: any) {
+                        showToast({ title: "Check failed", description: String(e?.message ?? e) })
+                      }
+                    }}
+                  >
+                    Check
+                  </Button>
+                </div>
               </Row>
 
               <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">

@@ -48,6 +48,8 @@ import { useDialog } from "@openhei-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@openhei-ai/ui/theme"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
+import { StatusPopover } from "@/components/status-popover"
+import { DebugFooter } from "@/components/debug-footer"
 import { DialogSettings } from "@/components/dialog-settings"
 import { DialogHealthCheck } from "@/components/dialog-health-check"
 import { useCommand, type CommandOption } from "@/context/command"
@@ -2094,6 +2096,7 @@ export default function Layout(props: ParentProps) {
           <Show when={!autoselecting()} fallback={<div class="size-full" />}>
             {props.children}
           </Show>
+          <DebugFooter />
         </main>
       </div>
       <Toast.Region />

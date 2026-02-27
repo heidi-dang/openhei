@@ -130,7 +130,10 @@ function WhatsNewPhase5Banner(props: { onDismiss: () => void }) {
   }
 
   return (
-    <div class="fixed top-0 left-0 right-0 z-50 bg-surface-3 border-b border-border-weak-base px-4 py-3 flex items-center gap-3 shadow-md">
+    <div
+      class="fixed top-0 left-0 right-0 z-50 bg-surface-3 border-b border-border-weak-base px-4 py-3 flex items-center gap-3 shadow-md"
+      data-testid="phase5-banner"
+    >
       <div class="flex-1 min-w-0">
         <div class="text-13-medium text-text-strong">{language.t("whatsNew.phase5.title")}</div>
         <div class="text-12-regular text-text-weak truncate">{language.t("whatsNew.phase5.description")}</div>
