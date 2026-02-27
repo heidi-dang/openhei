@@ -623,7 +623,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
         // On select: remove leading `/cmd` from prompt and set selected send option
         const rawParts = prompt.current()
         const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
-        const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+        const remainder = text.replace(new RegExp(`^/${item.id}\s*`), "")
         mirror.input = true
         prompt.set([{ type: "text", content: remainder, start: 0, end: remainder.length }], remainder.length)
         setSelectedSendOption(item.id)
@@ -1455,7 +1455,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     if (!item) return
                     const rawParts = prompt.current()
                     const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
-                    const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+                    const remainder = text.replace(new RegExp(`^/${item.id}\s*`), "")
                     mirror.input = true
                     prompt.set(
                       [{ type: "text", content: remainder, start: 0, end: remainder.length }],
