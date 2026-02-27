@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeAll, beforeEach, mock } from "bun:test"
-import { createSignal } from "solid-js"
+import { shouldOpenPalette, stripSlashPrefix } from "./palette-util"
 
 // Lightweight tests to assert palette gating and selection behavior.
 beforeAll(() => {
@@ -21,16 +21,16 @@ beforeAll(() => {
   mock.module("@/context/platform", () => ({ usePlatform: () => ({ platform: "desktop", storage: () => null }) }))
 })
 
-describe("palette createPalette", () => {
-  test("filters and active index behavior", async () => {
-    const { createPalette } = require("./palette")
-    const p = createPalette()
-    p.setOpen(true)
-    p.setQuery("pl")
-    expect(p.filtered().length).toBeGreaterThan(0)
-    expect(p.activeIndex()).toBe(0)
-    p.setActiveIndex(1)
-    expect(p.activeIndex()).toBe(1)
-    p.setOpen(false)
+describe("palette utils", () => {
+  test("shouldOpenPalette respects flag and parses query", () => {
+    expect(shouldOpenPalette(false, "/plan hi")).toEqual({ open: false, query: "" })
+    expect(shouldOpenPalette(true, "not a slash")).toEqual({ open: false, query: "" })
+    expect(shouldOpenPalette(true, "/pl rest")).toEqual({ open: true, query: "pl" })
+  })
+
+  test("stripSlashPrefix removes leading /cmd and optional space", () => {
+    expect(stripSlashPrefix("/plan do this", "plan")).toBe("do this")
+    expect(stripSlashPrefix("/plando this", "plan")).toBe("do this")
+    expect(stripSlashPrefix("/search  term", "search")).toBe("term")
   })
 })
