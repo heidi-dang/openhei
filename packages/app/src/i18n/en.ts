@@ -16,6 +16,12 @@ export const dict = {
   "command.category.permissions": "Permissions",
   "command.category.workspace": "Workspace",
   "command.category.settings": "Settings",
+  "command.category.health": "Health",
+
+  "sidebar.health.title": "Bypass Health Check",
+  "sidebar.health.status.active": "Bypass Status: Active",
+  "sidebar.health.status.verified": "Unrestricted Usage Verified",
+  "sidebar.health.description": "Rate limits and usage caps are currently being bypassed for all providers.",
 
   "theme.scheme.system": "System",
   "theme.scheme.light": "Light",

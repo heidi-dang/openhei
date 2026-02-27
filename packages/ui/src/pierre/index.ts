@@ -129,7 +129,7 @@ const unsafeCSS = `
 
 export function createDefaultOptions<T>(style: FileDiffOptions<T>["diffStyle"]) {
   return {
-    theme: "OpenHei",
+    theme: "github-dark",
     themeType: "system",
     disableLineNumbers: false,
     overflow: "wrap",

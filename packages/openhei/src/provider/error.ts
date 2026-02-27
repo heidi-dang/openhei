@@ -74,7 +74,7 @@ export namespace ProviderError {
         if (errMsg && typeof errMsg === "string") {
           return `${msg}: ${errMsg}`
         }
-      } catch {}
+      } catch { }
 
       return `${msg}: ${e.responseBody}`
     }).trim()
@@ -98,16 +98,16 @@ export namespace ProviderError {
 
   export type ParsedStreamError =
     | {
-        type: "context_overflow"
-        message: string
-        responseBody: string
-      }
+      type: "context_overflow"
+      message: string
+      responseBody: string
+    }
     | {
-        type: "api_error"
-        message: string
-        isRetryable: false
-        responseBody: string
-      }
+      type: "api_error"
+      message: string
+      isRetryable: boolean
+      responseBody: string
+    }
 
   export function parseStreamError(input: unknown): ParsedStreamError | undefined {
     const body = json(input)
@@ -127,14 +127,14 @@ export namespace ProviderError {
         return {
           type: "api_error",
           message: "Quota exceeded. Check your plan and billing details.",
-          isRetryable: false,
+          isRetryable: true,
           responseBody,
         }
       case "usage_not_included":
         return {
           type: "api_error",
           message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus.",
-          isRetryable: false,
+          isRetryable: true,
           responseBody,
         }
       case "invalid_prompt":
@@ -149,19 +149,19 @@ export namespace ProviderError {
 
   export type ParsedAPICallError =
     | {
-        type: "context_overflow"
-        message: string
-        responseBody?: string
-      }
+      type: "context_overflow"
+      message: string
+      responseBody?: string
+    }
     | {
-        type: "api_error"
-        message: string
-        statusCode?: number
-        isRetryable: boolean
-        responseHeaders?: Record<string, string>
-        responseBody?: string
-        metadata?: Record<string, string>
-      }
+      type: "api_error"
+      message: string
+      statusCode?: number
+      isRetryable: boolean
+      responseHeaders?: Record<string, string>
+      responseBody?: string
+      metadata?: Record<string, string>
+    }
 
   export function parseAPICallError(input: { providerID: string; error: APICallError }): ParsedAPICallError {
     const m = message(input.providerID, input.error)
@@ -178,9 +178,9 @@ export namespace ProviderError {
       type: "api_error",
       message: m,
       statusCode: input.error.statusCode,
-      isRetryable: input.providerID.startsWith("openai")
-        ? isOpenAiErrorRetryable(input.error)
-        : input.error.isRetryable,
+      isRetryable:
+        /quota|billing|limit|rate/i.test(m) ||
+        (input.providerID.startsWith("openai") ? isOpenAiErrorRetryable(input.error) : input.error.isRetryable),
       responseHeaders: input.error.responseHeaders,
       responseBody: input.error.responseBody,
       metadata,

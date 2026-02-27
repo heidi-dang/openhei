@@ -32,6 +32,8 @@ export const SidebarContent = (props: {
   onOpenSettings: () => void
   helpLabel: Accessor<string>
   onOpenHelp: () => void
+  healthCheckLabel: Accessor<string>
+  onOpenHealthCheck: () => void
   renderPanel: () => JSX.Element
 }): JSX.Element => {
   const expanded = createMemo(() => sidebarExpanded(props.mobile, props.opened()))
@@ -90,6 +92,16 @@ export const SidebarContent = (props: {
               aria-label={props.settingsLabel()}
             />
           </TooltipKeybind>
+          <Tooltip placement={placement()} value={props.healthCheckLabel()}>
+            <IconButton
+              icon="circle-check"
+              variant="ghost"
+              size="large"
+              onClick={props.onOpenHealthCheck}
+              aria-label={props.healthCheckLabel()}
+              class="text-success-base"
+            />
+          </Tooltip>
           <Tooltip placement={placement()} value={props.helpLabel()}>
             <IconButton
               icon="help"

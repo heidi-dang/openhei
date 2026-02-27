@@ -22,11 +22,26 @@ import { useSettings } from "@/context/settings"
 type Doctor = {
   installed: boolean
   tool_dir: string
+  tool_dir_candidates?: string[]
+  selected_tool_dir?: string
+  checks?: {
+    exists: boolean
+    pump_import_ok: boolean
+    venv_python_path?: string
+  }
   python?: string
   version?: string
   gpu?: string
   disk?: { path: string; free_bytes: number }
   active?: { run_id: string; pid: number; started_at: string }
+}
+
+type Stack = {
+  id: string
+  label: string
+  description: string
+  available: boolean
+  reason?: string
 }
 
 type Status = {
@@ -120,11 +135,14 @@ export const SettingsQLoRA: Component = () => {
     stage: "" as string,
     progress: undefined as undefined | { done: number; total: number; pct: number; rate: number; eta: number },
     logs: [] as string[],
+    connected: false,
+    lastEventTime: 0,
   })
 
   const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor"))
   const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models"))
   const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models"))
+  const [stacks] = createResource(() => get<Stack[]>("/api/v1/qlora/stacks"))
 
   // Saved config as returned from server (canonical). We keep it separate from the UI store
   const [saved, setSaved] = createStore<Record<string, unknown>>({})
@@ -261,9 +279,26 @@ export const SettingsQLoRA: Component = () => {
     close()
     setStore("logs", [])
     setStore("progress", undefined)
+    setStore("connected", false)
+    setStore("lastEventTime", 0)
     es = new EventSource(`/api/v1/qlora/logs?run_id=${encodeURIComponent(run_id)}`)
+    let reconnectTimeout: ReturnType<typeof setTimeout> | undefined
+    const updateEventTime = () => {
+      setStore("lastEventTime", Date.now())
+      setStore("connected", true)
+    }
+    const scheduleReconnect = () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      reconnectTimeout = setTimeout(() => {
+        if (store.run_id && store.running && !store.connected) {
+          connect(store.run_id)
+        }
+      }, 10000)
+    }
     es.onmessage = (e) => {
+      updateEventTime()
       const data = JSON.parse(e.data) as { type: string; [k: string]: unknown }
+      if (data.type === "heartbeat" || data.type === "connected") return
       if (data.type === "progress") {
         setStore("progress", {
           done: Number(data.done),
@@ -282,7 +317,8 @@ export const SettingsQLoRA: Component = () => {
       })
     }
     es.onerror = () => {
-      // Allow automatic reconnect behavior from EventSource.
+      setStore("connected", false)
+      scheduleReconnect()
     }
   }
 
@@ -356,6 +392,8 @@ export const SettingsQLoRA: Component = () => {
     const d = doc.latest
     if (!d) return
     const parts = [`Installed: ${d.installed ? "yes" : "no"}`, `Tool dir: ${d.tool_dir}`]
+    if (d.selected_tool_dir) parts.push(`Detected: ${d.selected_tool_dir}`)
+    if (d.python) parts.push(`Python: ${d.python}`)
     if (d.version) parts.push(`heidi-engine: ${d.version}`)
     if (d.gpu) parts.push(`GPU: ${d.gpu.split("\n")[0]}`)
     if (d.disk) parts.push(`Disk free: ${Math.round(d.disk.free_bytes / 1024 / 1024 / 1024)} GB`)
@@ -539,17 +577,20 @@ export const SettingsQLoRA: Component = () => {
                 />
               </Row>
 
-              <Row
-                title="Stack"
-                desc="Execution stack"
-                help="Execution backend used to run heidi-engine (python/other)."
-              >
+              <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">
                 <Select
-                  options={[{ id: "python", name: "python" }]}
-                  current={{ id: store.stack }}
+                  options={stacks() ?? []}
+                  current={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
                   value={(x) => x.id}
-                  label={(x) => (x as any).name ?? String((x as any).id)}
-                  onSelect={(x) => x && setStore("stack", x.id)}
+                  label={(x) => x.label ?? String(x.id)}
+                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
                 />
@@ -577,21 +618,25 @@ export const SettingsQLoRA: Component = () => {
                 />
               </Row>
 
-              <Row
-                title="Base model"
-                desc="HF base model for QLoRA"
-                help="Hugging Face base model to fine-tune with QLoRA."
-              >
+              <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">
                 <Select
-                  options={baseOptions()}
-                  current={baseOptions().find((x) => x.id === store.base_model)}
+                  options={stacks() ?? []}
+                  current={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
                   value={(x) => x.id}
-                  label={(x) => x.id}
-                  onSelect={(x) => x && setStore("base_model", x.id)}
-                  class="w-full sm:w-[320px] max-w-full"
+                  label={(x) => {
+                    const s = x as Stack
+                    return s.available ? s.label : `${s.label} (${s.reason ?? "unavailable"})`
+                  }}
+                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
-                  triggerVariant="settings"
                 />
               </Row>
             </div>
@@ -728,6 +773,24 @@ export const SettingsQLoRA: Component = () => {
                 <div class="py-3 text-12-regular text-text-weak">
                   <div>run_id: {store.run_id}</div>
                   <div>stage: {store.stage || "(unknown)"}</div>
+                  <div class="flex items-center gap-2">
+                    <span classList={{ "text-text-success": store.connected, "text-text-weak": !store.connected }}>
+                      {store.connected ? "●" : "○"}
+                    </span>
+                    <span>
+                      {store.connected
+                        ? `connected (last: ${store.lastEventTime ? `${Math.round((Date.now() - store.lastEventTime) / 1000)}s ago` : "just now"})`
+                        : "disconnected"}
+                    </span>
+                    <Show when={!store.connected && store.running}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => store.run_id && connect(store.run_id)}
+                      >
+                        reconnect
+                      </button>
+                    </Show>
+                  </div>
                   <Show when={store.progress}>
                     {(p) => (
                       <div>

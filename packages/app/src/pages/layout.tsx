@@ -49,6 +49,7 @@ import { useTheme, type ColorScheme } from "@openhei-ai/ui/theme"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
 import { DialogSettings } from "@/components/dialog-settings"
+import { DialogHealthCheck } from "@/components/dialog-health-check"
 import { useCommand, type CommandOption } from "@/context/command"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
@@ -1076,6 +1077,10 @@ export default function Layout(props: ParentProps) {
     dialog.show(() => <DialogSettings />)
   }
 
+  function openHealthCheck() {
+    dialog.show(() => <DialogHealthCheck />)
+  }
+
   function projectRoot(directory: string) {
     const project = layout.projects
       .list()
@@ -1991,6 +1996,8 @@ export default function Layout(props: ParentProps) {
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
+              healthCheckLabel={() => language.t("sidebar.health.title")}
+              onOpenHealthCheck={openHealthCheck}
               helpLabel={() => language.t("sidebar.help")}
               onOpenHelp={() => platform.openLink("https://openhei.ai/desktop-feedback")}
               renderPanel={() => <SidebarPanel project={currentProject()} />}
@@ -2069,6 +2076,8 @@ export default function Layout(props: ParentProps) {
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
+              healthCheckLabel={() => language.t("sidebar.health.title")}
+              onOpenHealthCheck={openHealthCheck}
               helpLabel={() => language.t("sidebar.help")}
               onOpenHelp={() => platform.openLink("https://openhei.ai/desktop-feedback")}
               renderPanel={() => <SidebarPanel project={currentProject()} mobile />}

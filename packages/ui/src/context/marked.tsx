@@ -449,9 +449,12 @@ async function highlightCodeBlocks(html: string): Promise<string> {
   const matches = [...html.matchAll(codeBlockRegex)]
   if (matches.length === 0) return html
 
+  const fallbackTheme = "github-dark"
+  let activeTheme = "OpenHei"
+
   try {
     const { getSharedHighlighter } = await loadDiffs()
-    const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
+    const highlighter = await getSharedHighlighter({ themes: [fallbackTheme, "OpenHei"], langs: [] })
 
     let result = html
     for (const match of matches) {
@@ -473,12 +476,26 @@ async function highlightCodeBlocks(html: string): Promise<string> {
         })
       }
 
-      const highlighted = highlighter.codeToHtml(code, {
-        lang: language,
-        theme: "OpenHei",
-        tabindex: false,
-      })
-      result = result.replace(fullMatch, () => highlighted)
+      try {
+        const highlighted = highlighter.codeToHtml(code, {
+          lang: language,
+          theme: activeTheme,
+          tabindex: false,
+        })
+        result = result.replace(fullMatch, () => highlighted)
+      } catch {
+        if (activeTheme !== fallbackTheme) {
+          activeTheme = fallbackTheme
+          const highlighted = highlighter.codeToHtml(code, {
+            lang: language,
+            theme: activeTheme,
+            tabindex: false,
+          })
+          result = result.replace(fullMatch, () => highlighted)
+        } else {
+          result = result.replace(fullMatch, () => `<pre><code>${code}</code></pre>`)
+        }
+      }
     }
 
     return result
@@ -515,18 +532,32 @@ export const { use: useMarked, provider: MarkedProvider } = createSimpleContext(
             }),
             markedShiki({
               async highlight(code, lang) {
+                const fallbackTheme = "github-dark"
+                let activeTheme = "OpenHei"
                 try {
                   const { getSharedHighlighter } = await loadDiffs()
-                  const highlighter = await getSharedHighlighter({ themes: ["OpenHei"], langs: [] })
+                  const highlighter = await getSharedHighlighter({ themes: [fallbackTheme, "OpenHei"], langs: [] })
                   const language = lang || "text"
                   if (!highlighter.getLoadedLanguages().includes(language)) {
                     await highlighter.loadLanguage(language as BundledLanguage).catch(() => {})
                   }
-                  return highlighter.codeToHtml(code, {
-                    lang: language,
-                    theme: "OpenHei",
-                    tabindex: false,
-                  })
+                  try {
+                    return highlighter.codeToHtml(code, {
+                      lang: language,
+                      theme: activeTheme,
+                      tabindex: false,
+                    })
+                  } catch {
+                    if (activeTheme !== fallbackTheme) {
+                      activeTheme = fallbackTheme
+                      return highlighter.codeToHtml(code, {
+                        lang: language,
+                        theme: activeTheme,
+                        tabindex: false,
+                      })
+                    }
+                    throw new Error("Theme fallback failed")
+                  }
                 } catch (e) {
                   if (import.meta.env.DEV) {
                     console.warn("[markedShiki] Shiki failed, using plain code blocks", e)

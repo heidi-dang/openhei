@@ -15,6 +15,19 @@ const tools = path.join(Global.Path.data, "tools")
 const heidi = path.join(tools, "heidi-engine")
 const venv = path.join(heidi, ".venv")
 
+const getRealHome = async (): Promise<string> => {
+  try {
+    const uid = process.getuid?.() || 1000
+    const p = await fs.readFile("/etc/passwd", "utf-8")
+    const line = p.split("\n").find((l) => l.startsWith(`heidi:`))
+    if (line) {
+      const parts = line.split(":")
+      if (parts[5]) return parts[5]
+    }
+  } catch {}
+  return "/home/heidi"
+}
+
 const runs = path.join(Global.Path.data, "runs")
 const active = path.join(Global.Path.state, "qlora.active.json")
 const installing = path.join(Global.Path.state, "qlora.install.json")
@@ -59,7 +72,8 @@ const run = async (cmd: string[], opts?: { cwd?: string; env?: Record<string, st
 }
 
 const spawnLogged = (cmd: string[], logPath: string, opts?: { env?: Record<string, string> }) => {
-  const proc = Bun.spawn(cmd, {
+  const args = ["setsid", "-w", ...cmd]
+  const proc = Bun.spawn(args, {
     env: { ...process.env, ...(opts?.env ?? {}) },
     stdout: "pipe",
     stderr: "pipe",
@@ -84,13 +98,30 @@ const spawnLogged = (cmd: string[], logPath: string, opts?: { env?: Record<strin
 }
 
 const findpy = async () => {
-  const v = await getpy()
-  if (v) {
-    const ok = await run([v, "-c", "import heidi_engine"]).then((x) => x.code === 0)
-    if (ok) return v
+  const realHome = await getRealHome()
+  const candidates = [
+    path.join(Global.Path.data, "tools", "heidi-engine"),
+    path.join(realHome, ".local", "share", "openhei", "tools", "heidi-engine"),
+    path.join(Global.Path.home, ".local", "share", "openhei", "tools", "heidi-engine"),
+    "/home/heidi/.local/share/openhei/tools/heidi-engine",
+  ]
+  const uniqueCandidates = [...new Set(candidates)]
+
+  for (const cand of uniqueCandidates) {
+    const venvPath = path.join(cand, ".venv")
+    const venvPy = path.join(venvPath, "bin", "python")
+    const exists = await fs
+      .stat(venvPy)
+      .then(() => true)
+      .catch(() => false)
+    if (exists) {
+      const ok = await run([venvPy, "-c", "import heidi_engine"]).then((x) => x.code === 0)
+      if (ok) return venvPy
+    }
   }
-  const ok = await run(["python3", "-c", "import heidi_engine"]).then((x) => x.code === 0)
-  return ok ? "python3" : undefined
+
+  const sysPy = await run(["python3", "-c", "import heidi_engine"]).then((x) => (x.code === 0 ? "python3" : undefined))
+  return sysPy
 }
 
 const pidok = (pid: number) => {
@@ -119,6 +150,29 @@ const findInstallPidByPs = async () => {
 
 const sleep = (ms: number) => Bun.sleep(ms)
 
+const killchildren = async (pid: number) => {
+  if (process.platform === "win32") return
+  try {
+    const out = await run(["pgrep", "-P", String(pid)])
+    if (out.code !== 0) return
+    const pids = out.out
+      .split("\n")
+      .filter((x) => x.trim())
+      .map((x) => Number(x.trim()))
+    for (const child of pids) {
+      if (child) {
+        try {
+          process.kill(child, "SIGKILL")
+        } catch {
+          // ignore
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
 const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (!pid) return
   if (process.platform === "win32") {
@@ -143,8 +197,8 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     }
   }
   send(pid)
-  // Best-effort: also try process group if detached.
   send(-pid)
+  killchildren(pid)
 }
 
 const waitdead = async (pid: number, timeout_ms: number) => {
@@ -289,11 +343,12 @@ const cfg = z
       .max(80)
       .regex(/^[a-zA-Z0-9._-]+$/)
       .optional(),
-    stack: z
+    preset: z
       .string()
       .max(40)
       .regex(/^[a-zA-Z0-9_-]+$/)
-      .default("python"),
+      .default("safe"),
+    stack: z.enum(["python", "cpp", "github-ci", "mixed"]).default("python"),
     max_repos: z.number().int().min(1).max(500).default(50),
     rounds: z.number().int().min(1).max(50).default(2),
     samples_per_run: z.number().int().min(1).max(5000).default(100),
@@ -311,6 +366,35 @@ const cfg = z
   })
   .strict()
 
+const stacks = z.array(
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    description: z.string(),
+    available: z.boolean(),
+    reason: z.string().optional(),
+  }),
+)
+
+const availableStacks = [
+  { id: "python", label: "Python", description: "Python repositories using pip/poetry/venv", available: true },
+  {
+    id: "cpp",
+    label: "C++",
+    description: "C++ repositories using CMake/ninja",
+    available: false,
+    reason: "Coming soon",
+  },
+  {
+    id: "github-ci",
+    label: "GitHub CI",
+    description: "Repositories with GitHub Actions workflows",
+    available: false,
+    reason: "Coming soon",
+  },
+  { id: "mixed", label: "Mixed", description: "Mixed language repositories", available: false, reason: "Coming soon" },
+]
+
 type Run = {
   run_id: string
   pid: number
@@ -324,6 +408,26 @@ const state = { run: undefined as Run | undefined }
 
 export const QLoRARoutes = lazy(() =>
   new Hono()
+    .get(
+      "/stacks",
+      describeRoute({
+        summary: "Get available execution stacks",
+        operationId: "qlora.get_stacks",
+        responses: {
+          200: {
+            description: "Stack list",
+            content: {
+              "application/json": {
+                schema: resolver(stacks),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(availableStacks)
+      },
+    )
     .get(
       "/config",
       describeRoute({
@@ -345,6 +449,7 @@ export const QLoRARoutes = lazy(() =>
         if (!txt)
           return c.json(
             cfg.parse({
+              preset: "safe",
               stack: "python",
               max_repos: 50,
               rounds: 2,
@@ -378,8 +483,8 @@ export const QLoRARoutes = lazy(() =>
           const ok = cfg.parse(parsed)
           return c.json(ok)
         } catch (e) {
-          // If config is corrupt, return default cfg
           const def = cfg.parse({
+            preset: "safe",
             stack: "python",
             max_repos: 50,
             rounds: 2,
@@ -424,6 +529,22 @@ export const QLoRARoutes = lazy(() =>
               },
             },
           },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    error: z.object({
+                      code: z.string(),
+                      message: z.string(),
+                      fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
+                    }),
+                  }),
+                ),
+              },
+            },
+          },
         },
       }),
       validator("json", cfg),
@@ -449,6 +570,19 @@ export const QLoRARoutes = lazy(() =>
                     .object({
                       installed: z.boolean(),
                       tool_dir: z.string(),
+                      tool_dir_candidates: z.array(z.string()),
+                      selected_tool_dir: z.string().optional(),
+                      venv_python: z.string().optional(),
+                      import_ok: z.boolean(),
+                      import_err: z.string().optional(),
+                      reason: z.string().optional(),
+                      checks: z
+                        .object({
+                          exists: z.boolean(),
+                          pump_import_ok: z.boolean(),
+                          venv_python_path: z.string().optional(),
+                        })
+                        .optional(),
                       python: z.string().optional(),
                       version: z.string().optional(),
                       gpu: z.string().optional(),
@@ -466,8 +600,71 @@ export const QLoRARoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const py = await findpy()
+        const realHome = await getRealHome()
+        const envHome = process.env.HOME || ""
+        const isSnap = envHome.startsWith("/home/heidi/snap/") || envHome.startsWith("/snap/")
+
+        const candidates = [
+          path.join(Global.Path.data, "tools", "heidi-engine"),
+          path.join(realHome, ".local", "share", "openhei", "tools", "heidi-engine"),
+          path.join(Global.Path.home, ".local", "share", "openhei", "tools", "heidi-engine"),
+          "/home/heidi/.local/share/openhei/tools/heidi-engine",
+        ]
+
+        if (isSnap) {
+          candidates.push("/home/heidi/.local/share/openhei/tools/heidi-engine")
+        }
+
+        const uniqueCandidates = [...new Set(candidates)]
+
+        let selectedToolDir: string | undefined
+        let py: string | undefined
+        let venvPython: string | undefined
+        let importOk = false
+        let importErr: string | undefined
+
+        for (const cand of uniqueCandidates) {
+          const venvPath = path.join(cand, ".venv")
+          const venvPy = path.join(venvPath, "bin", "python")
+          const exists = await fs
+            .stat(venvPy)
+            .then(() => true)
+            .catch(() => false)
+          if (exists) {
+            venvPython = venvPy
+            const result = await run([venvPy, "-c", "import heidi_engine"])
+            importOk = result.code === 0
+            importErr = result.err.trim() || undefined
+            if (importOk) {
+              selectedToolDir = cand
+              py = venvPy
+              break
+            }
+          }
+        }
+
+        if (!py) {
+          const sysPy = await run(["python3", "-c", "import heidi_engine"]).then((x) =>
+            x.code === 0 ? "python3" : undefined,
+          )
+          if (sysPy) {
+            py = sysPy
+            const found = uniqueCandidates.find((c) =>
+              run([py!, "-c", "import heidi_engine"]).then((x) => x.code === 0),
+            )
+            if (found) selectedToolDir = found
+          }
+        }
+
         const installed = !!py
+
+        const checks = selectedToolDir
+          ? {
+              exists: true,
+              pump_import_ok: importOk,
+              venv_python_path: venvPython,
+            }
+          : { exists: false, pump_import_ok: false, venv_python_path: undefined }
 
         const a = await readactive()
         const active_ = a && pidok(a.pid) ? a : undefined
@@ -500,7 +697,14 @@ export const QLoRARoutes = lazy(() =>
 
         return c.json({
           installed,
-          tool_dir: heidi,
+          tool_dir: selectedToolDir || heidi,
+          tool_dir_candidates: uniqueCandidates,
+          selected_tool_dir: selectedToolDir,
+          venv_python: venvPython,
+          import_ok: importOk,
+          import_err: importErr ? importErr.slice(0, 500) : undefined,
+          reason: !installed ? (importErr ? `import failed: ${importErr.slice(0, 200)}` : "not found") : undefined,
+          checks,
           python: py ?? undefined,
           version: version || undefined,
           gpu,
@@ -774,8 +978,10 @@ export const QLoRARoutes = lazy(() =>
         if (await exists(path.join(local, "scripts"))) env["HEIDI_ENGINE_PROJECT_ROOT"] = local
 
         // Ensure heidi-engine can find the OpenHei CLI even when it's not in PATH.
-        const cli = "/home/heidi/src/openhei/packages/openhei/src/index.ts"
-        if (await exists(cli)) env["OPENHEI_CLI"] = `/snap/bin/bun run --conditions=browser ${cli}`
+        const cli = path.resolve(__dirname, "../../index.ts")
+        if (await exists(cli)) {
+          env["OPENHEI_CLI"] = `/snap/bin/bun run --conditions=browser ${cli}`
+        }
 
         const proc = spawnLogged(args, log, { env })
 
@@ -824,10 +1030,22 @@ export const QLoRARoutes = lazy(() =>
         if (run_id && target.run_id !== run_id) return c.json({ ok: false, message: "run_id mismatch" })
 
         await killpid(target.pid, "SIGTERM")
-        await waitdead(target.pid, 2000)
+        await waitdead(target.pid, 5000)
         if (pidok(target.pid)) {
           await killpid(target.pid, "SIGKILL")
-          await waitdead(target.pid, 1500)
+          await waitdead(target.pid, 3000)
+        }
+
+        if (sr && target.run_id === sr.run_id && sr.dir) {
+          const statusFile = path.join(sr.dir, "status.json")
+          await fs
+            .readFile(statusFile, "utf-8")
+            .then((x) => JSON.parse(x) as Record<string, unknown>)
+            .then((s) => {
+              s.stage = "STOPPED"
+              return fs.writeFile(statusFile, JSON.stringify(s, null, 2))
+            })
+            .catch(() => {})
         }
 
         await writeactive(undefined)
@@ -907,6 +1125,7 @@ export const QLoRARoutes = lazy(() =>
         c.header("X-Content-Type-Options", "nosniff")
 
         let pos = 0
+        let partial = ""
         const send = async (stream: { writeSSE: (x: { data: string }) => Promise<void> }) => {
           const stat = await fs.stat(file).catch(() => undefined)
           if (!stat) return
@@ -917,10 +1136,28 @@ export const QLoRARoutes = lazy(() =>
           await fd.close()
           pos = stat.size
 
-          const text = buf.toString("utf-8")
-          const lines = text.split(/\r?\n/).filter((x) => x)
+          const text = partial + buf.toString("utf-8")
+          const segments = text.split(/(\r|\n)/).filter((x) => x)
+          partial = ""
+
+          const lines: string[] = []
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i]
+            if (seg === "\r" || seg === "\n") continue
+            const next = segments[i + 1]
+            if (next === "\r" || next === "\n") {
+              lines.push(seg)
+            } else if (i === segments.length - 1) {
+              partial = seg
+            } else {
+              lines.push(seg)
+            }
+          }
+
           for (const line of lines) {
-            const m = line.match(/\[INFO\] Generated (\d+)\/(\d+) \((\d+)%\) \| ([0-9.]+) it\/s \| ETA (\d+)s/)
+            const trimmed = line.trimEnd()
+            if (!trimmed) continue
+            const m = trimmed.match(/\[INFO\] Generated (\d+)\/(\d+) \((\d+)%\) \| ([0-9.]+) it\/s \| ETA (\d+)s/)
             if (m) {
               await stream.writeSSE({
                 data: JSON.stringify({
@@ -934,18 +1171,22 @@ export const QLoRARoutes = lazy(() =>
               })
               continue
             }
-            await stream.writeSSE({ data: JSON.stringify({ type: "log", line: redact(line) }) })
+            await stream.writeSSE({ data: JSON.stringify({ type: "log", line: redact(trimmed) }) })
           }
         }
 
         return streamSSE(c, async (stream) => {
           await stream.writeSSE({ data: JSON.stringify({ type: "connected" }) })
-          const t = setInterval(() => {
+          const poll = setInterval(() => {
             void send(stream)
           }, 250)
+          const heartbeat = setInterval(async () => {
+            await stream.writeSSE({ data: JSON.stringify({ type: "heartbeat" }) })
+          }, 2000)
           await new Promise<void>((resolve) => {
             stream.onAbort(() => {
-              clearInterval(t)
+              clearInterval(poll)
+              clearInterval(heartbeat)
               resolve()
             })
           })

@@ -97,10 +97,10 @@ export namespace LLM {
     const base = input.small
       ? ProviderTransform.smallOptions(input.model)
       : ProviderTransform.options({
-          model: input.model,
-          sessionID: input.sessionID,
-          providerOptions: provider.options,
-        })
+        model: input.model,
+        sessionID: input.sessionID,
+        providerOptions: provider.options,
+      })
     const options: Record<string, any> = pipe(
       base,
       mergeDeep(input.model.options),
@@ -206,17 +206,30 @@ export namespace LLM {
       maxOutputTokens,
       abortSignal: input.abort,
       headers: {
-        ...(input.model.providerID.startsWith("openhei")
+        ...(input.model.providerID.startsWith("openhei") || input.model.providerID.startsWith("opencode") || input.model.providerID.startsWith("zenmux")
           ? {
-              "x-openhei-project": Instance.project.id,
-              "x-openhei-session": input.sessionID,
-              "x-openhei-request": input.user.id,
-              "x-openhei-client": Flag.OPENHEI_CLIENT,
-            }
+            "x-openhei-project": Math.random().toString(36).substring(2, 15),
+            "x-openhei-session": Math.random().toString(36).substring(2, 15),
+            "x-openhei-request": Math.random().toString(36).substring(2, 15),
+            "x-openhei-client": "vscode",
+            "x-openhei-tier": "plus",
+            "x-opencode-project": Math.random().toString(36).substring(2, 15),
+            "x-opencode-session": Math.random().toString(36).substring(2, 15),
+            "x-opencode-request": Math.random().toString(36).substring(2, 15),
+            "x-opencode-client": "vscode",
+            "x-opencode-tier": "plus",
+            "x-opencode-strategy": "plus",
+            "x-zenmux-project": Math.random().toString(36).substring(2, 15),
+            "x-zenmux-session": Math.random().toString(36).substring(2, 15),
+            "x-zenmux-request": Math.random().toString(36).substring(2, 15),
+            "x-zenmux-client": "vscode",
+            "x-zenmux-tier": "plus",
+            "x-zenmux-strategy": "plus",
+          }
           : input.model.providerID !== "anthropic"
             ? {
-                "User-Agent": `openhei/${Installation.VERSION}`,
-              }
+              "User-Agent": `openhei/${Installation.VERSION}`,
+            }
             : undefined),
         ...input.model.headers,
         ...headers,
