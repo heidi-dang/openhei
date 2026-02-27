@@ -48,6 +48,7 @@ export interface Settings {
     "ui.step_timeline": boolean
     "ui.error_cards": boolean
     "ui.thinking_drawer": boolean
+    "ui.send_options": boolean
     "ui.composer_palette": boolean
     "ui.density_modes": boolean
   }
@@ -85,6 +86,7 @@ const defaultSettings: Settings = {
     "ui.step_timeline": false,
     "ui.error_cards": false,
     "ui.thinking_drawer": false,
+    "ui.send_options": false,
     "ui.composer_palette": false,
     "ui.density_modes": false,
   },

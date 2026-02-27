@@ -376,6 +376,15 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const commentItems = context.filter((item) => item.type === "file" && !!item.comment?.trim())
 
     const messageID = Identifier.ascending("message")
+    // Read selected send option from DOM: the PromptInput component mounts a select
+    // into the DOM with data-action="prompt-send-option". We query it here so
+    // we don't need to thread state through many layers; tests can stub this by
+    // setting window.__test_selected_send_option if needed.
+    const sendOptionElement = document?.querySelector('[data-action="prompt-send-option"]') as HTMLSelectElement | null
+    const selectedSendOption =
+      // prefer DOM select when present
+      sendOptionElement?.value ?? (window as any).__test_selected_send_option ?? undefined
+
     const { requestParts, optimisticParts } = buildRequestParts({
       prompt: currentPrompt,
       context,
@@ -384,6 +393,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       sessionID: session.id,
       messageID,
       sessionDirectory,
+      sendOption: selectedSendOption,
     })
 
     const optimisticMessage: Message = {
