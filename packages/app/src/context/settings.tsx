@@ -23,6 +23,7 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     showReasoningSummaries: boolean
+    density?: "comfortable" | "compact" | "spacious"
     // Controls how the thinking/summary drawer behaves when the feature is enabled.
     // This is a user preference only - the feature gate remains `flags["ui.thinking_drawer"]`.
     // Allowed values:
@@ -68,6 +69,7 @@ const defaultSettings: Settings = {
     autoSave: true,
     releaseNotes: true,
     showReasoningSummaries: false,
+    density: "comfortable",
     thinkingDrawerMode: "auto",
   },
   ml: {
@@ -177,6 +179,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setThinkingDrawerMode(value: "auto" | "always" | "never") {
           setStore("general", "thinkingDrawerMode", value)
+        },
+        density: withFallback(
+          () => store.general?.density as "comfortable" | "compact" | "spacious" | undefined,
+          defaultSettings.general.density as "comfortable" | "compact" | "spacious",
+        ),
+        setDensity(value: "comfortable" | "compact" | "spacious") {
+          setStore("general", "density", value)
         },
       },
       ml: {

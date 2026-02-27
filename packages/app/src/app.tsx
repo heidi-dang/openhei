@@ -24,6 +24,7 @@ import { usePlatform } from "@/context/platform"
 import { PromptProvider } from "@/context/prompt"
 import { type ServerConnection, ServerProvider, useServer } from "@/context/server"
 import { SettingsProvider } from "@/context/settings"
+import "./styles/density.css"
 import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
@@ -89,7 +90,9 @@ function AppShellProviders(props: ParentProps) {
             <ModelsProvider>
               <CommandProvider>
                 <HighlightsProvider>
-                  <Layout>{props.children}</Layout>
+                  <Layout>
+                    <DensityRootWrapper>{props.children}</DensityRootWrapper>
+                  </Layout>
                 </HighlightsProvider>
               </CommandProvider>
             </ModelsProvider>
@@ -97,6 +100,25 @@ function AppShellProviders(props: ParentProps) {
         </LayoutProvider>
       </PermissionProvider>
     </SettingsProvider>
+  )
+}
+
+function DensityRootWrapper(props: ParentProps) {
+  const settings = (() => {
+    try {
+      // lazy require to avoid circular imports at module load time
+      const mod = require("@/context/settings")
+      return mod.use()
+    } catch (e) {
+      return undefined
+    }
+  })()
+
+  const density = settings ? settings.general.density() : "comfortable"
+  return (
+    <div class="density-root" data-density={density}>
+      {props.children}
+    </div>
   )
 }
 
