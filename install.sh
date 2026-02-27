@@ -10,6 +10,11 @@ RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
 NC='\033[0m' # No Color
 
+INSTALL_MODE="latest-release"
+LOCAL_REPO_PATH=""
+DRY_RUN=false
+YES=false
+
 show_logo() {
     echo -e ""
     echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█░░█ █▀▀▀ ░█░░"
@@ -33,41 +38,152 @@ OpenHei Installer
 
 Usage: install.sh [options]
 
+Install Modes (mutually exclusive):
+    --latest-release        Download and install latest GitHub release (default)
+    --latest-main           Fetch main branch, build from source, install
+    --dev                  Build and install from current local repository
+    --local-repo [PATH]    Build and install from local checkout (default PATH='.')
+
 Options:
     -h, --help              Display this help message
+    -y, --yes              Skip confirmation prompts
+    --dry-run              Show what would be installed without making changes
     -v, --version <version> Install a specific version (e.g., 1.0.180)
-    -b, --binary <path>     Install from a local binary instead of downloading
-    --local-repo            Build and install from the current repository
-     --repo-local            Alias for --local-repo
-     -repo-local             Legacy alias for --local-repo
-     --reuse-build           Reuse existing local build output if present
-     --skip-install          Skip dependency install for --local-repo
-     --skip-build            Skip building for --local-repo (requires existing dist)
-     --link                  Symlink into ~/.openhei instead of copying (dev)
-        --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
+    -b, --binary <path>    Install from a local binary instead of downloading
+    --prefix <dir>          Installation prefix (default: ~/.openhei)
+    --bin-dir <dir>        Binary installation directory (default: <prefix>/bin)
+    --reuse-build           Reuse existing local build output if present
+    --skip-install         Skip dependency install for --dev/--local-repo
+    --skip-build            Skip building (requires existing dist)
+    --link                  Symlink into ~/.openhei instead of copying (dev)
+    --no-modify-path       Don't modify shell config files
 
 Examples:
     curl -fsSL https://openhei.ai/install | bash
-    curl -fsSL https://openhei.ai/install | bash -s -- --version 1.0.180
-    ./install.sh --binary /path/to/openhei
-    ./install.sh --local-repo --no-modify-path
-    ./install.sh -repo-local --reuse-build --skip-install --skip-build --link
+    ./install.sh
+    ./install.sh --latest-main
+    ./install.sh --dev
+    ./install.sh --local-repo /path/to/repo
+    ./install.sh --dev --dry-run
 EOF
 }
 
 no_modify_path=false
 binary_path=""
-local_repo=false
 skip_install=false
 skip_build=false
 reuse_build=false
 link_install=false
+custom_prefix=""
+custom_bin_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
             usage
             exit 0
+            ;;
+        --latest-release)
+            INSTALL_MODE="latest-release"
+            shift
+            ;;
+        --latest-main)
+            INSTALL_MODE="latest-main"
+            shift
+            ;;
+        --dev)
+            INSTALL_MODE="dev"
+            shift
+            ;;
+        --local-repo|--repo-local|-repo-local)
+            INSTALL_MODE="local-repo"
+            if [[ -n "${2:-}" ]] && [[ ! "$2" == --* ]]; then
+                LOCAL_REPO_PATH="$2"
+                shift
+            else
+                LOCAL_REPO_PATH="."
+            fi
+            shift
+            ;;
+        -y|--yes)
+            YES=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -v|--version)
+            if [[ -n "${2:-}" ]]; then
+                requested_version="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --version requires a version argument${NC}"
+                exit 1
+            fi
+            ;;
+        -b|--binary)
+            if [[ -n "${2:-}" ]]; then
+                binary_path="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --binary requires a path argument${NC}"
+                exit 1
+            fi
+            ;;
+        --prefix)
+            if [[ -n "${2:-}" ]]; then
+                custom_prefix="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --prefix requires a path argument${NC}"
+                exit 1
+            fi
+            ;;
+        --bin-dir)
+            if [[ -n "${2:-}" ]]; then
+                custom_bin_dir="$2"
+                shift 2
+            else
+                echo -e "${RED}Error: --bin-dir requires a path argument${NC}"
+                exit 1
+            fi
+            ;;
+        --reuse-build)
+            reuse_build=true
+            shift
+            ;;
+        --skip-install)
+            skip_install=true
+            shift
+            ;;
+        --skip-build)
+            skip_build=true
+            shift
+            ;;
+        --link)
+            link_install=true
+            shift
+            ;;
+        --no-modify-path)
+            no_modify_path=true
+            shift
+            ;;
+        *)
+            echo -e "${ORANGE}Warning: Unknown option '$1'${NC}" >&2
+            shift
+            ;;
+    esac
+done
+
+INSTALL_BASE="${custom_prefix:-$HOME/.openhei}"
+INSTALL_DIR="${custom_bin_dir:-$INSTALL_BASE/bin}"
+DASHBOARD_DIR="$INSTALL_BASE/dashboard"
+
+mkdir -p "$INSTALL_DIR"
+mkdir -p "$DASHBOARD_DIR"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             ;;
         -v|--version)
             if [[ -n "${2:-}" ]]; then
@@ -111,6 +227,10 @@ while [[ $# -gt 0 ]]; do
             no_modify_path=true
             shift
             ;;
+        --with-plugins)
+            WITH_PLUGINS=true
+            shift
+            ;;
         *)
             echo -e "${ORANGE}Warning: Unknown option '$1'${NC}" >&2
             shift
@@ -118,13 +238,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-INSTALL_BASE="$HOME/.openhei"
-INSTALL_DIR="$INSTALL_BASE/bin"
+INSTALL_BASE="${custom_prefix:-$HOME/.openhei}"
+INSTALL_DIR="${custom_bin_dir:-$INSTALL_BASE/bin}"
 DASHBOARD_DIR="$INSTALL_BASE/dashboard"
+
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DASHBOARD_DIR"
 
-# Detect local dashboard in repo for development
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
 USE_LOCAL_DASHBOARD=false
@@ -132,8 +252,12 @@ if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; th
     USE_LOCAL_DASHBOARD=true
 fi
 
-if [ "$local_repo" = "true" ]; then
+# Handle install modes
+if [ "$INSTALL_MODE" = "dev" ] || [ "$INSTALL_MODE" = "local-repo" ]; then
     specific_version="local"
+    install_from_repo
+elif [ "$INSTALL_MODE" = "latest-main" ]; then
+    install_from_latest_main
 elif [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
         echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
@@ -290,6 +414,174 @@ print_message() {
         error) color="${RED}" ;;
     esac
     echo -e "${color}${message}${NC}"
+}
+
+install_from_repo() {
+    local repo_path="$LOCAL_REPO_PATH"
+    [ "$repo_path" = "." ] && repo_path="$SCRIPT_DIR"
+    
+    if [ ! -d "$repo_path" ]; then
+        echo -e "${RED}Error: Repository path not found: $repo_path${NC}"
+        exit 1
+    fi
+    
+    echo -e "${MUTED}Building openhei from source: $repo_path${NC}"
+    cd "$repo_path"
+
+    if [ "$skip_install" != "true" ]; then
+        HUSKY=0 bun install
+    fi
+
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    [ "$os" == "linux" ] && os="linux"
+    [ "$os" == "darwin" ] && os="darwin"
+    
+    local arch=$(uname -m)
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+    
+    local target_name="openhei-$os-$arch"
+    local build_dir="$repo_path/packages/openhei/dist/$target_name"
+
+    if [ "$reuse_build" = "true" ] && [ -f "$build_dir/bin/openhei" ]; then
+        echo -e "${MUTED}Reusing existing build output: $build_dir${NC}"
+        skip_build=true
+    fi
+
+    if [ "$skip_build" != "true" ]; then
+        (
+            cd "$repo_path/packages/openhei"
+            OPENHEI_CHANNEL=local OPENHEI_VERSION=local bun run build --single --skip-install --reuse-dashboard --reuse-models
+        )
+    fi
+
+    if [ ! -d "$build_dir" ]; then
+         shopt -s nullglob
+         local dirs=("$repo_path"/packages/openhei/dist/openhei-*-*)
+         shopt -u nullglob
+         for d in "${dirs[@]}"; do
+             if [ -f "$d/bin/openhei" ]; then
+                 build_dir="$d"
+                 break
+             fi
+         done
+    fi
+
+    if [ -z "$build_dir" ] || [ ! -d "$build_dir" ]; then
+        echo -e "${RED}Error: Build failed or build directory not found at $build_dir${NC}"
+        exit 1
+    fi
+
+    echo -e "${MUTED}Installing from: $build_dir${NC}"
+    local dashboard_src="$build_dir/dashboard"
+    
+    if [ "$link_install" = "true" ]; then
+        if [ ! -d "$dashboard_src" ]; then
+            echo -e "${RED}Error: Dashboard directory not found at $dashboard_src${NC}"
+            exit 1
+        fi
+        rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+        mkdir -p "$INSTALL_DIR"
+        ln -sf "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+        ln -s "$dashboard_src" "$DASHBOARD_DIR"
+        chmod 755 "${INSTALL_DIR}/openhei" || true
+        return
+    fi
+
+    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+
+    cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+    cp -r "$dashboard_src/"* "$DASHBOARD_DIR/"
+    chmod 755 "${INSTALL_DIR}/openhei"
+    
+    # Write BUILD_INFO.json
+    mkdir -p "$INSTALL_BASE"
+    local build_time
+    build_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local commit_sha
+    commit_sha=$(cd "$repo_path" && git rev-parse HEAD 2>/dev/null || echo "unknown")
+    cat > "$INSTALL_BASE/BUILD_INFO.json" << EOF
+{
+  "mode": "$INSTALL_MODE",
+  "commit_sha": "$commit_sha",
+  "built_at": "$build_time",
+  "channel": "local"
+}
+EOF
+}
+
+install_from_latest_main() {
+    echo -e "${MUTED}Fetching latest main branch and building...${NC}"
+    
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf '$temp_dir'" EXIT
+    
+    echo -e "${MUTED}Cloning main branch to temp dir...${NC}"
+    if ! git clone --depth=1 https://github.com/heidi-dang/openhei.git "$temp_dir" 2>/dev/null; then
+        echo -e "${RED}Error: Failed to clone main branch${NC}"
+        exit 1
+    fi
+    
+    local main_sha
+    main_sha=$(cd "$temp_dir" && git rev-parse HEAD)
+    local build_time
+    build_time=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo -e "${MUTED}Building from commit: $main_sha${NC}"
+    
+    cd "$temp_dir"
+    
+    if [ "$skip_install" != "true" ]; then
+        HUSKY=0 bun install
+    fi
+    
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    [ "$os" == "linux" ] && os="linux"
+    [ "$os" == "darwin" ] && os="darwin"
+    
+    local arch=$(uname -m)
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+    
+    local target_name="openhei-$os-$arch"
+    local build_dir="$temp_dir/packages/openhei/dist/$target_name"
+    
+    if [ "$skip_build" != "true" ]; then
+        (
+            cd "$temp_dir/packages/openhei"
+            OPENHEI_CHANNEL=main OPENHEI_VERSION="$main_sha" bun run build --single --skip-install --reuse-dashboard --reuse-models
+        )
+    fi
+    
+    if [ -z "$build_dir" ] || [ ! -d "$build_dir" ]; then
+        echo -e "${RED}Error: Build failed or build directory not found at $build_dir${NC}"
+        exit 1
+    fi
+    
+    echo -e "${MUTED}Installing from: $build_dir${NC}"
+    
+    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+    
+    cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+    cp -r "$build_dir/dashboard/"* "$DASHBOARD_DIR/"
+    chmod 755 "${INSTALL_DIR}/openhei"
+    
+    # Write BUILD_INFO.json
+    mkdir -p "$INSTALL_BASE"
+    cat > "$INSTALL_BASE/BUILD_INFO.json" << EOF
+{
+  "mode": "latest-main",
+  "commit_sha": "$main_sha",
+  "built_at": "$build_time",
+  "channel": "main"
+}
+EOF
+    
+    echo -e "${MUTED}Installed build from: $main_sha${NC}"
 }
 
 check_version() {
@@ -510,8 +802,68 @@ install_from_repo() {
     chmod 755 "${INSTALL_DIR}/openhei"
 }
 
+# Auto-install opencode-morph-fast-apply plugin for local repo installs
+install_opencode_morph_plugin() {
+    # Only run for local repo installs
+    local plugin_repo="https://github.com/JRedeker/opencode-morph-fast-apply.git"
+    XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+    local plugins_dir="$XDG_CONFIG_HOME/openhei/plugins"
+    local plugin_dir="$plugins_dir/opencode-morph-fast-apply"
+
+    mkdir -p "$plugins_dir"
+
+    print_message info "${MUTED}Installing plugin:${NC} opencode-morph-fast-apply -> $plugin_dir"
+
+    if command -v git >/dev/null 2>&1; then
+        if [ -d "$plugin_dir/.git" ]; then
+            print_message info "${MUTED}Updating existing plugin at:${NC} $plugin_dir"
+            git -C "$plugin_dir" pull --ff-only || git -C "$plugin_dir" fetch --all --prune || true
+        else
+            git clone --depth 1 "$plugin_repo" "$plugin_dir" || true
+        fi
+        return
+    fi
+
+    # Fallback to curl+tar if git is not available
+    if command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
+        tmp=$(mktemp -d)
+        for branch in main master; do
+            url="https://github.com/JRedeker/opencode-morph-fast-apply/archive/refs/heads/${branch}.tar.gz"
+            if curl -fsSL "$url" -o "$tmp/plugin.tar.gz"; then
+                mkdir -p "$plugin_dir"
+                tar -xzf "$tmp/plugin.tar.gz" -C "$tmp"
+                extracted_dir=$(find "$tmp" -maxdepth 1 -type d -name "opencode-morph-fast-apply-*" | head -n1)
+                if [ -n "$extracted_dir" ]; then
+                    rm -rf "$plugin_dir"
+                    mv "$extracted_dir" "$plugin_dir"
+                fi
+                rm -rf "$tmp"
+                return
+            fi
+        done
+        rm -rf "$tmp"
+    fi
+
+    print_message warning "Could not install opencode-morph-fast-apply plugin (git/curl/tar not available or network error)."
+}
+
+install_dynamic_pruning_plugin() {
+    # Dynamic context pruning is optional. Do not fail install if upstream repo is missing.
+    # This function performs a best-effort checkout only when the user explicitly
+    # passes --with-plugins to the installer. By default it is a no-op.
+    :
+}
+
 if [ "$local_repo" = "true" ]; then
     install_from_repo
+    # Install external OpenCode plugins into the user's global plugin dir only
+    # when the user explicitly requests it via an opt-in flag.
+    if [ "${WITH_PLUGINS:-false}" = "true" ]; then
+        install_opencode_morph_plugin
+        install_dynamic_pruning_plugin
+    else
+        print_message info "${MUTED}Skipping optional plugin installs (pass --with-plugins to opt-in)${NC}"
+    fi
 elif [ -n "$binary_path" ]; then
     install_from_binary
 else
