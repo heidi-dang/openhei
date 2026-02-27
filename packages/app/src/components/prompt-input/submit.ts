@@ -18,6 +18,7 @@ import { setCursorPosition } from "./editor-dom"
 import { Persist, removePersisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
 import { isNotFoundError } from "@/utils/api-error"
+import { draftKey, removeDraft } from "./draft-persist"
 
 type PendingPrompt = {
   abort: AbortController
@@ -424,6 +425,14 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     removeCommentItems(commentItems)
     clearInput()
     addOptimisticMessage()
+
+    // Attempt to clear persisted draft (best-effort; must not throw)
+    try {
+      const key = draftKey(sessionDirectory, session.id)
+      removeDraft(key)
+    } catch (e) {
+      // ignore
+    }
 
     const waitForWorktree = async () => {
       const worktree = WorktreeState.get(sessionDirectory)

@@ -46,6 +46,7 @@ import {
   promptLength,
 } from "./prompt-input/history"
 import { createPromptSubmit } from "./prompt-input/submit"
+import { draftKey, readDraft, writeDraft, removeDraft } from "./prompt-input/draft-persist"
 import { useSettings } from "@/context/settings"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
@@ -760,6 +761,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     mirror.input = true
     prompt.set([...rawParts, ...images], cursorPosition)
+    if (useSettings().flags.get("ui.draft_persist")) {
+      const key = draftStorageKey()
+      // store plain text only
+      const rawText = prompt
+        .current()
+        .map((p) => ("content" in p ? p.content : ""))
+        .join("")
+      writeDraft(key, rawText)
+    }
     queueScroll()
   }
 
@@ -899,6 +909,17 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
     selectedSendOption: () => (window as any).__prompt_selected_send_option ?? undefined,
+  })
+
+  // Draft persistence banner state
+  const [showRestoreBanner, setShowRestoreBanner] = createSignal(false)
+  const draftStorageKey = createMemo(() => draftKey(sdk.directory, params.id))
+
+  createEffect(() => {
+    if (!useSettings().flags.get("ui.draft_persist")) return
+    const key = draftStorageKey()
+    const existing = readDraft(key)
+    setShowRestoreBanner(!!existing)
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -1176,6 +1197,34 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 "opacity-0 translate-y-2 scale-95 pointer-events-none": store.mode !== "normal",
               }}
             >
+              <Show when={showRestoreBanner()}>
+                <div class="pointer-events-auto absolute -top-10 right-0 bg-surface-2 rounded px-3 py-2 shadow-sm">
+                  <span class="text-13-regular">Restore draft?</span>
+                  <button
+                    class="ml-2 text-blue-600"
+                    onClick={() => {
+                      const key = draftStorageKey()
+                      const txt = readDraft(key)
+                      if (txt) {
+                        // load into editor/prompt
+                        prompt.set([{ type: "text", content: txt, start: 0, end: txt.length }], txt.length)
+                      }
+                      setShowRestoreBanner(false)
+                    }}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    class="ml-2 text-text-weak"
+                    onClick={() => {
+                      removeDraft(draftStorageKey())
+                      setShowRestoreBanner(false)
+                    }}
+                  >
+                    Discard
+                  </button>
+                </div>
+              </Show>
               <Show when={useSettings().flags.get("ui.send_options")}>
                 <div class="pointer-events-auto mr-1">
                   <Select
