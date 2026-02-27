@@ -10,5 +10,8 @@
     "github-triage": false,
     "github-pr-search": false,
   },
-  "plugin": ["file://{env:HOME}/.config/openhei/plugins/opencode-morph-fast-apply/index.ts"],
+  "plugin": [
+    "file://{env:HOME}/.config/openhei/plugins/opencode-morph-fast-apply/index.ts",
+    "file://{env:HOME}/.config/openhei/plugins/openhei-dynamic-context-pruning/index.ts",
+  ],
 }
