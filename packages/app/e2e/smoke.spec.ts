@@ -23,7 +23,9 @@ test.describe("UI Smoke Tests", () => {
     test("smoke: can open session and see the header", async ({ page, sdk, gotoSession }) => {
         await withSession(sdk, "smoke test session", async (session) => {
             await gotoSession(session.id)
-            await expect(page.getByRole("heading", { level: 1 }).first()).toHaveText("smoke test session")
+            await page.waitForTimeout(1000)
+            require('fs').writeFileSync('dom_header.html', await page.content())
+            await expect(page.locator('[data-component="session-title"]')).toHaveText("smoke test session")
         })
     })
 
@@ -46,21 +48,27 @@ test.describe("UI Smoke Tests", () => {
             await gotoSession(session.id)
 
             // Seed a bunch of messages to trigger scroll
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 10; i++) {
                 await seedMessage(sdk, session.id, `message ${i}`)
             }
 
             await page.reload()
+            await page.waitForTimeout(1000)
+            require('fs').writeFileSync('dom_scroll.html', await page.content())
+            await expect(page.locator('[data-component="session-title"]')).toBeVisible()
+
             const scroller = page.locator(".scroll-view__viewport").first()
             await expect(scroller).toBeVisible()
 
-            // Verify "Jump to bottom" button (arrow-down-to-line) behavior
+            // Verify "Jump to bottom" button behavior
             // Initially it should be hidden if we are at bottom
-            const jumpToBottom = page.locator('button:has([data-icon="arrow-down-to-line"])')
+            const jumpToBottom = page.locator('[data-component="jump-to-bottom"]')
             await expect(jumpToBottom).not.toBeVisible()
 
             // Scroll up manually
             await scroller.evaluate((el) => el.scrollTo({ top: 0 }))
+
+            // Wait for it to specifically NOT be at bottom
             await expect(jumpToBottom).toBeVisible()
 
             // Click jump to bottom

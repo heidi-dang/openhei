@@ -33,6 +33,10 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    httpCredentials: {
+      username: "admin",
+      password: "password",
+    },
   },
   projects: [
     {
