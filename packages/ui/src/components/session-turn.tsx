@@ -16,6 +16,9 @@ import { Icon } from "./icon"
 import { TextShimmer } from "./text-shimmer"
 import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
+import ThinkingDrawer from "./thinking-drawer"
+// imported helper used below
+import shouldRenderThinkingDrawer from "./session-turn.helpers"
 
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -134,12 +137,16 @@ function heading(text: string) {
   }
 }
 
+// (moved to session-turn.helpers.ts)
+
 export function SessionTurn(
   props: ParentProps<{
     sessionID: string
     messageID: string
     lastUserMessageID?: string
     showReasoningSummaries?: boolean
+    thinkingDrawerEnabled?: boolean
+    thinkingDrawerMode?: "auto" | "always" | "never"
     onUserInteracted?: () => void
     classes?: {
       root?: string
@@ -370,6 +377,21 @@ export function SessionTurn(
                       working={working()}
                       showReasoningSummaries={showReasoningSummaries()}
                     />
+                  </div>
+                </Show>
+                <Show when={props.thinkingDrawerEnabled && props.thinkingDrawerMode !== "never"}>
+                  <div data-slot="session-turn-thinking-drawers">
+                    <For each={assistantMessages()}>
+                      {(m) => {
+                        return (
+                          <Show
+                            when={shouldRenderThinkingDrawer(props.thinkingDrawerEnabled, props.thinkingDrawerMode, m)}
+                          >
+                            <ThinkingDrawer message={m as any} id={`thinking-${m.id}`} />
+                          </Show>
+                        )
+                      }}
+                    </For>
                   </div>
                 </Show>
                 <Show when={showThinking()}>

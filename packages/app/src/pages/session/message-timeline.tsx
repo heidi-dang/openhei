@@ -532,7 +532,7 @@ export function MessageTimeline(props: {
                   performance.measure(
                     `message-render-${message.id}`,
                     `message-render-start-${message.id}`,
-                    `message-render-end-${message.id}`
+                    `message-render-end-${message.id}`,
                   )
                 })
 
@@ -554,6 +554,8 @@ export function MessageTimeline(props: {
                       messageID={message.id}
                       lastUserMessageID={props.lastUserMessageID}
                       showReasoningSummaries={settings.general.showReasoningSummaries()}
+                      thinkingDrawerEnabled={settings.flags.get("ui.thinking_drawer")}
+                      thinkingDrawerMode={settings.general.thinkingDrawerMode()}
                       classes={{
                         root: "min-w-0 w-full relative",
                         content: "flex flex-col justify-between !overflow-visible",

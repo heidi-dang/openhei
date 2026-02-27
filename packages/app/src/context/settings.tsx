@@ -23,6 +23,7 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     showReasoningSummaries: boolean
+    thinkingDrawerMode?: "auto" | "always" | "never"
   }
   ml: {
     qloraEnabled: boolean
@@ -59,6 +60,7 @@ const defaultSettings: Settings = {
     autoSave: true,
     releaseNotes: true,
     showReasoningSummaries: false,
+    thinkingDrawerMode: "auto",
   },
   ml: {
     qloraEnabled: false,
@@ -158,6 +160,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
+        },
+        thinkingDrawerMode: withFallback(
+          () => store.general?.thinkingDrawerMode as "auto" | "always" | "never" | undefined,
+          defaultSettings.general.thinkingDrawerMode as "auto" | "always" | "never",
+        ),
+        setThinkingDrawerMode(value: "auto" | "always" | "never") {
+          setStore("general", "thinkingDrawerMode", value)
         },
       },
       ml: {
