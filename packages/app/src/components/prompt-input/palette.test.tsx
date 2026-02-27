@@ -2,6 +2,7 @@ import { describe, expect, test, beforeAll, mock } from "bun:test"
 import { createPalette } from "./palette"
 import { shouldOpenPalette, stripSlashPrefix } from "./palette-util"
 import { buildRequestParts } from "./build-request-parts"
+import type { Prompt } from "@/context/prompt"
 
 beforeAll(() => {
   mock.module("@/context/sync", () => ({ useSync: () => ({ data: { command: [] } }) }))
@@ -39,7 +40,7 @@ describe("composer palette (unit) tests", () => {
   })
 
   test("selection sets metadata.send_option via buildRequestParts", () => {
-    const prompt = [{ type: "text", content: "hello", start: 0, end: 5 }]
+    const prompt = [{ type: "text", content: "hello", start: 0, end: 5 }] as unknown as Prompt
     const { requestParts } = buildRequestParts({
       prompt,
       context: [],
@@ -50,7 +51,7 @@ describe("composer palette (unit) tests", () => {
       sessionDirectory: "/repo",
       sendOption: "plan",
     })
-    const textPart = requestParts.find((p: any) => p.type === "text")
+    const textPart = requestParts.find((p: any) => p.type === "text") as any
     expect(textPart).toBeTruthy()
     expect(textPart.metadata?.send_option).toBe("plan")
   })
