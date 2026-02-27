@@ -48,6 +48,7 @@ import {
 import { createPromptSubmit } from "./prompt-input/submit"
 import { draftKey, readDraft, writeDraft, removeDraft } from "./prompt-input/draft-persist"
 import { useSettings } from "@/context/settings"
+import Palette, { createPalette } from "./prompt-input/palette"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
@@ -235,6 +236,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     mode: "normal",
     applyingHistory: false,
   })
+
+  const palette = createPalette()
+  const [selectedSendOption, setSelectedSendOption] = createSignal<string | undefined>(undefined)
 
   const commentCount = createMemo(() => {
     if (store.mode === "shell") return 0
@@ -610,6 +614,23 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const item = items.find((entry) => entry.id === active) ?? items[0]
       handleSlashSelect(item)
     }
+    // Palette selection handling
+    if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+      const items = palette.filtered()
+      if (items.length === 0) return
+      const idx = Math.max(0, Math.min(palette.activeIndex(), items.length - 1))
+      const item = items[idx]
+      if (item) {
+        // On select: remove leading `/cmd` from prompt and set selected send option
+        const rawParts = prompt.current()
+        const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
+        const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+        mirror.input = true
+        prompt.set([{ type: "text", content: remainder, start: 0, end: remainder.length }], remainder.length)
+        setSelectedSendOption(item.id)
+        palette.setOpen(false)
+      }
+    }
   }
 
   createEffect(
@@ -742,7 +763,19 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     if (!shellMode) {
       const atMatch = rawText.substring(0, cursorPosition).match(/@(\S*)$/)
+      // existing slash popover logic (command list)
       const slashMatch = rawText.match(/^\/(\S*)$/)
+
+      // composer palette (flag-gated): open when input begins with '/'
+      if (useSettings().flags.get("ui.composer_palette")) {
+        const paletteMatch = rawText.match(/^\/(\S*)/)
+        if (paletteMatch) {
+          palette.setQuery(paletteMatch[1] ?? "")
+          palette.setOpen(true)
+        } else {
+          palette.setOpen(false)
+        }
+      }
 
       if (atMatch) {
         atOnInput(atMatch[1])
@@ -908,7 +941,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
-    selectedSendOption: () => (window as any).__prompt_selected_send_option ?? undefined,
+    // Prefer using explicit local state for selected send option. This avoids
+    // relying on a global test bridge in production.
+    selectedSendOption: () => selectedSendOption(),
   })
 
   // Draft persistence banner state
@@ -963,6 +998,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
 
     if (event.key === "Escape") {
+      // Close composer palette first if open
+      if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+        palette.setOpen(false)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       if (store.popover) {
         closePopover()
         event.preventDefault()
@@ -1015,7 +1057,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
 
-    if (store.popover) {
+    if (store.popover || (useSettings().flags.get("ui.composer_palette") && palette.open())) {
       if (event.key === "Tab") {
         selectPopoverActive()
         event.preventDefault()
@@ -1024,6 +1066,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const nav = event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Enter"
       const ctrlNav = ctrl && (event.key === "n" || event.key === "p")
       if (nav || ctrlNav) {
+        if (useSettings().flags.get("ui.composer_palette") && palette.open()) {
+          // handle palette navigation
+          if (event.key === "ArrowUp") {
+            palette.setActiveIndex(Math.max(0, palette.activeIndex() - 1))
+          } else if (event.key === "ArrowDown") {
+            palette.setActiveIndex(Math.min(palette.filtered().length - 1, palette.activeIndex() + 1))
+          } else if (event.key === "Enter") {
+            selectPopoverActive()
+          }
+          event.preventDefault()
+          return
+        }
         if (store.popover === "at") {
           atOnKeyDown(event)
           event.preventDefault()
@@ -1443,6 +1497,29 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </TooltipKeybind>
               </Show>
             </div>
+            {/* Palette overlay (flag-gated) */}
+            <Show when={useSettings().flags.get("ui.composer_palette") && palette.open()}>
+              <div class="absolute left-2 top-full mt-1">
+                <Palette
+                  palette={palette}
+                  onSelect={(id) => {
+                    const items = palette.filtered()
+                    const item = items.find((i) => i.id === id)
+                    if (!item) return
+                    const rawParts = prompt.current()
+                    const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
+                    const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+                    mirror.input = true
+                    prompt.set(
+                      [{ type: "text", content: remainder, start: 0, end: remainder.length }],
+                      remainder.length,
+                    )
+                    setSelectedSendOption(item.id)
+                    palette.setOpen(false)
+                  }}
+                />
+              </div>
+            </Show>
             <div class="shrink-0">
               <RadioGroup
                 options={["shell", "normal"] as const}
