@@ -14,8 +14,10 @@ export function StreamingStatus(props: StreamingStatusProps) {
   const language = useLanguage()
   const sdk = useSDK()
   const [stopping, setStopping] = createSignal(false)
+  const [stopTimeout, setStopTimeout] = createSignal(false)
 
   const statusType = createMemo(() => {
+    if (stopping()) return "stopping"
     const status = props.status()
     if (status.type === "idle") return "idle"
     if (status.type === "resync_required") return "resyncing"
@@ -27,22 +29,31 @@ export function StreamingStatus(props: StreamingStatusProps) {
     const sessionID = props.sessionID()
     if (!sessionID || stopping()) return
     setStopping(true)
+    setStopTimeout(false)
     try {
       await sdk.client.session.abort({ sessionID })
     } catch {
       // Ignore errors - abort is best-effort
     } finally {
-      // Clear stopping state after a timeout to ensure we don't get stuck
-      setTimeout(() => setStopping(false), 5000)
+      // Set timeout to re-enable stop if abort takes too long
+      setTimeout(() => {
+        if (stopping()) {
+          setStopTimeout(true)
+          setStopping(false)
+        }
+      }, 5000)
     }
   }
 
-  // Clear stopping when status becomes idle
+  // Clear stopping/error when status becomes idle
   createMemo(() => {
     if (props.status().type === "idle") {
       setStopping(false)
+      setStopTimeout(false)
     }
   })
+
+  const showStopButton = () => !stopping() || stopTimeout()
 
   return (
     <Show when={statusType() !== "idle"}>
@@ -52,8 +63,15 @@ export function StreamingStatus(props: StreamingStatusProps) {
             when={statusType() === "streaming"}
             fallback={
               <Show
-                when={statusType() === "resyncing"}
-                fallback={<div class="size-2 rounded-full bg-warning-base animate-pulse" />}
+                when={statusType() === "stopping"}
+                fallback={
+                  <Show
+                    when={statusType() === "resyncing"}
+                    fallback={<div class="size-2 rounded-full bg-warning-base animate-pulse" />}
+                  >
+                    <div class="size-2 rounded-full bg-warning-base animate-pulse" />
+                  </Show>
+                }
               >
                 <div class="size-2 rounded-full bg-warning-base animate-pulse" />
               </Show>
@@ -66,19 +84,24 @@ export function StreamingStatus(props: StreamingStatusProps) {
               ? language.t("streaming.status.streaming")
               : statusType() === "reconnecting"
                 ? language.t("streaming.status.reconnecting")
-                : language.t("streaming.status.resyncing")}
+                : statusType() === "resyncing"
+                  ? language.t("streaming.status.resyncing")
+                  : statusType() === "stopping"
+                    ? language.t("streaming.status.stopping")
+                    : language.t("streaming.status.stopTimeout")}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="small"
-          class="h-6 px-2 text-12-regular text-text-weak hover:text-text-base"
-          onClick={handleStop}
-          disabled={stopping()}
-        >
-          <Icon name="stop" size="small" class="mr-1" />
-          {stopping() ? language.t("streaming.status.stopping") : language.t("streaming.stop")}
-        </Button>
+        <Show when={showStopButton()}>
+          <Button
+            variant="ghost"
+            size="small"
+            class="h-6 px-2 text-12-regular text-text-weak hover:text-text-base"
+            onClick={handleStop}
+          >
+            <Icon name="stop" size="small" class="mr-1" />
+            {language.t("streaming.stop")}
+          </Button>
+        </Show>
       </div>
     </Show>
   )

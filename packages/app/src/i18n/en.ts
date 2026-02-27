@@ -825,6 +825,7 @@ export const dict = {
   "streaming.status.reconnecting": "Reconnecting",
   "streaming.status.resyncing": "Resyncing",
   "streaming.status.stopping": "Stopping...",
+  "streaming.status.stopTimeout": "Stop timed out; stream may still be active",
   "streaming.stop": "Stop",
   "streaming.banner.replaying": "Replaying from cursor...",
   "streaming.banner.resync": "Resync required",
