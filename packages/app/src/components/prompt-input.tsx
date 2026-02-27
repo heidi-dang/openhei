@@ -1293,7 +1293,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     }}
                     aria-label="Send options"
                     variant="ghost"
-                    class="min-h-[44px] sm:min-h-0"
                   />
                 </div>
               </Show>
