@@ -169,6 +169,13 @@ export const { use: useHighlights, provider: HighlightsProvider } = createSimple
       }
 
       const fetcher = platform.fetch ?? fetch
+
+      // Avoid DNS errors in local development or CI by skipping the fetch unless configured or in production.
+      if ((import.meta.env.DEV || import.meta.env.MODE === "test") && !import.meta.env.VITE_ENABLE_CHANGELOG) {
+        markSeen()
+        return
+      }
+
       const controller = new AbortController()
       onCleanup(() => {
         controller.abort()

@@ -4,11 +4,10 @@ import {
   AppBaseProviders,
   AppInterface,
   handleNotificationClick,
-  type Platform,
-  PlatformProvider,
   ServerConnection,
   useCommand,
 } from "@openhei-ai/app"
+import { type Platform, PlatformProvider } from "@openhei-ai/ui/context"
 import { Splash } from "@openhei-ai/ui/logo"
 import type { AsyncStorage } from "@solid-primitives/storage"
 import { getCurrentWindow } from "@tauri-apps/api/window"
@@ -459,11 +458,11 @@ render(() => {
             }
             const server: ServerConnection.Any = data.is_sidecar
               ? {
-                  displayName: "Local Server",
-                  type: "sidecar",
-                  variant: "base",
-                  http,
-                }
+                displayName: "Local Server",
+                type: "sidecar",
+                variant: "base",
+                http,
+              }
               : { type: "http", http }
 
             function Inner() {

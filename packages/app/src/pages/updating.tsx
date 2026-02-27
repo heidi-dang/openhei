@@ -158,6 +158,11 @@ export default function UpdatingPage() {
   const [highlights] = createResource(
     () => ({ target: target() }),
     async (input) => {
+      // Avoid DNS errors in local development or CI by skipping the fetch unless configured or in production.
+      if ((import.meta.env.DEV || import.meta.env.MODE === "test") && !import.meta.env.VITE_ENABLE_CHANGELOG) {
+        return []
+      }
+
       const res = await fetcher()(CHANGELOG_URL, { headers: { Accept: "application/json" } }).catch(() => undefined)
       if (!res?.ok) return []
       const json = (await res.json().catch(() => undefined)) as unknown

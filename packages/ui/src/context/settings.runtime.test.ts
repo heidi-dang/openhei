@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test"
+import { test, expect } from "vitest"
 import { useSettings } from "./settings"
 
 test("useSettings returns default settings outside of provider in production", () => {

@@ -36,7 +36,17 @@ const createAxisConstraint = (axis: "x" | "y", transformerId: string) => (): JSX
     onDragEnd((event) => {
       const id = getDraggableId(event)
       if (!id) return
-      removeTransformer("draggables", id, transformer.id)
+      // The @thisbeyond/solid-dnd library may throw if removeTransformer is called 
+      // for an ID that was already removed or during rapid unmount cycles.
+      // We swallow these specifically to avoid console noise during normal app navigation.
+      try {
+        removeTransformer("draggables", id, transformer.id)
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("Cannot remove")) {
+          return
+        }
+        throw e
+      }
     })
     return dispose
   })

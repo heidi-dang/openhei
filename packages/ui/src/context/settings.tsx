@@ -3,6 +3,21 @@ import { createEffect, createMemo, useContext } from "solid-js"
 import { createSimpleContext } from "./helper"
 import { persisted } from "../utils/persist"
 
+function deepFreeze<T extends object>(obj: T): T {
+    Object.freeze(obj)
+    Object.getOwnPropertyNames(obj).forEach((prop) => {
+        const val = (obj as any)[prop]
+        if (
+            val !== null &&
+            (typeof val === "object" || typeof val === "function") &&
+            !Object.isFrozen(val)
+        ) {
+            deepFreeze(val)
+        }
+    })
+    return obj
+}
+
 export interface NotificationSettings {
     agent: boolean
     permissions: boolean
@@ -112,6 +127,8 @@ const defaultSettings: Settings = {
         errors: "nope-03",
     },
 }
+
+deepFreeze(defaultSettings)
 
 const monoFallback =
     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
@@ -226,7 +243,7 @@ const { use: useSettingsContext, provider: SettingsProvider, ctx } = createSimpl
             },
             flags: {
                 get: <K extends keyof Settings["flags"]>(key: K) => {
-                    return withFallback(() => store.flags?.[key], defaultSettings.flags[key])()
+                    return store.flags?.[key] ?? defaultSettings.flags[key]
                 },
                 set: <K extends keyof Settings["flags"]>(key: K, value: boolean) => {
                     setStore("flags", key, value)
@@ -302,8 +319,9 @@ export function useSettings() {
         // Rate-limit the warning to once every 5 minutes per session.
         const now = Date.now()
         if (now - lastWarned > 5 * 60 * 1000) {
+            const context = typeof window !== "undefined" ? ` at ${window.location.pathname}` : ""
             console.warn(
-                "[openhei] Settings context missing. UI fallback active. Please ensure SettingsProvider wraps the application root.",
+                `[openhei] [E_SETTINGS_MISSING] Settings context missing${context}. UI fallback active. Please ensure SettingsProvider wraps the application root.`,
             )
             lastWarned = now
         }
