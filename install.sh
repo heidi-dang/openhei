@@ -135,7 +135,7 @@ print_install_summary() {
 }
 
 usage() {
-    cat <<EOF
+    cat <<'EOF'
 OpenHei Installer
 
 Usage: install.sh [options]
