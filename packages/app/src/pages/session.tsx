@@ -1052,13 +1052,22 @@ export default function Page() {
         {/* Session panel */}
         <div
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
-            "flex-1": true,
-            "w-full md:flex-none": desktopSidePanelOpen(),
+            // Always use relative positioning and flex column with minimum height.
+            "relative flex flex-col min-h-0 h-full bg-background-stronger": true,
+            // Ensure the panel fills available space and spans the full width on mobile.
+            "flex-1 w-full": true,
+            // Apply container queries only on desktop to avoid Safari sizing bugs on mobile.
+            "@container": isDesktop(),
+            // Prevent shrinking only on desktop when the side panel is open.
+            "shrink-0": isDesktop() && desktopSidePanelOpen(),
+            // Maintain flex-none on desktop to allow the panel to collapse correctly when open.
+            "md:flex-none": desktopSidePanelOpen(),
+            // Hide on mobile when the changes tab is active; on desktop the panel remains visible.
             "hidden md:flex": !isDesktop() && store.mobileTab === "changes",
           }}
           style={{
-            width: isDesktop() ? sessionPanelWidth() : "100%",
+            // Only set an explicit width on desktop. On mobile, undefined prevents Safari miscalculation.
+            width: isDesktop() ? sessionPanelWidth() : undefined,
           }}
         >
           <div class="flex-1 min-h-0 overflow-hidden">
