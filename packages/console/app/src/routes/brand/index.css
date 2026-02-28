@@ -61,8 +61,9 @@
 
   /* Header and Footer styles - copied from index.css */
   [data-component="top"] {
-    padding: 24px 5rem;
-    height: 80px;
+    /* Respect iOS safe-area */
+    padding: calc(24px + var(--sat)) 5rem 24px 5rem;
+    height: calc(80px + var(--sat));
     position: sticky;
     top: 0;
     display: flex;
@@ -174,7 +175,7 @@
         [data-component="nav-mobile-menu-list"] {
           position: fixed;
           background: var(--color-background);
-          top: 80px;
+          top: calc(80px + var(--sat));
           left: 0;
           right: 0;
           height: 100vh;
