@@ -112,7 +112,7 @@ function DensityRootWrapper(props: ParentProps) {
   const density = settings && settings.flags.get("ui.density_modes") ? settings.general.density() : undefined
 
   return (
-    <div class="density-root" data-density={density}>
+    <div class="density-root flex-1 min-h-0 flex flex-col" data-density={density}>
       <Show when={settings && !settings.general.dismissedWhatsNewPhase5()}>
         <WhatsNewPhase5Banner onDismiss={() => settings!.general.setDismissedWhatsNewPhase5(true)} />
       </Show>
