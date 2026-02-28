@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 
-const CHANGELOG_URL = "https://openhei.ai/changelog.json"
+const CHANGELOG_URL = "/global/changelog.json"
 
 type Status = {
   state: "idle" | "running" | "complete" | "failed"

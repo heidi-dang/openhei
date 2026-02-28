@@ -176,8 +176,7 @@ const useDebugInfo = (fetcher: typeof fetch) => {
 
     const fetchDebug = async () => {
       try {
-        const defaultUrl = "http://localhost:4096"
-        const res = await fetcher(`${defaultUrl}/global/debug`)
+        const res = await fetcher(`/global/debug`)
         if (res.ok) {
           const data = await res.json()
           if (!dead) setDebug(data)

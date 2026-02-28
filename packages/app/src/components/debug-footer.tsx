@@ -15,8 +15,7 @@ export function DebugFooter() {
 
   const [debug] = createResource(async () => {
     try {
-      const defaultUrl = "http://localhost:4096"
-      const res = await fetcher(`${defaultUrl}/global/debug`)
+      const res = await fetcher(`/global/debug`)
       if (res.ok) {
         return (await res.json()) as DebugInfo
       }

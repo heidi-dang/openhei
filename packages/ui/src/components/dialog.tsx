@@ -1,6 +1,7 @@
 import { Dialog as Kobalte } from "@kobalte/core/dialog"
 import { ComponentProps, JSXElement, Match, ParentProps, Show, Switch } from "solid-js"
 import { useI18n } from "../context/i18n"
+import { getDialogTriggerRef } from "../context/dialog"
 import { IconButton } from "./icon-button"
 
 export interface DialogProps extends ParentProps {
@@ -27,17 +28,26 @@ export function Dialog(props: DialogProps) {
         <Kobalte.Content
           data-slot="dialog-content"
           data-no-header={!props.title && !props.action ? "" : undefined}
+          tabIndex={-1}
           classList={{
             ...(props.classList ?? {}),
             [props.class ?? ""]: !!props.class,
           }}
           onOpenAutoFocus={(e) => {
-            const target = e.currentTarget as HTMLElement | null
-            const autofocusEl = target?.querySelector("[autofocus]") as HTMLElement | null
-            if (autofocusEl) {
-              e.preventDefault()
-              autofocusEl.focus()
-            }
+            e.preventDefault()
+            const content = e.currentTarget as HTMLElement
+            queueMicrotask(() => {
+              const auto = content.querySelector("[autofocus]") as HTMLElement | null
+              const first = content.querySelector(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+              ) as HTMLElement | null
+                ; (auto || first || content).focus()
+            })
+          }}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault()
+            const trigger = getDialogTriggerRef()
+            queueMicrotask(() => trigger?.focus())
           }}
         >
           <Show when={props.title || props.action}>

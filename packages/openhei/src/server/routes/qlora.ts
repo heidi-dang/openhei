@@ -24,7 +24,7 @@ const getRealHome = async (): Promise<string> => {
       const parts = line.split(":")
       if (parts[5]) return parts[5]
     }
-  } catch {}
+  } catch { }
   return "/home/heidi"
 }
 
@@ -103,7 +103,7 @@ const findpy = async () => {
   try {
     const txt = await fs.readFile(configPath, "utf-8").catch(() => "")
     if (txt) cfg = JSON.parse(txt)
-  } catch {}
+  } catch { }
 
   const realHome = await getRealHome()
   const candidates = [
@@ -162,7 +162,14 @@ const doctorHeidiEngine = async (python?: string, toolDirCandidates?: string[]) 
     return r
   }
 
-  const pick = python ?? (await findpy()).catch?.(() => undefined)
+  let pick = python
+  if (!pick) {
+    try {
+      pick = await findpy()
+    } catch {
+      pick = undefined
+    }
+  }
 
   const result: any = { python: pick }
 
@@ -737,7 +744,7 @@ export const QLoRARoutes = lazy(() =>
         let cfg: any = {}
         try {
           if (cfgTxt) cfg = JSON.parse(cfgTxt)
-        } catch {}
+        } catch { }
 
         const diag = await doctorHeidiEngine(cfg?.heidi_engine_python, uniqueCandidates)
 
@@ -1152,7 +1159,7 @@ export const QLoRARoutes = lazy(() =>
               s.stage = "STOPPED"
               return fs.writeFile(statusFile, JSON.stringify(s, null, 2))
             })
-            .catch(() => {})
+            .catch(() => { })
         }
 
         await writeactive(undefined)

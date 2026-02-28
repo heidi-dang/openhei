@@ -142,10 +142,10 @@ export const SettingsQLoRA: Component = () => {
     lastEventTime: 0,
   })
 
-  const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor"))
-  const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models"))
-  const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models"))
-  const [stacks] = createResource(() => get<Stack[]>("/api/v1/qlora/stacks"))
+  const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor").catch(() => undefined as unknown as Doctor))
+  const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models").catch(() => ({ models: [] })))
+  const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models").catch(() => ({ models: [] })))
+  const [stacks] = createResource(() => get<Stack[]>("/api/v1/qlora/stacks").catch(() => [] as Stack[]))
 
   // Saved config as returned from server (canonical). We keep it separate from the UI store
   const [saved, setSaved] = createStore<Record<string, unknown>>({})
@@ -302,7 +302,7 @@ export const SettingsQLoRA: Component = () => {
     }
     es.onmessage = (e) => {
       updateEventTime()
-      const data = JSON.parse(e.data) as { type: string; [k: string]: unknown }
+      const data = JSON.parse(e.data) as { type: string;[k: string]: unknown }
       if (data.type === "heartbeat" || data.type === "connected") return
       if (data.type === "progress") {
         setStore("progress", {

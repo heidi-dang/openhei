@@ -92,7 +92,6 @@ const forward: Platform["forward"] = () => {
 const defaultUrl = iife(() => {
   const lsDefault = readDefaultServerUrl()
   if (lsDefault) return lsDefault
-  if (location.hostname.includes("openhei.ai")) return "http://localhost:4096"
   if (import.meta.env.DEV)
     return `http://${import.meta.env.VITE_OPENHEI_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENHEI_SERVER_PORT ?? "4096"}`
   return location.origin

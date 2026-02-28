@@ -1053,7 +1053,7 @@ export default function Page() {
         <div
           classList={{
             // Always use flex column with minimum height.
-            "relative flex flex-col min-h-0 h-full bg-background-stronger": true,
+            "relative flex flex-col min-h-0 h-full overflow-hidden bg-background-stronger": true,
             // Ensure the panel fills available space and spans the full width on mobile.
             "flex-1 w-full": true,
             // Prevent shrinking only on desktop when the side panel is open.
