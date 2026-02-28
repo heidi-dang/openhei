@@ -1,0 +1,53 @@
+{
+  "name": "openhei-antigravity-auth",
+  "version": "1.0.0",
+  "description": "Antigravity (Google's IDE) OAuth auth plugin for openhei - use your Google credentials to access Gemini and Claude models via Antigravity",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "license": "MIT",
+  "author": "OpenHei Team",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heidi-dang/openhei.git"
+  },
+  "keywords": [
+    "openhei",
+    "google",
+    "antigravity",
+    "gemini",
+    "claude",
+    "oauth",
+    "plugin",
+    "auth"
+  ],
+  "homepage": "https://github.com/heidi-dang/openhei#readme",
+  "bugs": {
+    "url": "https://github.com/heidi-dang/openhei/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "@openhei-ai/plugin": "workspace:*"
+  },
+  "devDependencies": {
+    "@openhei-ai/plugin": "workspace:*",
+    "@openhei-ai/sdk": "workspace:*",
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}
