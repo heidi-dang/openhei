@@ -266,12 +266,18 @@ chmod 700 "$INSTALL_BASE"
 chmod 700 "$INSTALL_DIR"
 chmod 700 "$DASHBOARD_DIR"
 
-# Detect local dashboard in repo for development
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
+# Detect local dashboard in repo for development (only if run from a file)
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
 USE_LOCAL_DASHBOARD=false
-if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; then
-    USE_LOCAL_DASHBOARD=true
+if [ -n "$SCRIPT_DIR" ]; then
+    LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
+    if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; then
+        USE_LOCAL_DASHBOARD=true
+    fi
 fi
 
 
