@@ -98,30 +98,122 @@ const spawnLogged = (cmd: string[], logPath: string, opts?: { env?: Record<strin
 }
 
 const findpy = async () => {
+  // Prefer a configured python from qlora.config.json if present
+  let cfg: any = {}
+  try {
+    const txt = await fs.readFile(configPath, "utf-8").catch(() => "")
+    if (txt) cfg = JSON.parse(txt)
+  } catch {}
+
   const realHome = await getRealHome()
   const candidates = [
+    cfg?.heidi_engine_path,
     path.join(Global.Path.data, "tools", "heidi-engine"),
     path.join(realHome, ".local", "share", "openhei", "tools", "heidi-engine"),
     path.join(Global.Path.home, ".local", "share", "openhei", "tools", "heidi-engine"),
     "/home/heidi/.local/share/openhei/tools/heidi-engine",
-  ]
+  ].filter(Boolean) as string[]
+
   const uniqueCandidates = [...new Set(candidates)]
 
-  for (const cand of uniqueCandidates) {
-    const venvPath = path.join(cand, ".venv")
-    const venvPy = path.join(venvPath, "bin", "python")
-    const exists = await fs
-      .stat(venvPy)
-      .then(() => true)
+  // If a specific python path is configured, prefer that.
+  if (cfg?.heidi_engine_python) {
+    const py = cfg.heidi_engine_python
+    const ok = await run([py, "-c", "import heidi_engine"])
+      .then((x) => x.code === 0)
       .catch(() => false)
-    if (exists) {
-      const ok = await run([venvPy, "-c", "import heidi_engine"]).then((x) => x.code === 0)
-      if (ok) return venvPy
+    if (ok) return py
+  }
+
+  for (const cand of uniqueCandidates) {
+    try {
+      const venvPath = path.join(cand, ".venv")
+      const venvPy = path.join(venvPath, "bin", "python")
+      const it = await fs
+        .stat(venvPy)
+        .then(() => venvPy)
+        .catch(() => undefined)
+      if (it) {
+        const ok = await run([it, "-c", "import heidi_engine"]).then((x) => x.code === 0)
+        if (ok) return it
+      }
+    } catch {
+      // ignore
     }
   }
 
-  const sysPy = await run(["python3", "-c", "import heidi_engine"]).then((x) => (x.code === 0 ? "python3" : undefined))
-  return sysPy
+  // Fallback: try python3 and python on PATH
+  const checks = ["python3", "python"]
+  for (const p of checks) {
+    const ok = await run([p, "-c", "import heidi_engine"])
+      .then((x) => x.code === 0)
+      .catch(() => false)
+    if (ok) return p
+  }
+  return undefined
+}
+
+// Run an extended diagnostic using a specific python interpreter (if provided).
+const doctorHeidiEngine = async (python?: string, toolDirCandidates?: string[]) => {
+  const tried: Array<{ cmd: string[]; code: number; out: string; err: string }> = []
+  const push = async (cmd: string[]) => {
+    const r = await run(cmd)
+    tried.push({ cmd, code: r.code ?? 127, out: r.out ?? "", err: r.err ?? "" })
+    return r
+  }
+
+  const pick = python ?? (await findpy()).catch?.(() => undefined)
+
+  const result: any = { python: pick }
+
+  if (!pick) {
+    result.import_ok = false
+    result.import_err = "no python found"
+    result.tried = tried
+    return result
+  }
+
+  // sys.executable, sys.prefix, site.getsitepackages()
+  const infoCmd = [
+    pick,
+    "-c",
+    "import sys,site,json;print(sys.executable);print(sys.prefix);print(json.dumps(getattr(site,'getsitepackages',lambda:[] )()))",
+  ]
+  const info = await push(infoCmd)
+  const lines = (info.out || "").split(/\r?\n/).filter((l) => l)
+  result.sys_executable = lines[0]
+  result.sys_prefix = lines[1]
+  try {
+    result.site_packages = JSON.parse(lines[2] || "[]")
+  } catch {
+    result.site_packages = []
+  }
+
+  // pip show
+  await push([pick, "-m", "pip", "show", "heidi-engine"]).then((r) => (result.pip_show = r.out || r.err || ""))
+
+  // import check and version
+  const imp = await push([pick, "-c", "import heidi_engine;print(getattr(heidi_engine,'__version__', ''))"]).catch(
+    () => ({ code: 127, out: "", err: "import failed" }),
+  )
+  result.import_ok = imp.code === 0
+  result.import_err = imp.code === 0 ? undefined : imp.err || imp.out
+  result.module_version = imp.code === 0 ? (imp.out || "").trim() : undefined
+
+  // try console entrypoint variants
+  const entrypoints = [
+    [pick, "-m", "heidi_engine", "--help"],
+    [pick, "-m", "heidi_engine.dashboard", "--help"],
+  ]
+  result.entrypoints = []
+  for (const e of entrypoints) {
+    const r = await push(e)
+    result.entrypoints.push({ cmd: e, code: r.code, out: r.out, err: r.err })
+  }
+
+  if (toolDirCandidates) result.tool_dir_candidates = toolDirCandidates
+  result.tried = tried
+  return result
 }
 
 const pidok = (pid: number) => {
@@ -362,6 +454,8 @@ const cfg = z
     grad_accum: z.number().int().min(1).max(128).default(8),
     lora_r: z.number().int().min(4).max(256).default(32),
     val_ratio: z.number().min(0).max(0.5).default(0.05),
+    heidi_engine_python: z.string().max(400).optional(),
+    heidi_engine_path: z.string().max(400).optional(),
     teacher: teacher,
   })
   .strict()
@@ -591,6 +685,27 @@ export const QLoRARoutes = lazy(() =>
                       active: z
                         .object({ run_id: z.string(), pid: z.number().int(), started_at: z.string() })
                         .optional(),
+                      diagnostics: z
+                        .object({
+                          sys_executable: z.string().optional(),
+                          sys_prefix: z.string().optional(),
+                          site_packages: z.array(z.string()).optional(),
+                          pip_show: z.string().optional(),
+                          module_version: z.string().optional(),
+                          entrypoints: z.array(z.any()).optional(),
+                          tried: z
+                            .array(
+                              z.object({
+                                cmd: z.array(z.string()),
+                                code: z.number().int(),
+                                out: z.string(),
+                                err: z.string(),
+                              }),
+                            )
+                            .optional(),
+                          install_cmd: z.string().optional(),
+                        })
+                        .optional(),
                     })
                     .strict(),
                 ),
@@ -617,54 +732,14 @@ export const QLoRARoutes = lazy(() =>
 
         const uniqueCandidates = [...new Set(candidates)]
 
-        let selectedToolDir: string | undefined
-        let py: string | undefined
-        let venvPython: string | undefined
-        let importOk = false
-        let importErr: string | undefined
+        // Run the canonical doctor which prefers configured python keys if present
+        const cfgTxt = await fs.readFile(configPath, "utf-8").catch(() => "")
+        let cfg: any = {}
+        try {
+          if (cfgTxt) cfg = JSON.parse(cfgTxt)
+        } catch {}
 
-        for (const cand of uniqueCandidates) {
-          const venvPath = path.join(cand, ".venv")
-          const venvPy = path.join(venvPath, "bin", "python")
-          const exists = await fs
-            .stat(venvPy)
-            .then(() => true)
-            .catch(() => false)
-          if (exists) {
-            venvPython = venvPy
-            const result = await run([venvPy, "-c", "import heidi_engine"])
-            importOk = result.code === 0
-            importErr = result.err.trim() || undefined
-            if (importOk) {
-              selectedToolDir = cand
-              py = venvPy
-              break
-            }
-          }
-        }
-
-        if (!py) {
-          const sysPy = await run(["python3", "-c", "import heidi_engine"]).then((x) =>
-            x.code === 0 ? "python3" : undefined,
-          )
-          if (sysPy) {
-            py = sysPy
-            const found = uniqueCandidates.find((c) =>
-              run([py!, "-c", "import heidi_engine"]).then((x) => x.code === 0),
-            )
-            if (found) selectedToolDir = found
-          }
-        }
-
-        const installed = !!py
-
-        const checks = selectedToolDir
-          ? {
-              exists: true,
-              pump_import_ok: importOk,
-              venv_python_path: venvPython,
-            }
-          : { exists: false, pump_import_ok: false, venv_python_path: undefined }
+        const diag = await doctorHeidiEngine(cfg?.heidi_engine_python, uniqueCandidates)
 
         const a = await readactive()
         const active_ = a && pidok(a.pid) ? a : undefined
@@ -674,11 +749,11 @@ export const QLoRARoutes = lazy(() =>
         const install_ = i && pidok(i.pid) ? i : undefined
         if (i && !install_) await writeinstall(undefined)
 
-        const version =
-          py &&
-          (await run([py, "-c", "import importlib.metadata as m; print(m.version('heidi-engine'))"]).then((x) =>
-            x.code === 0 ? x.out.trim() : undefined,
-          ))
+        const installed = !!diag.python && diag.import_ok
+
+        const checks = diag.python
+          ? { exists: true, pump_import_ok: diag.import_ok, venv_python_path: diag.sys_executable }
+          : { exists: false, pump_import_ok: false, venv_python_path: undefined }
 
         const gpu = await run(["nvidia-smi", "-L"]).then((x) => (x.code === 0 ? x.out.trim() : undefined))
 
@@ -695,22 +770,40 @@ export const QLoRARoutes = lazy(() =>
           return { path: Global.Path.data, free_bytes }
         })
 
+        const install_cmd = diag.python
+          ? `${diag.python} -m pip install -U heidi-engine`
+          : `python3 -m pip install -U heidi-engine`
+
         return c.json({
           installed,
-          tool_dir: selectedToolDir || heidi,
+          tool_dir: heidi,
           tool_dir_candidates: uniqueCandidates,
-          selected_tool_dir: selectedToolDir,
-          venv_python: venvPython,
-          import_ok: importOk,
-          import_err: importErr ? importErr.slice(0, 500) : undefined,
-          reason: !installed ? (importErr ? `import failed: ${importErr.slice(0, 200)}` : "not found") : undefined,
+          selected_tool_dir: cfg?.heidi_engine_path ?? undefined,
+          venv_python: diag.sys_executable,
+          import_ok: diag.import_ok,
+          import_err: diag.import_err ? String(diag.import_err).slice(0, 500) : undefined,
+          reason: !installed
+            ? diag.import_err
+              ? `import failed: ${String(diag.import_err).slice(0, 200)}`
+              : "not found"
+            : undefined,
           checks,
-          python: py ?? undefined,
-          version: version || undefined,
+          python: diag.python ?? undefined,
+          version: diag.module_version || undefined,
           gpu,
           disk,
           install: install_ || undefined,
           active: active_ || undefined,
+          diagnostics: {
+            sys_executable: diag.sys_executable,
+            sys_prefix: diag.sys_prefix,
+            site_packages: diag.site_packages,
+            pip_show: diag.pip_show,
+            module_version: diag.module_version,
+            entrypoints: diag.entrypoints,
+            tried: diag.tried,
+            install_cmd,
+          },
         })
       },
     )
@@ -898,7 +991,22 @@ export const QLoRARoutes = lazy(() =>
       }),
       validator("json", cfg),
       async (c) => {
-        const py = await findpy()
+        const input = c.req.valid("json")
+
+        // Prefer python path from request body (unsaved) if present
+        let py: string | undefined
+        if (input?.heidi_engine_python) {
+          const test = await run([input.heidi_engine_python, "-c", "import heidi_engine"])
+          if (test.code === 0) py = input.heidi_engine_python
+          else
+            return c.json({
+              ok: false,
+              message: `Checked using ${input.heidi_engine_python}: import heidi_engine failed: ${String(test.err || test.out || "").trim()}`,
+            })
+        }
+        if (!py) {
+          py = await findpy()
+        }
         if (!py) return c.json({ ok: false, message: "heidi-engine not installed (run Install first)" })
 
         const a = await readactive()
@@ -906,7 +1014,6 @@ export const QLoRARoutes = lazy(() =>
         if (state.run && pidok(state.run.pid))
           return c.json({ ok: false, message: `already running: ${state.run.run_id}` })
 
-        const input = c.req.valid("json")
         const run_id = input.run_id || dt()
         const dir = path.join(runs, run_id)
         const log = path.join(dir, "pump.log")
