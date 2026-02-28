@@ -1056,9 +1056,10 @@ export default function Page() {
             "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
             "flex-1": true,
             "w-full md:flex-none": desktopSidePanelOpen(),
+            "hidden md:flex": !isDesktop() && store.mobileTab === "changes",
           }}
           style={{
-            width: sessionPanelWidth(),
+            width: isDesktop() ? sessionPanelWidth() : "100%",
           }}
         >
           <div class="flex-1 min-h-0 overflow-hidden">

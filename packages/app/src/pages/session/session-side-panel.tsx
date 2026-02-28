@@ -47,9 +47,17 @@ export function SessionSidePanel(props: {
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
 
-  const reviewOpen = createMemo(() => (isDesktop() && view().reviewPanel.opened()) || (!isDesktop() && props.mobileTab === "changes"))
-  const open = createMemo(() => (isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened())) || (!isDesktop() && props.mobileTab === "changes"))
-  const reviewTab = createMemo(() => (isDesktop() && !layout.fileTree.opened()) || (!isDesktop() && props.mobileTab === "changes"))
+  const reviewOpen = createMemo(
+    () => (isDesktop() && view().reviewPanel.opened()) || (!isDesktop() && props.mobileTab === "changes"),
+  )
+  const open = createMemo(
+    () =>
+      (isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened())) ||
+      (!isDesktop() && props.mobileTab === "changes"),
+  )
+  const reviewTab = createMemo(
+    () => (isDesktop() && !layout.fileTree.opened()) || (!isDesktop() && props.mobileTab === "changes"),
+  )
 
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
   const diffs = createMemo(() => (params.id ? (sync.data.session_diff[params.id] ?? []) : []))
@@ -200,7 +208,7 @@ export function SessionSidePanel(props: {
           "flex-1": reviewOpen(),
           "shrink-0": !reviewOpen(),
           "w-full absolute inset-0 z-10 bg-background-base": !isDesktop(),
-          "hidden": !isDesktop() && props.mobileTab !== "changes",
+          hidden: !isDesktop() && props.mobileTab !== "changes",
         }}
         style={{ width: !isDesktop() ? undefined : reviewOpen() ? undefined : `${layout.fileTree.width()}px` }}
       >
