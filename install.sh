@@ -8,7 +8,33 @@ echo "OpenHei Installer started..."
 MUTED='\033[0;2m'
 RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
-NC='\033[0m' # No Color
+# No Color
+NC='\033[0m'
+
+print_message() {
+    local level=$1
+    local msg=$2
+    case "$level" in
+        info)    echo -e "${msg}" ;;
+        warning) echo -e "${ORANGE}Warning:${NC} ${msg}" ;;
+        error)   echo -e "${RED}Error:${NC} ${msg}" ;;
+        *)       echo -e "${msg}" ;;
+    esac
+}
+
+check_version() {
+    :
+}
+
+download_and_install() {
+    print_message error "download_and_install not implemented in this script version."
+    exit 1
+}
+
+install_from_binary() {
+    print_message error "install_from_binary not implemented in this script version."
+    exit 1
+}
 
 show_logo() {
     echo -e ""
@@ -196,32 +222,6 @@ if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; th
     USE_LOCAL_DASHBOARD=true
 fi
 
-if [ "$local_repo" = "true" ]; then
-    install_from_repo
-    # Install external OpenCode plugins into the user's global plugin dir only
-    # when the user explicitly requests it via an opt-in flag.
-    if [ "${WITH_PLUGINS:-false}" = "true" ]; then
-        install_opencode_morph_plugin
-        install_dynamic_pruning_plugin
-    else
-        print_message info "${MUTED}Skipping optional plugin installs (pass --with-plugins to opt-in)${NC}"
-    fi
-elif [ "$latest_main" = "true" ]; then
-    print_message info "${MUTED}Installing latest main branch build...${NC}"
-    # Fetch latest main branch artifact from GitHub Actions
-    download_from_main
-elif [ "$latest_release" = "true" ]; then
-    print_message info "${MUTED}Installing latest stable release...${NC}"
-    # Default behavior - download latest release
-    check_version
-    download_and_install
-elif [ -n "$binary_path" ]; then
-    install_from_binary
-else
-    # Default: install latest release
-    check_version
-    download_and_install
-fi
 
 uninstall_openhei() {
     print_message info "${MUTED}Uninstalling openhei...${NC}"
@@ -552,9 +552,17 @@ if [ "$local_repo" = "true" ]; then
     else
         print_message info "${MUTED}Skipping optional plugin installs (pass --with-plugins to opt-in)${NC}"
     fi
+elif [ "$latest_main" = "true" ]; then
+    print_message info "${MUTED}Installing latest main branch build...${NC}"
+    download_from_main
+elif [ "$latest_release" = "true" ]; then
+    print_message info "${MUTED}Installing latest stable release...${NC}"
+    check_version
+    download_and_install
 elif [ -n "$binary_path" ]; then
     install_from_binary
 else
+    # Default: install latest release
     check_version
     download_and_install
 fi
