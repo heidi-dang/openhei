@@ -111,6 +111,10 @@ function DensityRootWrapper(props: ParentProps) {
 
   const density = settings && settings.flags.get("ui.density_modes") ? settings.general.density() : undefined
 
+  // INVARIANT: These classes must remain "flex-1 min-h-0 flex flex-col" to propagate
+  // viewport height to children. The density-root div relies on flexbox parent chain
+  // (body -> #root -> density-root) to fill the viewport. Changing these classes
+  // will cause layout regressions where density-root doesn't fill the viewport.
   return (
     <div class="density-root flex-1 min-h-0 flex flex-col" data-density={density}>
       <Show when={settings && !settings.general.dismissedWhatsNewPhase5()}>
