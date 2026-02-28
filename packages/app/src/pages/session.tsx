@@ -1037,7 +1037,7 @@ export default function Page() {
   })
 
   return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
+    <div class="relative bg-background-base flex-1 min-h-0 w-full overflow-hidden flex flex-col">
       <SessionHeader />
       <div class="flex-1 min-h-0 flex flex-col md:flex-row">
         <SessionMobileTabs
@@ -1053,7 +1053,7 @@ export default function Page() {
         <div
           classList={{
             // Always use flex column with minimum height.
-            "relative flex flex-col min-h-0 h-full overflow-hidden bg-background-stronger": true,
+            "relative flex flex-col min-h-0 overflow-hidden bg-background-stronger": true,
             // Ensure the panel fills available space and spans the full width on mobile.
             "flex-1 w-full": true,
             // Prevent shrinking only on desktop when the side panel is open.
@@ -1068,7 +1068,7 @@ export default function Page() {
             width: isDesktop() ? sessionPanelWidth() : undefined,
           }}
         >
-          <div class="flex-1 min-h-0 overflow-hidden">
+          <div class="flex-1 min-h-0 overflow-hidden flex flex-col">
             <Switch>
               <Match when={params.id}>
                 <Show when={streamingStatusEnabled()}>

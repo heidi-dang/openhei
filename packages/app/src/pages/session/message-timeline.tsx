@@ -306,9 +306,9 @@ export function MessageTimeline(props: {
   return (
     <Show
       when={!props.mobileChanges}
-      fallback={<div class="relative h-full overflow-hidden">{props.mobileFallback}</div>}
+      fallback={<div class="relative w-full flex-1 min-h-0 overflow-hidden flex flex-col">{props.mobileFallback}</div>}
     >
-      <div class="relative w-full h-full min-w-0">
+      <div class="relative w-full flex-1 min-h-0 min-w-0 flex flex-col">
         <div
           class="absolute left-1/2 -translate-x-1/2 bottom-6 z-[60] pointer-events-none transition-all duration-200 ease-out"
           classList={{
