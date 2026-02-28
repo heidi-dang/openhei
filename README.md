@@ -41,7 +41,7 @@
 
 ```bash
 # One-line install
-curl -fsSL https://openhei.ai/install | bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 
 # Package managers
 npm i -g openhei-ai@latest  # or bun/pnpm/yarn

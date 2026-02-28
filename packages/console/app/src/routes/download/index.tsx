@@ -118,10 +118,10 @@ export default function Download() {
             <div data-component="section-content">
               <button
                 data-component="cli-row"
-                onClick={handleCopyClick("curl -fsSL https://openhei.ai/install | bash")}
+                onClick={handleCopyClick('bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"')}
               >
                 <code>
-                  curl -fsSL https://<strong>openhei.ai/install</strong> | bash
+                  bash -c "$(curl -fsSL <strong>https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh</strong>)"
                 </code>
                 <CopyStatus />
               </button>

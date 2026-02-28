@@ -24,8 +24,6 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Bun
-
-      - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
       # Do not override git identity in CI. The repository should not set
@@ -87,17 +85,33 @@ jobs:
             packages/app/e2e/test-results
             packages/app/e2e/playwright-report
 
+  lint-installer:
+    name: lint installer docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Check for legacy install URLs
+        run: |
+          if grep -r "openhei.ai/install" README*.md docs/; then
+            echo "Error: Legacy installation URL found in documentation."
+            exit 1
+          fi
+
   required:
     name: test (linux)
     runs-on: ubuntu-latest
     needs:
       - unit
       - e2e
+      - lint-installer
     if: always()
     steps:
       - name: Verify upstream test jobs passed
         run: |
           echo "unit=${{ needs.unit.result }}"
           echo "e2e=${{ needs.e2e.result }}"
+          echo "lint-installer=${{ needs.lint-installer.result }}"
           test "${{ needs.unit.result }}" = "success"
           test "${{ needs.e2e.result }}" = "success"
+          test "${{ needs.lint-installer.result }}" = "success"

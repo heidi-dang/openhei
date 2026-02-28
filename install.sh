@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 APP=openhei
 specific_version=""
 requested_version=""
@@ -23,12 +24,60 @@ print_message() {
 }
 
 check_version() {
-    :
+    if [ -n "$requested_version" ]; then
+        specific_version="$requested_version"
+    else
+        specific_version=$(curl -fsSL https://api.github.com/repos/heidi-dang/openhei/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    fi
+    if [ -z "$specific_version" ]; then
+        print_message error "Could not detect version to install."
+        exit 1
+    fi
 }
 
 download_and_install() {
-    print_message error "download_and_install not implemented in this script version."
-    exit 1
+    local version=$specific_version
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    [ "$os" == "darwin" ] && os="macos"
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+
+    local target="openhei-$os-$arch"
+    local extension="tar.gz"
+    [ "$os" == "windows" ] && extension="zip"
+
+    local url="https://github.com/heidi-dang/openhei/releases/download/v${version}/${target}.${extension}"
+    local tmp_dir=$(mktemp -d)
+    
+    print_message info "Downloading OpenHei v${version} for ${target}..."
+    if ! curl -fsSL "$url" -o "$tmp_dir/package.${extension}"; then
+        print_message error "Failed to download OpenHei from $url"
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+
+    print_message info "Extracting package..."
+    if [ "$extension" == "tar.gz" ]; then
+        tar -xzf "$tmp_dir/package.tar.gz" -C "$tmp_dir"
+    else
+        unzip -q "$tmp_dir/package.zip" -d "$tmp_dir"
+    fi
+
+    # Atomic move
+    rm -rf "$INSTALL_DIR/openhei.tmp"
+    cp "$tmp_dir/bin/openhei" "$INSTALL_DIR/openhei.tmp"
+    chmod 700 "$INSTALL_DIR/openhei.tmp"
+    mv "$INSTALL_DIR/openhei.tmp" "$INSTALL_DIR/openhei"
+    
+    rm -rf "$DASHBOARD_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+    chmod 700 "$DASHBOARD_DIR"
+    cp -r "$tmp_dir/dashboard/"* "$DASHBOARD_DIR/"
+    
+    rm -rf "$tmp_dir"
+    hash -r
+    print_message info "OpenHei v${version} installed successfully."
 }
 
 install_from_binary() {
@@ -109,8 +158,8 @@ Options:
     --uninstall             Uninstall openhei and clean up
 
 Examples:
-    curl -fsSL https://openhei.ai/install | bash
-    curl -fsSL https://openhei.ai/install | bash -s -- --version 1.0.180
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)" -- --version 1.0.180
     ./install.sh --binary /path/to/openhei
     ./install.sh --local-repo --no-modify-path
     ./install.sh --latest-main
@@ -213,6 +262,9 @@ INSTALL_DIR="$INSTALL_BASE/bin"
 DASHBOARD_DIR="$INSTALL_BASE/dashboard"
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DASHBOARD_DIR"
+chmod 700 "$INSTALL_BASE"
+chmod 700 "$INSTALL_DIR"
+chmod 700 "$DASHBOARD_DIR"
 
 # Detect local dashboard in repo for development
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -649,8 +701,14 @@ print_install_summary
 
 # Optional: Run immediately
 export PATH="$INSTALL_DIR:$PATH"
+hash -r
+
+print_message info "\nVerification:"
+print_message info "  Path:    $(which openhei)"
+print_message info "  Version: $(openhei --version)"
+
 if [ -t 0 ]; then
-    echo -e "${ORANGE}Installation complete!${NC}"
+    echo ""
     read -p "Would you like to run openhei now? (y/N) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then

@@ -52,7 +52,7 @@ export namespace Installation {
     switch (method) {
       case "curl":
         return {
-          cmd: ["bash", "-lc", "curl -fsSL https://openhei.ai/install | bash"],
+          cmd: ["bash", "-c", `$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/v${target}/install.sh)`],
           env: { ...process.env, VERSION: target },
         }
       case "npm":
@@ -347,7 +347,7 @@ export namespace Installation {
     let cmd
     switch (method) {
       case "curl":
-        cmd = $`curl -fsSL https://openhei.ai/install | bash`.env({
+        cmd = $`bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/v${target}/install.sh)"`.env({
           ...process.env,
           VERSION: target,
         })

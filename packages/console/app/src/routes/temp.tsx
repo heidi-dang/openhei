@@ -65,10 +65,10 @@ export default function Home() {
           <div data-slot="right">
             <button data-copy data-slot="command">
               <span>
-                <span>curl -fsSL </span>
+                <span>bash -c "$(curl -fsSL </span>
                 <span data-slot="protocol">https://</span>
-                <span data-slot="highlight">openhei.ai/install</span>
-                <span> | bash</span>
+                <span data-slot="highlight">raw.githubusercontent.com/heidi-dang/openhei/main/install.sh</span>
+                <span>)"</span>
               </span>
               <CopyStatus />
             </button>

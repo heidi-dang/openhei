@@ -44,7 +44,7 @@
 
 ```bash
 # YOLO
-curl -fsSL https://openhei.ai/install | bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 
 # Paket yöneticileri
 npm i -g openhei-ai@latest        # veya bun/pnpm/yarn
@@ -90,8 +90,8 @@ Kurulum betiği (install script), kurulum yolu (installation path) için aşağ�
 
 ```bash
 # Örnekler
-OPENHEI_INSTALL_DIR=/usr/local/bin curl -fsSL https://openhei.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://openhei.ai/install | bash
+OPENHEI_INSTALL_DIR=/usr/local/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
+XDG_BIN_DIR=$HOME/.local/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 ```
 
 ### Ajanlar
