@@ -2089,7 +2089,7 @@ export default function Layout(props: ParentProps) {
 
         <main
           classList={{
-            "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base": true,
+            "size-full overflow-x-hidden flex flex-col contain-strict border-t border-border-weak-base": true,
             "xl:border-l xl:rounded-tl-[12px]": !layout.sidebar.opened(),
           }}
         >

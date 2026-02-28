@@ -571,7 +571,16 @@ export namespace File {
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
     if (!Instance.containsPath(resolved)) {
-      throw new Error(`Access denied: path escapes project directory`)
+      return []
+    }
+
+    if (!(await Filesystem.exists(resolved))) {
+      return []
+    }
+
+    const stat = await fs.promises.stat(resolved).catch(() => undefined)
+    if (!stat || !stat.isDirectory()) {
+      return []
     }
 
     const nodes: Node[] = []

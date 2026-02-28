@@ -179,7 +179,7 @@ export const { use: useHighlights, provider: HighlightsProvider } = createSimple
         signal: controller.signal,
         headers: { Accept: "application/json" },
       })
-        .then((response) => (response.ok ? (response.json() as Promise<unknown>) : undefined))
+        .then((response) => (response?.ok ? (response.json() as Promise<unknown>) : undefined))
         .then((json) => {
           if (!json) return
           const highlights = loadReleaseHighlights(json, platform.version, previous)
@@ -196,7 +196,9 @@ export const { use: useHighlights, provider: HighlightsProvider } = createSimple
             dialog.show(() => <DialogReleaseNotes highlights={highlights} />)
           }, 500)
         })
-        .catch(() => undefined)
+        .catch(() => {
+          // Silently ignore changelog errors (e.g. offline, DNS failure) to prevent console spam
+        })
     }
 
     createEffect(() => {

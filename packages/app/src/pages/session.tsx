@@ -1039,7 +1039,7 @@ export default function Page() {
   return (
     <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
       <SessionHeader />
-      <div class="relative flex-1 min-h-0 flex flex-col md:flex-row">
+      <div class="flex-1 min-h-0 flex flex-col md:flex-row">
         <SessionMobileTabs
           open={!isDesktop() && !!params.id}
           mobileTab={store.mobileTab}
@@ -1052,12 +1052,10 @@ export default function Page() {
         {/* Session panel */}
         <div
           classList={{
-            // Always use relative positioning and flex column with minimum height.
+            // Always use flex column with minimum height.
             "relative flex flex-col min-h-0 h-full bg-background-stronger": true,
             // Ensure the panel fills available space and spans the full width on mobile.
             "flex-1 w-full": true,
-            // Apply container queries only on desktop to avoid Safari sizing bugs on mobile.
-            "@container": isDesktop(),
             // Prevent shrinking only on desktop when the side panel is open.
             "shrink-0": isDesktop() && desktopSidePanelOpen(),
             // Maintain flex-none on desktop to allow the panel to collapse correctly when open.
