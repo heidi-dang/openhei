@@ -46,6 +46,9 @@ const clientFor = (directory: string) => {
       command: async () => ({ data: undefined }),
       abort: async () => ({ data: undefined }),
     },
+    app: {
+      log: async () => ({ data: undefined }),
+    },
     worktree: {
       create: async () => ({ data: { directory: `${directory}/new` } }),
     },
@@ -304,6 +307,7 @@ describe("prompt submit stale session recovery", () => {
 
     const event = { preventDefault: () => undefined } as unknown as Event
     await submit.handleSubmit(event)
+    await new Promise((r) => setTimeout(r, 0))
 
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
@@ -366,6 +370,7 @@ describe("prompt submit stale session recovery", () => {
 
     const event = { preventDefault: () => undefined } as unknown as Event
     await submit.handleSubmit(event)
+    await new Promise((r) => setTimeout(r, 0))
 
     // Inspect the last promptAsync call and assert no agent/tools fields
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
@@ -403,6 +408,7 @@ describe("prompt submit stale session recovery", () => {
 
     const event = { preventDefault: () => undefined } as unknown as Event
     await submit.handleSubmit(event)
+    await new Promise((r) => setTimeout(r, 0))
 
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
@@ -432,6 +438,7 @@ describe("prompt submit stale session recovery", () => {
 
     const event = { preventDefault: () => undefined } as unknown as Event
     await submit.handleSubmit(event)
+    await new Promise((r) => setTimeout(r, 0))
 
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
