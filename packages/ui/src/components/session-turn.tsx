@@ -4,7 +4,7 @@ import { useDiffComponent } from "../context/diff"
 
 import { Binary } from "@openhei-ai/util/binary"
 import { getDirectory, getFilename } from "@openhei-ai/util/path"
-import { createEffect, createMemo, createSignal, For, on, ParentProps, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, on, onCleanup, ParentProps, Show, untrack } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import { AssistantParts, Message, PART_MAPPING } from "./message-part"
 import { Card } from "./card"
@@ -18,6 +18,7 @@ import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
 import ThinkingDrawer from "./thinking-drawer"
 import { ActivityPanel } from "./activity-panel"
+import { GhostCode } from "./ghost-code"
 // imported helper used below
 import shouldRenderThinkingDrawer from "./session-turn.helpers"
 
@@ -359,6 +360,84 @@ export function SessionTurn(
     return true
   })
 
+  // Track terminal log activity for heuristic speed calculation & latency checks
+  const [lastActivityAt, setLastActivityAt] = createSignal(Date.now())
+  const [activitySpeed, setActivitySpeed] = createSignal(0) // normalized speed 0 to 1
+  const [morphPhase, setMorphPhase] = createSignal<"terminal" | "skeleton">("terminal")
+
+  createEffect(() => {
+    const linesLength = props.activityPanel?.terminalLines.length
+    if (!linesLength) return
+
+    const now = Date.now()
+    const elapsed = now - untrack(() => lastActivityAt())
+    setLastActivityAt(now)
+
+    // Heuristic: target is ~3 updates per second (333ms elapsed) for max speed (1)
+    // Very slow: >2000ms elapsed = min speed (0)
+    if (elapsed < 2000) {
+      const speed = Math.max(0, 1 - Math.min(elapsed, 2000) / 2000)
+      setActivitySpeed(speed)
+    } else {
+      setActivitySpeed(0)
+    }
+
+    // Hybrid Morph Sequence Parsing
+    // Trigger phase changes based on the actual tool terminal lines content
+    const lastLines = untrack(() => props.activityPanel!.terminalLines.slice(-3).map((l: any) => l.text.toLowerCase()))
+    const triggersSkeleton = lastLines.some(
+      (t: string) =>
+        t.includes("applying to file") ||
+        t.includes("writing") ||
+        t.includes("patching") ||
+        t.includes("diff") ||
+        t.includes("applying diff"),
+    )
+
+    const currentPhase = untrack(() => morphPhase())
+
+    // Switch to skeleton phase if we detect diff/file applying keywords
+    if (triggersSkeleton && currentPhase === "terminal") {
+      setMorphPhase("skeleton")
+    }
+
+    // Reset back to terminal if a new high level plan/search starts
+    const triggersTerminal = lastLines.some(
+      (t: string) => t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
+    )
+    if (triggersTerminal && !triggersSkeleton && currentPhase === "skeleton") {
+      setMorphPhase("terminal")
+    }
+  })
+
+  // Diff phase tracking
+  // If we actually have a diff file loaded into state, we're in phase 3 (diff) and the skeletons dissolve
+  const isDiffPhase = createMemo(() => edited() > 0)
+
+  const [isStuck, setIsStuck] = createSignal(false)
+
+  // Decay speed over time if no new updates come in & Trigger stuck state
+  createEffect(() => {
+    if (!working()) {
+      setIsStuck(false)
+      return
+    }
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastActivityAt()
+      if (elapsed > 1000) {
+        setActivitySpeed((s) => Math.max(0, s - 0.1))
+      }
+
+      // If no updates for 3000ms and we are working, show stuck warning
+      if (elapsed > 3000) {
+        setIsStuck(true)
+      } else {
+        setIsStuck(false)
+      }
+    }, 500)
+    onCleanup(() => clearInterval(interval))
+  })
+
   const autoScroll = createAutoScroll({
     working,
     onUserInteracted: props.onUserInteracted,
@@ -417,20 +496,34 @@ export function SessionTurn(
                     <Show when={!showReasoningSummaries() && reasoningHeading()}>
                       {(text) => <span data-slot="session-turn-thinking-heading">{text()}</span>}
                     </Show>
-                    <Show when={props.activityPanel}>
-                      <div class="mt-4">
-                        <ActivityPanel
-                          phaseTitle={props.activityPanel!.phaseTitle}
-                          terminalLines={props.activityPanel!.terminalLines}
-                          status={props.activityPanel!.status}
-                          disconnected={props.activityPanel!.disconnected}
-                          idle={props.activityPanel!.idle}
-                          errorDetails={props.activityPanel!.errorDetails}
-                          defaultExpanded={props.activityPanel!.status === "error"}
-                          maxHeight="220px"
-                        />
-                      </div>
-                    </Show>
+
+                    {/* Hybrid Morph Container */}
+                    <div class="mt-4 relative transition-all duration-700 ease-in-out">
+                      {/* GhostCode / Skeleton Phase */}
+                      <Show when={morphPhase() === "skeleton" && !isDiffPhase() && props.activityPanel}>
+                        <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                          <GhostCode lines={6} />
+                        </div>
+                      </Show>
+
+                      {/* Terminal Phase */}
+                      <Show when={props.activityPanel}>
+                        <div class={`transition-all duration-500 ${morphPhase() === 'skeleton' ? 'opacity-80 scale-95 origin-bottom' : 'opacity-100 scale-100'}`}>
+                          <ActivityPanel
+                            phaseTitle={props.activityPanel!.phaseTitle}
+                            terminalLines={props.activityPanel!.terminalLines}
+                            status={props.activityPanel!.status}
+                            disconnected={props.activityPanel!.disconnected}
+                            idle={props.activityPanel!.idle}
+                            errorDetails={props.activityPanel!.errorDetails}
+                            defaultExpanded={props.activityPanel!.status === "error"}
+                            maxHeight="220px"
+                            speed={activitySpeed()}
+                            stuck={isStuck()}
+                          />
+                        </div>
+                      </Show>
+                    </div>
                   </div>
                 </Show>
                 <Show when={edited() > 0 && !working()}>
