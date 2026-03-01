@@ -142,16 +142,22 @@ export const SettingsQLoRA: Component = () => {
     lastEventTime: 0,
   })
 
-  const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor").catch(() => undefined as unknown as Doctor))
-  const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models").catch(() => ({ models: [] })))
-  const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models").catch(() => ({ models: [] })))
+  const [doc, docActions] = createResource(() =>
+    get<Doctor>("/api/v1/qlora/doctor").catch(() => undefined as unknown as Doctor),
+  )
+  const [teachers] = createResource(() =>
+    get<{ models: string[] }>("/api/v1/qlora/teacher-models").catch(() => ({ models: [] })),
+  )
+  const [bases] = createResource(() =>
+    get<{ models: string[] }>("/api/v1/qlora/base-models").catch(() => ({ models: [] })),
+  )
   const [stacks] = createResource(() => get<Stack[]>("/api/v1/qlora/stacks").catch(() => [] as Stack[]))
 
   // Saved config as returned from server (canonical). We keep it separate from the UI store
   const [saved, setSaved] = createStore<Record<string, unknown>>({})
   const [savedAt, setSavedAt] = createSignal<number | null>(null)
 
-  const activeTabs = ["Setup", "Models", "Data", "Training", "Budget", "Monitor", "Artifacts"] as const
+  const activeTabs = ["Setup", "Models", "Data", "Training", "Budget", "Monitor", "Artifacts", "Processes"] as const
   const [activeTab, setActiveTab] = createSignal<(typeof activeTabs)[number]>("Setup")
 
   const put = async <T,>(url: string, body: unknown): Promise<T> => {
@@ -213,6 +219,7 @@ export const SettingsQLoRA: Component = () => {
     Budget: ["teacher_workers", "teacher_batch_size", "teacher_max_tokens", "max_requests"],
     Monitor: [],
     Artifacts: ["save_steps"],
+    Processes: [],
   }
 
   const isDirty = createMemo(() => {
@@ -302,7 +309,7 @@ export const SettingsQLoRA: Component = () => {
     }
     es.onmessage = (e) => {
       updateEventTime()
-      const data = JSON.parse(e.data) as { type: string;[k: string]: unknown }
+      const data = JSON.parse(e.data) as { type: string; [k: string]: unknown }
       if (data.type === "heartbeat" || data.type === "connected") return
       if (data.type === "progress") {
         setStore("progress", {
@@ -498,7 +505,7 @@ export const SettingsQLoRA: Component = () => {
 
       <div class="flex flex-col gap-8 max-w-[900px] min-w-0">
         <div class="bg-surface-raised-base px-4 rounded-lg">
-          <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-border-weak-base last:border-none">
             <div class="flex flex-col gap-0.5 min-w-0">
               <span class="text-14-medium text-text-strong">
                 <span class="inline-flex items-center gap-2">
@@ -520,12 +527,12 @@ export const SettingsQLoRA: Component = () => {
         </div>
 
         <div class="bg-surface-raised-base px-4 rounded-lg">
-          <div class="flex items-center gap-2 py-3 border-b border-border-weak-base overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-            <div class="flex items-center gap-2 min-w-max pr-4 sm:pr-0 sm:min-w-0">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3 py-3 border-b border-border-weak-base">
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
               {activeTabs.map((t) => (
                 <button
                   type="button"
-                  class={`px-3 py-1 rounded ${activeTab() === t ? "bg-surface-strong text-text-strong" : "text-text-weak hover:text-text-base"}`}
+                  class={`px-3 py-1 rounded shrink-0 ${activeTab() === t ? "bg-surface-strong text-text-strong" : "text-text-weak hover:text-text-base"}`}
                   onClick={() => setActiveTab(t)}
                 >
                   {t}
@@ -535,7 +542,7 @@ export const SettingsQLoRA: Component = () => {
                 </button>
               ))}
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 sm:ml-auto">
               <div class="text-12-regular text-text-weak mr-2">
                 {savedAt() ? `Saved ${new Date(savedAt()!).toLocaleString()}` : "Not saved"}
               </div>
@@ -817,7 +824,7 @@ export const SettingsQLoRA: Component = () => {
 
           <Show when={activeTab() === "Monitor"}>
             <div>
-              <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-border-weak-base last:border-none">
                 <div class="flex flex-col gap-0.5 min-w-0">
                   <span class="text-14-medium text-text-strong">
                     <span class="inline-flex items-center gap-2">
@@ -886,9 +893,294 @@ export const SettingsQLoRA: Component = () => {
               </div>
             </div>
           </Show>
+
+          <ProcessesTab isActive={activeTab() === "Processes"} />
         </div>
       </div>
     </div>
+  )
+}
+
+type ProcessInfo = {
+  pid: number
+  ppid: number
+  cmd: string
+  cwd?: string
+  user: string
+  started_at: string
+  tag: "qlora" | "child"
+}
+
+const ProcessesTab: Component<{ isActive: boolean }> = (props) => {
+  const [processes, setProcesses] = createSignal<ProcessInfo[]>([])
+  const [loading, setLoading] = createSignal(false)
+  const [pidInput, setPidInput] = createSignal("")
+  const [confirmModal, setConfirmModal] = createSignal<ProcessInfo | null>(null)
+  const [killLoading, setKillLoading] = createSignal(false)
+  const [killMessage, setKillMessage] = createSignal("")
+
+  const fetchProcesses = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/v1/qlora/pids")
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setProcesses(data.processes ?? [])
+    } catch (e: any) {
+      showToast({ title: "Failed to fetch processes", description: String(e?.message ?? e) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const eligiblePids = () => new Set(processes().map((p) => p.pid))
+
+  const isPidEligible = (pid: number) => eligiblePids().has(pid)
+
+  const openKillConfirm = () => {
+    const pid = parseInt(pidInput(), 10)
+    if (!Number.isFinite(pid)) {
+      showToast({ title: "Invalid PID", description: "Please enter a valid numeric PID" })
+      return
+    }
+    const proc = processes().find((p) => p.pid === pid)
+    if (!proc) {
+      showToast({ title: "PID not eligible", description: "This PID is not in the QLoRA process list" })
+      return
+    }
+    setConfirmModal(proc)
+    setKillMessage("")
+  }
+
+  const killProcess = async (signal?: "SIGTERM" | "SIGKILL") => {
+    const proc = confirmModal()
+    if (!proc) return
+    setKillLoading(true)
+    try {
+      const res = await fetch("/api/v1/qlora/kill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pid: proc.pid, signal }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setKillMessage(data.error || "Failed to kill process")
+        showToast({ title: "Kill failed", description: data.error || "Unknown error" })
+      } else {
+        setKillMessage(data.message)
+        showToast({ title: "Kill signal sent", description: data.message })
+        if (data.message.includes("terminated")) {
+          setTimeout(() => {
+            setConfirmModal(null)
+            void fetchProcesses()
+          }, 500)
+        }
+      }
+    } catch (e: any) {
+      setKillMessage(String(e?.message ?? e))
+      showToast({ title: "Kill failed", description: String(e?.message ?? e) })
+    } finally {
+      setKillLoading(false)
+    }
+  }
+
+  const formatUptime = (startedAt: string) => {
+    const start = new Date(startedAt).getTime()
+    const diff = Date.now() - start
+    if (diff < 0) return "just now"
+    const seconds = Math.floor(diff / 1000)
+    const minutes = Math.floor(seconds / 60)
+    const hours = Math.floor(minutes / 60)
+    const days = Math.floor(hours / 24)
+    if (days > 0) return `${days}d ${hours % 24}h`
+    if (hours > 0) return `${hours}h ${minutes % 60}m`
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`
+    return `${seconds}s`
+  }
+
+  const pidColorClass = (tag: "qlora" | "child") => {
+    if (tag === "qlora") return "text-text-success"
+    return "text-text-warning"
+  }
+
+  // Fetch on mount and when tab becomes visible
+  onMount(() => {
+    void fetchProcesses()
+  })
+
+  createEffect(() => {
+    if (props.isActive) void fetchProcesses()
+  })
+
+  return (
+    <Show when={props.isActive}>
+      <div>
+        {/* Controls */}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-border-weak-base">
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="text-14-medium text-text-strong">QLoRA Processes</span>
+            <span class="text-12-regular text-text-weak">Manage running QLoRA-related processes</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button size="small" variant="secondary" onClick={fetchProcesses} disabled={loading()}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* PID Input */}
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 py-3 border-b border-border-weak-base">
+          <div class="flex items-center gap-2 flex-1">
+            <TextField
+              type="number"
+              placeholder="Enter PID"
+              value={pidInput()}
+              onChange={setPidInput}
+              class="w-full sm:w-[150px]"
+            />
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={openKillConfirm}
+              disabled={!pidInput() || !isPidEligible(parseInt(pidInput(), 10))}
+            >
+              <Icon name="trash" />
+              Kill
+            </Button>
+          </div>
+        </div>
+
+        {/* Process Table */}
+        <div class="py-3">
+          <Show when={!loading()} fallback={<div class="text-14-regular text-text-weak">Loading...</div>}>
+            <Show
+              when={processes().length > 0}
+              fallback={<div class="text-14-regular text-text-weak">No QLoRA processes found</div>}
+            >
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-border-weak-base">
+                      <th class="py-2 px-2 text-12-medium text-text-weak">PID</th>
+                      <th class="py-2 px-2 text-12-medium text-text-weak">Role</th>
+                      <th class="py-2 px-2 text-12-medium text-text-weak">Command</th>
+                      <th class="py-2 px-2 text-12-medium text-text-weak">Uptime</th>
+                      <th class="py-2 px-2 text-12-medium text-text-weak">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={processes()}>
+                      {(proc) => (
+                        <tr class="border-b border-border-weak-base/50 hover:bg-surface-raised-base/50">
+                          <td class={`py-2 px-2 text-14-medium ${pidColorClass(proc.tag)}`}>{proc.pid}</td>
+                          <td class="py-2 px-2 text-14-regular text-text-base capitalize">{proc.tag}</td>
+                          <td class="py-2 px-2 text-14-regular text-text-base max-w-[300px]">
+                            <div class="truncate" title={proc.cmd}>
+                              {proc.cmd}
+                            </div>
+                          </td>
+                          <td class="py-2 px-2 text-14-regular text-text-weak">{formatUptime(proc.started_at)}</td>
+                          <td class="py-2 px-2">
+                            <Button
+                              size="small"
+                              variant="secondary"
+                              onClick={() => {
+                                setPidInput(String(proc.pid))
+                                openKillConfirm()
+                              }}
+                            >
+                              <Icon name="trash" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </Show>
+          </Show>
+        </div>
+
+        {/* Confirmation Modal */}
+        <Show when={confirmModal()}>
+          {(proc) => (
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <div class="bg-surface-raised-base rounded-lg border border-border-weak-base p-6 max-w-md w-full shadow-lg">
+                <h3 class="text-16-medium text-text-strong mb-4">Confirm Process Termination</h3>
+
+                <div class="space-y-2 mb-4">
+                  <div class="flex justify-between">
+                    <span class="text-12-regular text-text-weak">PID:</span>
+                    <span class="text-14-medium text-text-error">{proc().pid}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-12-regular text-text-weak">PPID:</span>
+                    <span class="text-14-regular text-text-base">{proc().ppid}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-12-regular text-text-weak">Command:</span>
+                    <span class="text-14-regular text-text-base truncate max-w-[200px]" title={proc().cmd}>
+                      {proc().cmd}
+                    </span>
+                  </div>
+                  <Show when={proc().cwd}>
+                    <div class="flex justify-between">
+                      <span class="text-12-regular text-text-weak">CWD:</span>
+                      <span class="text-14-regular text-text-base truncate max-w-[200px]" title={proc().cwd}>
+                        {proc().cwd}
+                      </span>
+                    </div>
+                  </Show>
+                  <div class="flex justify-between">
+                    <span class="text-12-regular text-text-weak">User:</span>
+                    <span class="text-14-regular text-text-base">{proc().user}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-12-regular text-text-weak">Uptime:</span>
+                    <span class="text-14-regular text-text-base">{formatUptime(proc().started_at)}</span>
+                  </div>
+                </div>
+
+                <Show when={killMessage()}>
+                  <div class="bg-surface-base rounded p-3 mb-4 text-12-regular text-text-base">{killMessage()}</div>
+                </Show>
+
+                <div class="flex flex-col sm:flex-row gap-2 justify-end">
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => {
+                      setConfirmModal(null)
+                      setKillMessage("")
+                    }}
+                    disabled={killLoading()}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={() => killProcess("SIGTERM")}
+                    disabled={killLoading()}
+                  >
+                    SIGTERM
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="primary"
+                    onClick={() => killProcess("SIGKILL")}
+                    disabled={killLoading()}
+                  >
+                    SIGKILL
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </Show>
+      </div>
+    </Show>
   )
 }
 
@@ -898,8 +1190,8 @@ const clampInt = (value: number, min: number, max: number) => {
 }
 
 const Row: Component<any> = (props) => (
-  <div class="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-    <div class="flex flex-col gap-0.5 min-w-0 flex-1 sm:flex-none">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-border-weak-base last:border-none">
+    <div class="flex flex-col gap-0.5 min-w-0">
       <span class="text-14-medium text-text-strong">
         <span class="inline-flex items-center gap-2">
           <span>{props.title}</span>
@@ -908,7 +1200,7 @@ const Row: Component<any> = (props) => (
       </span>
       <span class="text-12-regular text-text-weak">{props.desc}</span>
     </div>
-    <div class="flex-shrink-0 w-full sm:w-auto flex justify-end">{props.children}</div>
+    <div class="flex-shrink-0 w-full sm:w-auto">{props.children}</div>
   </div>
 )
 
