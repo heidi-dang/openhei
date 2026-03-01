@@ -353,10 +353,15 @@ export function SessionTurn(
       .filter((text): text is string => !!text)
       .at(-1),
   )
+  // Show the thinking bubble whenever the current turn is working and there is
+  // no fatal error. Previously this was gated by assistant visibility and
+  // tail heuristics which caused the bubble to remain hidden during normal
+  // reasoning (no terminal logs). Decouple the bubble visibility from those
+  // heuristics so the skeleton/ghost effect appears immediately when the
+  // model is thinking. Downstream rendering still chooses between skeleton
+  // and terminal based on presence of activity data.
   const showThinking = createMemo(() => {
     if (!working() || !!error()) return false
-    if (showReasoningSummaries()) return assistantVisible() === 0
-    if (assistantTailVisible() === "text") return false
     return true
   })
 
@@ -500,23 +505,34 @@ export function SessionTurn(
                       {(text) => <span data-slot="session-turn-thinking-heading">{text()}</span>}
                     </Show>
 
-                    {/* Hybrid Morph Container */}
+                    {/* Hybrid Morph Container: show a skeleton when the turn is working and no
+                        terminal/activity logs are present; otherwise show the normal
+                        ActivityPanel when activity data exists. This decouples the
+                        skeleton UI from the presence of activity data so the bubble
+                        appears immediately during normal reasoning turns. */}
                     <div class="mt-4 relative transition-all duration-700 ease-in-out">
-                      {/* GhostCode / Skeleton Phase */}
-                      <Show when={morphPhase() === "skeleton" && !isDiffPhase() && props.activityPanel}>
+                      {/* If there is no activity panel (normal reasoning), always show a
+                          skeleton/ghost while we're in the thinking state. If activity
+                          data exists, fall back to the morphPhase-driven skeleton. */}
+                      <Show when={!props.activityPanel}>
                         <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                           <GhostCode lines={6} />
                         </div>
                       </Show>
 
-                      {/* Terminal Phase */}
+                      {/* GhostCode when we have activity data and morphPhase indicates skeleton */}
+                      <Show when={props.activityPanel && morphPhase() === "skeleton" && !isDiffPhase()}>
+                        <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                          <GhostCode lines={6} />
+                        </div>
+                      </Show>
+
+                      {/* Terminal Phase: render ActivityPanel when activity data exists */}
                       <Show when={props.activityPanel}>
                         {(panel) => (
                           <div
                             class={`transition-all duration-500 ${
-                              morphPhase() === "skeleton"
-                                ? "opacity-80 scale-95 origin-bottom"
-                                : "opacity-100 scale-100"
+                              morphPhase() === "skeleton" ? "opacity-80 scale-95 origin-bottom" : "opacity-100 scale-100"
                             }`}
                           >
                             <ActivityPanel
