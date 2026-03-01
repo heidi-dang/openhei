@@ -163,6 +163,8 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         title: language.t("prompt.toast.modelAgentRequired.title"),
         description: language.t("prompt.toast.modelAgentRequired.description"),
       })
+      // Ensure we clean up any pending UI state if we abort early
+      input.onSubmit?.()
       return
     }
 
@@ -557,7 +559,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       }
     }
 
-    void send().catch((err) => {
+    return send().catch((err) => {
       pending.delete(session.id)
       if (sessionDirectory === projectDirectory) {
         sync.set("session_status", session.id, { type: "idle" })

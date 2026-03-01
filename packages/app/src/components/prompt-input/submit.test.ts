@@ -49,6 +49,9 @@ const clientFor = (directory: string) => {
     worktree: {
       create: async () => ({ data: { directory: `${directory}/new` } }),
     },
+    app: {
+      log: async () => ({ data: undefined }),
+    },
   }
 }
 
@@ -82,17 +85,23 @@ beforeAll(async () => {
     checksum: () => "sum",
   }))
 
-  mock.module("@/context/local", () => ({
-    useLocal: () => ({
-      model: {
-        current: () => ({ id: "model", provider: { id: "provider" } }),
-        variant: { current: () => undefined },
-      },
-      agent: {
-        current: () => ({ name: "agent" }),
-      },
-    }),
-  }))
+  mock.module("@/context/local", () => {
+    let agentName: string | undefined = "agent"
+    return {
+      useLocal: () => ({
+        model: {
+          current: () => ({ id: "model", provider: { id: "provider" } }),
+          variant: { current: () => undefined },
+        },
+        agent: {
+          current: () => (agentName ? { name: agentName } : undefined),
+          set: (name: string | undefined) => {
+            agentName = name
+          },
+        },
+      }),
+    }
+  })
 
   mock.module("@/context/prompt", () => ({
     usePrompt: () => ({
@@ -183,7 +192,7 @@ beforeAll(async () => {
   createPromptSubmit = mod.createPromptSubmit
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   createdClients.length = 0
   createdSessions.length = 0
   sentShell.length = 0
@@ -193,6 +202,20 @@ beforeEach(() => {
   toasts.length = 0
   selected = "/repo/worktree-a"
   params = {}
+
+  const localMod = await import("@/context/local")
+  if (localMod.useLocal().agent?.set) {
+    localMod.useLocal().agent.set("agent")
+  }
+
+  mock.module("@/context/settings", () => ({
+    useSettings: () => ({
+      general: {
+        chatMode: () => "agent",
+        setChatMode: (v: string) => undefined,
+      },
+    }),
+  }))
 })
 
 describe("prompt submit worktree selection", () => {
@@ -303,7 +326,9 @@ describe("prompt submit stale session recovery", () => {
     })
 
     const event = { preventDefault: () => undefined } as unknown as Event
-    await submit.handleSubmit(event)
+    const p = submit.handleSubmit(event)
+    await Bun.sleep(1) // flush microtasks for the void promise
+    await p
 
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
@@ -312,6 +337,12 @@ describe("prompt submit stale session recovery", () => {
   })
 
   test("chat-only mode strips agent/tools and parts", async () => {
+    // We also need local.agent.current() to be undefined in chat-only to fully test the scenario
+    const localMod = await import("@/context/local")
+    if (localMod.useLocal().agent?.set) {
+      localMod.useLocal().agent.set(undefined)
+    }
+
     // Remock settings to return chat_only
     mock.module("@/context/settings", () => ({
       useSettings: () => ({
@@ -322,10 +353,12 @@ describe("prompt submit stale session recovery", () => {
       }),
     }))
 
+    // Wait a tick for modules to settle if needed
+    await Bun.sleep(1)
+
     // re-import the module to pick up new mock
     const mod = await import("./submit")
     const createPromptSubmitLocal = mod.createPromptSubmit
-
     params = { id: "ses_ok", dir: "/repo/main" }
 
     // Provide a prompt that would include an agent part if not stripped
@@ -365,7 +398,9 @@ describe("prompt submit stale session recovery", () => {
     })
 
     const event = { preventDefault: () => undefined } as unknown as Event
-    await submit.handleSubmit(event)
+    const p = submit.handleSubmit(event)
+    await Bun.sleep(1)
+    await p
 
     // Inspect the last promptAsync call and assert no agent/tools fields
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
@@ -402,7 +437,9 @@ describe("prompt submit stale session recovery", () => {
     })
 
     const event = { preventDefault: () => undefined } as unknown as Event
-    await submit.handleSubmit(event)
+    const p = submit.handleSubmit(event)
+    await Bun.sleep(1)
+    await p
 
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]

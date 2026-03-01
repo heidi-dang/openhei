@@ -366,8 +366,9 @@ export function SessionTurn(
   const [morphPhase, setMorphPhase] = createSignal<"terminal" | "skeleton">("terminal")
 
   createEffect(() => {
-    const linesLength = props.activityPanel?.terminalLines.length
-    if (!linesLength) return
+    const activityPanel = props.activityPanel
+    const terminalLines = activityPanel?.terminalLines
+    if (!terminalLines || terminalLines.length === 0) return
 
     const now = Date.now()
     const elapsed = now - untrack(() => lastActivityAt())
@@ -403,7 +404,8 @@ export function SessionTurn(
 
     // Reset back to terminal if a new high level plan/search starts
     const triggersTerminal = lastLines.some(
-      (t: string) => t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
+      (t: string) =>
+        t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
     )
     if (triggersTerminal && !triggersSkeleton && currentPhase === "skeleton") {
       setMorphPhase("terminal")
@@ -420,6 +422,7 @@ export function SessionTurn(
   createEffect(() => {
     if (!working()) {
       setIsStuck(false)
+      setActivitySpeed(0)
       return
     }
     const interval = setInterval(() => {
@@ -508,20 +511,28 @@ export function SessionTurn(
 
                       {/* Terminal Phase */}
                       <Show when={props.activityPanel}>
-                        <div class={`transition-all duration-500 ${morphPhase() === 'skeleton' ? 'opacity-80 scale-95 origin-bottom' : 'opacity-100 scale-100'}`}>
-                          <ActivityPanel
-                            phaseTitle={props.activityPanel!.phaseTitle}
-                            terminalLines={props.activityPanel!.terminalLines}
-                            status={props.activityPanel!.status}
-                            disconnected={props.activityPanel!.disconnected}
-                            idle={props.activityPanel!.idle}
-                            errorDetails={props.activityPanel!.errorDetails}
-                            defaultExpanded={props.activityPanel!.status === "error"}
-                            maxHeight="220px"
-                            speed={activitySpeed()}
-                            stuck={isStuck()}
-                          />
-                        </div>
+                        {(panel) => (
+                          <div
+                            class={`transition-all duration-500 ${
+                              morphPhase() === "skeleton"
+                                ? "opacity-80 scale-95 origin-bottom"
+                                : "opacity-100 scale-100"
+                            }`}
+                          >
+                            <ActivityPanel
+                              phaseTitle={panel().phaseTitle}
+                              terminalLines={panel().terminalLines}
+                              status={panel().status}
+                              disconnected={panel().disconnected}
+                              idle={panel().idle}
+                              errorDetails={panel().errorDetails}
+                              defaultExpanded={panel().status === "error"}
+                              maxHeight="220px"
+                              speed={activitySpeed()}
+                              stuck={isStuck()}
+                            />
+                          </div>
+                        )}
                       </Show>
                     </div>
                   </div>
