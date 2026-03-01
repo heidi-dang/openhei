@@ -1,7 +1,7 @@
-import { createEffect, createMemo, For, onCleanup, Show } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createEffect, createMemo, For, onCleanup, Show, createSignal } from "solid-js"
+import { createStore, produce } from "solid-js/store"
 import { Portal } from "solid-js/web"
-import { useParams } from "@solidjs/router"
+import { useParams, useNavigate } from "@solidjs/router"
 import { useLayout } from "@/context/layout"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
@@ -12,6 +12,8 @@ import { useGlobalSDK } from "@/context/global-sdk"
 import { getFilename } from "@openhei-ai/util/path"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
+import { Binary } from "@openhei-ai/util/binary"
+import type { Session } from "@openhei-ai/sdk/v2/client"
 
 import { Icon } from "@openhei-ai/ui/icon"
 import { IconButton } from "@openhei-ai/ui/icon-button"
@@ -296,6 +298,65 @@ export function SessionHeader() {
     platform,
   })
 
+  // Session dropdown state and functions
+  const navigate = useNavigate()
+  const [sessionMenuOpen, setSessionMenuOpen] = createSignal(false)
+  const [confirmDelete, setConfirmDelete] = createSignal<Session | null>(null)
+  const [deleting, setDeleting] = createSignal(false)
+
+  // Get sessions from sync context for this directory
+  const sessions = createMemo(() => {
+    const dir = projectDirectory()
+    if (!dir) return []
+    return sync.data.session.filter((s) => s.directory === dir && !s.time?.archived)
+  })
+
+  // Archive session (soft delete)
+  const archiveSession = async (session: Session) => {
+    const sessionList = sessions()
+    const index = sessionList.findIndex((s) => s.id === session.id)
+    const nextSession = sessionList[index + 1] ?? sessionList[index - 1]
+
+    setDeleting(true)
+    try {
+      await sync.session.archive(session.id)
+
+      showToast({
+        variant: "success",
+        icon: "circle-check",
+        title: "Session archived",
+        description: session.title || session.id,
+      })
+
+      // Navigate away if we deleted current session
+      if (session.id === params.id) {
+        if (nextSession) {
+          navigate(`/${params.dir}/session/${nextSession.id}`)
+        } else {
+          navigate(`/${params.dir}/session`)
+        }
+      }
+    } catch (err) {
+      showRequestError(language, err)
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(null)
+    }
+  }
+
+  // Format session display name
+  const formatSessionName = (session: Session) => {
+    if (session.title) return session.title
+    const date = new Date(session.time.created)
+    return `Session — ${date.toLocaleString()}`
+  }
+
+  // Get session status indicator - returns true if session is busy/active
+  const isSessionActive = (session: Session) => {
+    const status = sync.data.session_status[session.id]
+    return status?.type === "busy" || status?.type === "replay"
+  }
+
   const centerMount = createMemo(() => document.getElementById("openhei-titlebar-center"))
   const rightMount = createMemo(() => document.getElementById("openhei-titlebar-right"))
 
@@ -328,6 +389,121 @@ export function SessionHeader() {
           </Portal>
         )}
       </Show>
+
+      {/* Session Dropdown Selector */}
+      <Show when={params.id && sessions().length > 0}>
+        <div class="flex items-center gap-2 px-4 py-2 border-b border-border-weak-base bg-surface-base">
+          <DropdownMenu gutter={4} placement="bottom-start" open={sessionMenuOpen()} onOpenChange={setSessionMenuOpen}>
+            <DropdownMenu.Trigger
+              as={Button}
+              variant="secondary"
+              size="small"
+              class="flex items-center gap-2 min-w-0 max-w-[280px] sm:max-w-[320px]"
+            >
+              <span class="truncate text-14-medium">{formatSessionName(currentSession()!)}</span>
+              <Icon name="chevron-down" size="small" class="shrink-0" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content class="w-[280px] sm:w-[320px] max-h-[60vh] overflow-y-auto">
+                <DropdownMenu.Group>
+                  <DropdownMenu.GroupLabel>Switch session</DropdownMenu.GroupLabel>
+                  <For each={sessions()}>
+                    {(session) => {
+                      const isActive = () => session.id === params.id
+                      const active = () => isSessionActive(session)
+                      return (
+                        <div class="flex items-center gap-1 group">
+                          <DropdownMenu.Item
+                            class="flex-1 min-w-0"
+                            onSelect={() => {
+                              setSessionMenuOpen(false)
+                              navigate(`/${params.dir}/session/${session.id}`)
+                            }}
+                          >
+                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                              <div
+                                class="w-2 h-2 rounded-full shrink-0"
+                                classList={{
+                                  "bg-text-success": active(),
+                                  "bg-text-weak": !active(),
+                                }}
+                              />
+                              <span
+                                class="truncate text-14-regular flex-1"
+                                classList={{
+                                  "text-text-strong": isActive(),
+                                  "text-text-base": !isActive(),
+                                }}
+                              >
+                                {formatSessionName(session)}
+                              </span>
+                              {isActive() && <Icon name="check-small" size="small" class="text-icon-weak shrink-0" />}
+                            </div>
+                          </DropdownMenu.Item>
+                          <IconButton
+                            icon="trash"
+                            variant="ghost"
+                            size="small"
+                            class="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 h-8 w-8"
+                            aria-label="Archive session"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setConfirmDelete(session)
+                              setSessionMenuOpen(false)
+                            }}
+                          />
+                        </div>
+                      )
+                    }}
+                  </For>
+                </DropdownMenu.Group>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu>
+
+          {/* Delete button for current session (visible on mobile too) */}
+          <IconButton
+            icon="trash"
+            variant="ghost"
+            size="small"
+            class="shrink-0 h-8 w-8 md:hidden"
+            aria-label="Archive session"
+            onClick={() => {
+              const cs = currentSession()
+              if (cs) setConfirmDelete(cs)
+            }}
+          />
+        </div>
+      </Show>
+
+      {/* Delete Confirmation Modal */}
+      <Show when={confirmDelete()}>
+        {(session) => (
+          <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="bg-surface-raised-base rounded-lg border border-border-weak-base p-6 max-w-md w-full shadow-lg">
+              <h3 class="text-16-medium text-text-strong mb-2">Archive session?</h3>
+              <p class="text-14-regular text-text-base mb-4">
+                This will archive "{formatSessionName(session())}". You can restore it later from the session list.
+              </p>
+              <div class="flex flex-col sm:flex-row gap-2 justify-end">
+                <Button size="small" variant="secondary" onClick={() => setConfirmDelete(null)} disabled={deleting()}>
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  variant="primary"
+                  class="bg-text-error hover:bg-text-error/90"
+                  onClick={() => void archiveSession(session())}
+                  disabled={deleting()}
+                >
+                  {deleting() ? "Archiving..." : "Archive"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Show>
+
       <Show when={rightMount()}>
         {(mount) => (
           <Portal mount={mount()}>
