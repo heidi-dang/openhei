@@ -382,6 +382,11 @@ export const dict = {
   "context.usage.clickToView": "Click to view context",
   "context.usage.view": "View context usage",
 
+  "settings.general.row.mode.title": "Mode",
+  "settings.general.row.mode.description": "Choose Agent to allow tools, or Chat-only to disable tools.",
+  "settings.general.row.mode.option.agent": "Agent",
+  "settings.general.row.mode.option.chatOnly": "Chat-only (tools disabled)",
+
   "language.en": "English",
   "language.zh": "简体中文",
   "language.zht": "繁體中文",

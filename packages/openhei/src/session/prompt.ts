@@ -28,12 +28,12 @@ import { LSP } from "../lsp"
 import { ReadTool } from "../tool/read"
 import { FileTime } from "../file/time"
 import { Flag } from "../flag/flag"
+import { Config } from "../config/config"
 import { ulid } from "ulid"
 import { spawn } from "child_process"
 import { Command } from "../command"
 import { $, fileURLToPath, pathToFileURL } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
-import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { NamedError } from "@openhei-ai/util/error"
 import { fn } from "@/util/fn"
@@ -756,7 +756,8 @@ export namespace SessionPrompt {
         ],
         tools: toolsForLLM,
         model,
-        toolChoice: format.type === "json_schema" ? "required" : undefined,
+        toolChoice:
+          config.chat_mode === "simple_chat" ? "none" : format.type === "json_schema" ? "required" : undefined,
       })
 
       // If structured output was captured, save it and exit immediately

@@ -169,6 +169,16 @@ beforeAll(async () => {
     }),
   }))
 
+  // Provide a default settings mock; tests can override by remocking if needed
+  mock.module("@/context/settings", () => ({
+    useSettings: () => ({
+      general: {
+        chatMode: () => "agent",
+        setChatMode: (v: string) => undefined,
+      },
+    }),
+  }))
+
   const mod = await import("./submit")
   createPromptSubmit = mod.createPromptSubmit
 })
@@ -299,6 +309,76 @@ describe("prompt submit stale session recovery", () => {
     const call = promptAsyncCalls[promptAsyncCalls.length - 1]
     const textPart = call.input.parts.find((p: any) => p.type === "text")
     expect(textPart.metadata?.send_option).toBe("no_reply")
+  })
+
+  test("chat-only mode strips agent/tools and parts", async () => {
+    // Remock settings to return chat_only
+    mock.module("@/context/settings", () => ({
+      useSettings: () => ({
+        general: {
+          chatMode: () => "chat_only",
+          setChatMode: (v: string) => undefined,
+        },
+      }),
+    }))
+
+    // re-import the module to pick up new mock
+    const mod = await import("./submit")
+    const createPromptSubmitLocal = mod.createPromptSubmit
+
+    params = { id: "ses_ok", dir: "/repo/main" }
+
+    // Provide a prompt that would include an agent part if not stripped
+    const promptWithAgent: Prompt = [
+      { type: "text", content: "Hello", start: 0, end: 5 },
+      { type: "agent", name: "agentX", content: "run", start: 6, end: 9 } as any,
+    ]
+
+    // Remock prompt to return our special prompt
+    mock.module("@/context/prompt", () => ({
+      usePrompt: () => ({
+        current: () => promptWithAgent,
+        reset: () => undefined,
+        set: () => undefined,
+        context: {
+          add: () => undefined,
+          remove: () => undefined,
+          items: () => [],
+        },
+      }),
+    }))
+
+    const submit = createPromptSubmitLocal({
+      info: () => undefined,
+      imageAttachments: () => [],
+      commentCount: () => 0,
+      mode: () => "normal",
+      working: () => false,
+      editor: () => undefined,
+      queueScroll: () => undefined,
+      promptLength: (value) => value.reduce((sum, part) => sum + ("content" in part ? part.content.length : 0), 0),
+      addToHistory: () => undefined,
+      resetHistoryNavigation: () => undefined,
+      setMode: () => undefined,
+      setPopover: () => undefined,
+      onSubmit: () => undefined,
+    })
+
+    const event = { preventDefault: () => undefined } as unknown as Event
+    await submit.handleSubmit(event)
+
+    // Inspect the last promptAsync call and assert no agent/tools fields
+    expect(promptAsyncCalls.length).toBeGreaterThan(0)
+    const call = promptAsyncCalls[promptAsyncCalls.length - 1]
+    expect(call.input.agent).toBeUndefined()
+    expect(call.input.tools).toBeUndefined()
+    expect(call.input.tool_choice).toBeUndefined()
+    expect(call.input.toolChoice).toBeUndefined()
+    // Ensure no part of type agent or tool exists
+    const hasAgentPart = call.input.parts.some((p: any) => p.type === "agent")
+    const hasToolPart = call.input.parts.some((p: any) => p.type === "tool")
+    expect(hasAgentPart).toBe(false)
+    expect(hasToolPart).toBe(false)
   })
 
   test("default selection omits metadata", async () => {

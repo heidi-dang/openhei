@@ -14,6 +14,7 @@ import { DialogSelectProvider } from "./dialog-select-provider"
 import { DialogManageModels } from "./dialog-manage-models"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
+import { useGlobalSync } from "@/context/global-sync"
 
 const isFree = (provider: string, cost: { input: number } | undefined) =>
   provider === "openhei" && (!cost || cost.input === 0)

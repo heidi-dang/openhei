@@ -39,6 +39,9 @@ export interface Settings {
     //  - 'always': render the drawer for assistant messages even if reasoning_summary is missing
     //  - 'never' : never render (useful as a user preference independent of the feature flag)
     thinkingDrawerMode?: "auto" | "always" | "never"
+    // Chat mode controls whether the UI may invoke tools/agents.
+    // Allowed values: 'agent' (default) or 'chat_only' (tools disabled)
+    chatMode?: "agent" | "chat_only"
   }
   ml: {
     qloraEnabled: boolean
@@ -82,6 +85,7 @@ const defaultSettings: Settings = {
     showReasoningSummaries: false,
     density: "comfortable",
     thinkingDrawerMode: "auto",
+    chatMode: "agent",
   },
   ml: {
     qloraEnabled: false,
@@ -187,6 +191,13 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setThinkingDrawerMode(value: "auto" | "always" | "never") {
           setStore("general", "thinkingDrawerMode", value)
+        },
+        chatMode: withFallback(
+          () => store.general?.chatMode as "agent" | "chat_only" | undefined,
+          defaultSettings.general.chatMode as "agent" | "chat_only",
+        ),
+        setChatMode(value: "agent" | "chat_only") {
+          setStore("general", "chatMode", value)
         },
         density: withFallback(
           () => store.general?.density as "comfortable" | "compact" | "spacious" | undefined,

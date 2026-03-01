@@ -617,6 +617,31 @@ export const SettingsGeneral: Component = () => {
 
         <UpdatesSection />
 
+        <div class="flex flex-col gap-1">
+          <h3 class="text-14-medium text-text-strong pb-2">Mode</h3>
+
+          <div class="bg-surface-raised-base px-4 rounded-lg">
+            <SettingsRow
+              title={(language.t as any)("settings.general.row.mode.title")}
+              description={(language.t as any)("settings.general.row.mode.description")}
+            >
+              <Select
+                options={[
+                  { value: "agent", label: (language.t as any)("settings.general.row.mode.option.agent") },
+                  { value: "chat_only", label: (language.t as any)("settings.general.row.mode.option.chatOnly") },
+                ]}
+                current={{ value: settings.general.chatMode(), label: settings.general.chatMode() }}
+                value={(o: any) => o.value}
+                label={(o: any) => o.label}
+                onSelect={(option: any) => option && settings.general.setChatMode(option.value)}
+                variant="secondary"
+                size="small"
+                triggerVariant="settings"
+              />
+            </SettingsRow>
+          </div>
+        </div>
+
         <Show when={linux()}>
           {(_) => {
             const [valueResource, actions] = createResource(() => platform.getDisplayBackend?.())
