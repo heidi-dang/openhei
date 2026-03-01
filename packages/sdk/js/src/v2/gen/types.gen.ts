@@ -589,6 +589,15 @@ export type SessionStatus =
     }
   | {
       type: "busy"
+      runId?: string
+    }
+  | {
+      type: "replay"
+      message?: string
+    }
+  | {
+      type: "resync_required"
+      message?: string
     }
   | {
       type: "replay"
@@ -1911,6 +1920,16 @@ export type InstallationInfo = {
   latest: string
 }
 
+export type InstallationUpdateStatus = {
+  state: "idle" | "running" | "complete" | "failed"
+  progress: number
+  message?: string
+  target?: string
+  startedAt?: number
+  finishedAt?: number
+  error?: string
+}
+
 export type OAuth = {
   type: "oauth"
   refresh: string
@@ -2428,6 +2447,45 @@ export type GlobalUpdateInstallResponses = {
 }
 
 export type GlobalUpdateInstallResponse = GlobalUpdateInstallResponses[keyof GlobalUpdateInstallResponses]
+
+export type GlobalUpdateStatusData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/update/status"
+}
+
+export type GlobalUpdateStatusResponses = {
+  /**
+   * Update status
+   */
+  200: InstallationUpdateStatus
+}
+
+export type GlobalUpdateStatusResponse = GlobalUpdateStatusResponses[keyof GlobalUpdateStatusResponses]
+
+export type GlobalDebugData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/debug"
+}
+
+export type GlobalDebugResponses = {
+  /**
+   * Debug information
+   */
+  200: {
+    buildId: string
+    gitSha: string | null
+    buildTime: string | null
+    version: string
+    channel: string
+    distSha: string | null
+  }
+}
+
+export type GlobalDebugResponse = GlobalDebugResponses[keyof GlobalDebugResponses]
 
 export type AuthRemoveData = {
   body?: never
@@ -3618,6 +3676,46 @@ export type SessionPromptResponses = {
 
 export type SessionPromptResponse = SessionPromptResponses[keyof SessionPromptResponses]
 
+export type SessionDeleteMessageData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Message ID
+     */
+    messageID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/session/{sessionID}/message/{messageID}"
+}
+
+export type SessionDeleteMessageErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionDeleteMessageError = SessionDeleteMessageErrors[keyof SessionDeleteMessageErrors]
+
+export type SessionDeleteMessageResponses = {
+  /**
+   * Successfully deleted message
+   */
+  200: boolean
+}
+
+export type SessionDeleteMessageResponse = SessionDeleteMessageResponses[keyof SessionDeleteMessageResponses]
+
 export type SessionMessageData = {
   body?: never
   path: {
@@ -4148,6 +4246,46 @@ export type QuestionRejectResponses = {
 
 export type QuestionRejectResponse = QuestionRejectResponses[keyof QuestionRejectResponses]
 
+export type RunsEventsData = {
+  body?: never
+  path: {
+    runId: string
+  }
+  query?: {
+    directory?: string
+    replay?: boolean
+    limit?: number
+  }
+  url: "/runs/{runId}/events"
+}
+
+export type RunsEventsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type RunsEventsError = RunsEventsErrors[keyof RunsEventsErrors]
+
+export type RunsEventsResponses = {
+  /**
+   * Event stream
+   */
+  200: {
+    type: string
+    properties: {
+      [key: string]: unknown
+    }
+  }
+}
+
+export type RunsEventsResponse = RunsEventsResponses[keyof RunsEventsResponses]
+
 export type ProviderListData = {
   body?: never
   path?: never
@@ -4330,6 +4468,420 @@ export type ProviderOauthCallbackResponses = {
 }
 
 export type ProviderOauthCallbackResponse = ProviderOauthCallbackResponses[keyof ProviderOauthCallbackResponses]
+
+export type QloraGetStacksData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/stacks"
+}
+
+export type QloraGetStacksResponses = {
+  /**
+   * Stack list
+   */
+  200: Array<{
+    id: string
+    label: string
+    description: string
+    available: boolean
+    reason?: string
+  }>
+}
+
+export type QloraGetStacksResponse = QloraGetStacksResponses[keyof QloraGetStacksResponses]
+
+export type QloraGetConfigData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/config"
+}
+
+export type QloraGetConfigResponses = {
+  /**
+   * Config
+   */
+  200: {
+    run_id?: string
+    preset?: string
+    stack?: "python" | "cpp" | "github-ci" | "mixed"
+    max_repos?: number
+    rounds?: number
+    samples_per_run?: number
+    max_requests?: number
+    base_model: string
+    train_steps?: number
+    save_steps?: number
+    eval_steps?: number
+    seq_len?: number
+    batch_size?: number
+    grad_accum?: number
+    lora_r?: number
+    val_ratio?: number
+    heidi_engine_python?: string
+    heidi_engine_path?: string
+    teacher: {
+      teacher_backend?: "legacy" | "openhei"
+      teacher_model: string
+      teacher_workers?: number
+      teacher_batch_size?: number
+      teacher_max_tokens?: number
+      openhei_attach?: string
+      openhei_agent?: string
+      openhei_start?: boolean
+      openhei_attach_strict?: boolean
+    }
+  }
+}
+
+export type QloraGetConfigResponse = QloraGetConfigResponses[keyof QloraGetConfigResponses]
+
+export type QloraPutConfigData = {
+  body?: {
+    run_id?: string
+    preset?: string
+    stack?: "python" | "cpp" | "github-ci" | "mixed"
+    max_repos?: number
+    rounds?: number
+    samples_per_run?: number
+    max_requests?: number
+    base_model: string
+    train_steps?: number
+    save_steps?: number
+    eval_steps?: number
+    seq_len?: number
+    batch_size?: number
+    grad_accum?: number
+    lora_r?: number
+    val_ratio?: number
+    heidi_engine_python?: string
+    heidi_engine_path?: string
+    teacher: {
+      teacher_backend?: "legacy" | "openhei"
+      teacher_model: string
+      teacher_workers?: number
+      teacher_batch_size?: number
+      teacher_max_tokens?: number
+      openhei_attach?: string
+      openhei_agent?: string
+      openhei_start?: boolean
+      openhei_attach_strict?: boolean
+    }
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/config"
+}
+
+export type QloraPutConfigErrors = {
+  /**
+   * Validation error
+   */
+  400: {
+    error: {
+      code: string
+      message: string
+      fieldErrors?: {
+        [key: string]: Array<string>
+      }
+    }
+  }
+}
+
+export type QloraPutConfigError = QloraPutConfigErrors[keyof QloraPutConfigErrors]
+
+export type QloraPutConfigResponses = {
+  /**
+   * Saved
+   */
+  200: {
+    run_id?: string
+    preset?: string
+    stack?: "python" | "cpp" | "github-ci" | "mixed"
+    max_repos?: number
+    rounds?: number
+    samples_per_run?: number
+    max_requests?: number
+    base_model: string
+    train_steps?: number
+    save_steps?: number
+    eval_steps?: number
+    seq_len?: number
+    batch_size?: number
+    grad_accum?: number
+    lora_r?: number
+    val_ratio?: number
+    heidi_engine_python?: string
+    heidi_engine_path?: string
+    teacher: {
+      teacher_backend?: "legacy" | "openhei"
+      teacher_model: string
+      teacher_workers?: number
+      teacher_batch_size?: number
+      teacher_max_tokens?: number
+      openhei_attach?: string
+      openhei_agent?: string
+      openhei_start?: boolean
+      openhei_attach_strict?: boolean
+    }
+  }
+}
+
+export type QloraPutConfigResponse = QloraPutConfigResponses[keyof QloraPutConfigResponses]
+
+export type QloraDoctorData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/doctor"
+}
+
+export type QloraDoctorResponses = {
+  /**
+   * Doctor report
+   */
+  200: {
+    installed: boolean
+    tool_dir: string
+    tool_dir_candidates: Array<string>
+    selected_tool_dir?: string
+    venv_python?: string
+    import_ok: boolean
+    import_err?: string
+    reason?: string
+    checks?: {
+      exists: boolean
+      pump_import_ok: boolean
+      venv_python_path?: string
+    }
+    python?: string
+    version?: string
+    gpu?: string
+    disk?: {
+      path: string
+      free_bytes: number
+    }
+    install?: {
+      pid: number
+      started_at: string
+      log: string
+    }
+    active?: {
+      run_id: string
+      pid: number
+      started_at: string
+    }
+    diagnostics?: {
+      sys_executable?: string
+      sys_prefix?: string
+      site_packages?: Array<string>
+      pip_show?: string
+      module_version?: string
+      entrypoints?: Array<unknown>
+      tried?: Array<{
+        cmd: Array<string>
+        code: number
+        out: string
+        err: string
+      }>
+      install_cmd?: string
+    }
+  }
+}
+
+export type QloraDoctorResponse = QloraDoctorResponses[keyof QloraDoctorResponses]
+
+export type QloraInstallData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/install"
+}
+
+export type QloraInstallResponses = {
+  /**
+   * Install result
+   */
+  200: {
+    ok: boolean
+    message: string
+  }
+}
+
+export type QloraInstallResponse = QloraInstallResponses[keyof QloraInstallResponses]
+
+export type QloraTeacherModelsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/teacher-models"
+}
+
+export type QloraTeacherModelsResponses = {
+  /**
+   * Teacher models
+   */
+  200: {
+    models: Array<string>
+  }
+}
+
+export type QloraTeacherModelsResponse = QloraTeacherModelsResponses[keyof QloraTeacherModelsResponses]
+
+export type QloraBaseModelsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/base-models"
+}
+
+export type QloraBaseModelsResponses = {
+  /**
+   * Base models
+   */
+  200: {
+    models: Array<string>
+  }
+}
+
+export type QloraBaseModelsResponse = QloraBaseModelsResponses[keyof QloraBaseModelsResponses]
+
+export type QloraStartData = {
+  body?: {
+    run_id?: string
+    preset?: string
+    stack?: "python" | "cpp" | "github-ci" | "mixed"
+    max_repos?: number
+    rounds?: number
+    samples_per_run?: number
+    max_requests?: number
+    base_model: string
+    train_steps?: number
+    save_steps?: number
+    eval_steps?: number
+    seq_len?: number
+    batch_size?: number
+    grad_accum?: number
+    lora_r?: number
+    val_ratio?: number
+    heidi_engine_python?: string
+    heidi_engine_path?: string
+    teacher: {
+      teacher_backend?: "legacy" | "openhei"
+      teacher_model: string
+      teacher_workers?: number
+      teacher_batch_size?: number
+      teacher_max_tokens?: number
+      openhei_attach?: string
+      openhei_agent?: string
+      openhei_start?: boolean
+      openhei_attach_strict?: boolean
+    }
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/start"
+}
+
+export type QloraStartResponses = {
+  /**
+   * Started
+   */
+  200: {
+    ok: boolean
+    run_id?: string
+    message: string
+  }
+}
+
+export type QloraStartResponse = QloraStartResponses[keyof QloraStartResponses]
+
+export type QloraStopData = {
+  body?: {
+    run_id?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/stop"
+}
+
+export type QloraStopResponses = {
+  /**
+   * Stopped
+   */
+  200: {
+    ok: boolean
+    message: string
+  }
+}
+
+export type QloraStopResponse = QloraStopResponses[keyof QloraStopResponses]
+
+export type QloraStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    run_id?: string
+  }
+  url: "/api/v1/qlora/status"
+}
+
+export type QloraStatusResponses = {
+  /**
+   * Status
+   */
+  200: {
+    ok: boolean
+    run_id?: string
+    running: boolean
+    stage?: string
+    status?: {
+      [key: string]: unknown
+    }
+    ready?: {
+      [key: string]: unknown
+    }
+  }
+}
+
+export type QloraStatusResponse = QloraStatusResponses[keyof QloraStatusResponses]
+
+export type QloraLogsData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    run_id: string
+  }
+  url: "/api/v1/qlora/logs"
+}
+
+export type QloraLogsResponses = {
+  /**
+   * Log stream
+   */
+  200: unknown
+}
 
 export type FindTextData = {
   body?: never

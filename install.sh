@@ -398,6 +398,7 @@ install_from_repo() {
         print_message warning "${MUTED}Not a git repo, cannot determine SHA${NC}"
     fi
 
+
     # Set version to git SHA for this local build
     specific_version="${current_sha:0:8}"
 

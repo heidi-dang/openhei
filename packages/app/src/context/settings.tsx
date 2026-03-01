@@ -177,10 +177,7 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setReleaseNotes(value: boolean) {
           setStore("general", "releaseNotes", value)
         },
-        showReasoningSummaries: withFallback(
-          () => store.general?.showReasoningSummaries,
-          defaultSettings.general.showReasoningSummaries,
-        ),
+        showReasoningSummaries: withFallback(() => store.general?.showReasoningSummaries, true),
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
         },

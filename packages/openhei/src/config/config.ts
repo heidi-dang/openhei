@@ -1,6 +1,7 @@
 import { Log } from "../util/log"
 import path from "path"
 import { pathToFileURL } from "url"
+import { createRequire } from "module"
 import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
@@ -125,6 +126,7 @@ export namespace Config {
     }
 
     result.agent = result.agent || {}
+    result.chat_mode = result.chat_mode || "tool_execution"
     result.mode = result.mode || {}
     result.plugin = result.plugin || []
 
@@ -213,6 +215,11 @@ export namespace Config {
           mode: "primary" as const,
         },
       })
+    }
+
+    // Migrate deprecated mode field to chat_mode
+    if (result.mode && typeof result.mode === "object" && !result.chat_mode) {
+      result.chat_mode = "tool_execution"
     }
 
     if (Flag.OPENHEI_PERMISSION) {
@@ -1133,6 +1140,12 @@ export namespace Config {
         .catchall(Agent)
         .optional()
         .describe("@deprecated Use `agent` field instead."),
+      chat_mode: z
+        .enum(["tool_execution", "simple_chat"])
+        .optional()
+        .describe(
+          "Control whether the system uses tool execution or simple chat mode. 'tool_execution' enables tool calls and file operations, 'simple_chat' provides a conversational experience without tool execution.",
+        ),
       agent: z
         .object({
           // primary
@@ -1388,7 +1401,16 @@ export namespace Config {
           const plugin = data.plugin[i]
           try {
             data.plugin[i] = import.meta.resolve!(plugin, options.path)
-          } catch (err) {}
+          } catch (e) {
+            try {
+              // import.meta.resolve sometimes fails with newly created node_modules
+              const require = createRequire(options.path)
+              const resolvedPath = require.resolve(plugin)
+              data.plugin[i] = pathToFileURL(resolvedPath).href
+            } catch {
+              // Ignore, plugin might be a generic string identifier like "mcp-server"
+            }
+          }
         }
       }
       return data
