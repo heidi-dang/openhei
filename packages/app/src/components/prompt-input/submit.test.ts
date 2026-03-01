@@ -16,10 +16,14 @@ let selected = "/repo/worktree-a"
 const promptValue: Prompt = [{ type: "text", content: "ls", start: 0, end: 2 }]
 
 let params: Record<string, string | undefined> = {}
+let currentPromptVal: Prompt | undefined
 
 const clientFor = (directory: string) => {
   createdClients.push(directory)
   return {
+    app: {
+      log: async () => ({ data: undefined }),
+    },
     session: {
       create: async () => {
         createdSessions.push(directory)
@@ -94,18 +98,6 @@ beforeAll(async () => {
     }),
   }))
 
-  mock.module("@/context/prompt", () => ({
-    usePrompt: () => ({
-      current: () => promptValue,
-      reset: () => undefined,
-      set: () => undefined,
-      context: {
-        add: () => undefined,
-        remove: () => undefined,
-        items: () => [],
-      },
-    }),
-  }))
 
   mock.module("@/context/layout", () => ({
     useLayout: () => ({
@@ -151,6 +143,19 @@ beforeAll(async () => {
     }),
   }))
 
+  mock.module("@/context/prompt", () => ({
+    usePrompt: () => ({
+      current: () => currentPromptVal ?? promptValue,
+      reset: () => undefined,
+      set: () => undefined,
+      context: {
+        add: () => undefined,
+        remove: () => undefined,
+        items: () => [],
+      },
+    }),
+  }))
+
   mock.module("@/context/platform", () => ({
     usePlatform: () => ({
       fetch: fetch,
@@ -170,11 +175,12 @@ beforeAll(async () => {
   }))
 
   // Provide a default settings mock; tests can override by remocking if needed
+  let chatModeSetting = "agent"
   mock.module("@/context/settings", () => ({
     useSettings: () => ({
       general: {
-        chatMode: () => "agent",
-        setChatMode: (v: string) => undefined,
+        chatMode: () => chatModeSetting,
+        setChatMode: (v: string) => { chatModeSetting = v },
       },
     }),
   }))
@@ -312,19 +318,11 @@ describe("prompt submit stale session recovery", () => {
   })
 
   test("chat-only mode strips agent/tools and parts", async () => {
-    // Remock settings to return chat_only
-    mock.module("@/context/settings", () => ({
-      useSettings: () => ({
-        general: {
-          chatMode: () => "chat_only",
-          setChatMode: (v: string) => undefined,
-        },
-      }),
-    }))
+    // Modify the settings mock to return chat_only for this test
+    const settings = await import("@/context/settings")
+    settings.useSettings().general.setChatMode("chat_only")
 
-    // re-import the module to pick up new mock
-    const mod = await import("./submit")
-    const createPromptSubmitLocal = mod.createPromptSubmit
+    const createPromptSubmitLocal = createPromptSubmit
 
     params = { id: "ses_ok", dir: "/repo/main" }
 
@@ -334,19 +332,8 @@ describe("prompt submit stale session recovery", () => {
       { type: "agent", name: "agentX", content: "run", start: 6, end: 9 } as any,
     ]
 
-    // Remock prompt to return our special prompt
-    mock.module("@/context/prompt", () => ({
-      usePrompt: () => ({
-        current: () => promptWithAgent,
-        reset: () => undefined,
-        set: () => undefined,
-        context: {
-          add: () => undefined,
-          remove: () => undefined,
-          items: () => [],
-        },
-      }),
-    }))
+    // Set prompt to our special prompt
+    currentPromptVal = promptWithAgent
 
     const submit = createPromptSubmitLocal({
       info: () => undefined,
@@ -379,6 +366,10 @@ describe("prompt submit stale session recovery", () => {
     const hasToolPart = call.input.parts.some((p: any) => p.type === "tool")
     expect(hasAgentPart).toBe(false)
     expect(hasToolPart).toBe(false)
+
+    // restore chatMode and prompt for other tests
+    settings.useSettings().general.setChatMode("agent")
+    currentPromptVal = undefined
   })
 
   test("default selection omits metadata", async () => {
