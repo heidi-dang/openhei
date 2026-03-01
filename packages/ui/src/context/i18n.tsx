@@ -7,7 +7,8 @@ export type UiI18nParams = Record<string, string | number | boolean>
 
 export type UiI18n = {
   locale: Accessor<string>
-  t: (key: UiI18nKey, params?: UiI18nParams) => string
+  // Accept known keys or arbitrary strings to avoid strict literal typing
+  t: (key: UiI18nKey | string, params?: UiI18nParams) => string
 }
 
 function resolveTemplate(text: string, params?: UiI18nParams) {
