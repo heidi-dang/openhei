@@ -1,0 +1,166 @@
+.activity-panel-container {
+  position: relative;
+  width: 100%;
+  border-radius: var(--border-radius-large);
+  background-color: #0b0f19; /* dark terminal background */
+  overflow: hidden;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+/* Glowing Border Effect */
+.activity-panel-container[data-status="running"]::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    90deg,
+    #3b82f6,
+    #8b5cf6,
+    #ec4899,
+    #3b82f6
+  );
+  background-size: 400% 100%;
+  border-radius: calc(var(--border-radius-large) + 2px);
+  z-index: 0;
+  animation: border-glow var(--glow-duration, 2s) linear infinite;
+  opacity: 0.8;
+  filter: blur(2px);
+  transition: animation-duration 0.3s ease;
+}
+
+.activity-panel-content {
+  position: relative;
+  z-index: 1;
+  background-color: #0b0f19;
+  border-radius: var(--border-radius-large);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-panel-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.activity-panel-header:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.activity-panel-body {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.activity-terminal {
+  overflow-y: auto;
+  color: #e5e7eb;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.activity-terminal-line {
+  display: flex;
+  align-items: flex-start;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.activity-terminal-prefix {
+  flex-shrink: 0;
+  width: 16px;
+  color: #9ca3af;
+  margin-right: 8px;
+  text-align: right;
+}
+
+.activity-terminal-time {
+  flex-shrink: 0;
+  color: #6b7280;
+  margin-right: 8px;
+}
+
+.activity-terminal-text {
+  flex-grow: 1;
+}
+
+.activity-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background-color: #e5e7eb;
+  vertical-align: text-bottom;
+}
+
+.activity-cursor.blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes border-glow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Stuck Overlay Warning */
+.activity-stuck-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-large);
+  pointer-events: none;
+}
+
+.activity-stuck-text {
+  font-family: var(--font-family-mono);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  animation: stuck-flash 1s infinite alternate;
+}
+
+@keyframes stuck-flash {
+  0% {
+    color: #ef4444; /* red */
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+  }
+  100% {
+    color: #22c55e; /* green */
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+  }
+}
