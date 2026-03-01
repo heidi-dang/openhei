@@ -10,6 +10,7 @@ import { useLayout } from "@/context/layout"
 import { useLocal } from "@/context/local"
 import { type ImageAttachmentPart, type Prompt, usePrompt } from "@/context/prompt"
 import { useSDK } from "@/context/sdk"
+import { useSettings } from "@/context/settings"
 import { useSync } from "@/context/sync"
 import { Identifier } from "@/utils/id"
 import { Worktree as WorktreeState } from "@/utils/worktree"
@@ -77,6 +78,7 @@ type CommentItem = {
 export function createPromptSubmit(input: PromptSubmitInput) {
   const navigate = useNavigate()
   const sdk = useSDK()
+  const settings = useSettings()
   const sync = useSync()
   const globalSync = useGlobalSync()
   const local = useLocal()
@@ -152,7 +154,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
 
     const currentModel = local.model.current()
     const currentAgent = local.agent.current()
-    if (!currentModel || !currentAgent) {
+    const chatOnly = settings.general.chatMode() === "chat_only"
+
+    // If Chat-only mode is active, disallow agent/tool actions and avoid sending
+    // any agent/tools metadata to the server. Require only model for basic chat.
+    if (!currentModel || (!chatOnly && !currentAgent)) {
       showToast({
         title: language.t("prompt.toast.modelAgentRequired.title"),
         description: language.t("prompt.toast.modelAgentRequired.description"),
@@ -288,7 +294,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       modelID: currentModel.id,
       providerID: currentModel.provider.id,
     }
-    const agent = currentAgent.name
+    const agent = chatOnly ? undefined : currentAgent!.name
     const variant = local.model.variant.current()
 
     const clearInput = () => {
@@ -311,11 +317,18 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
 
     if (mode === "shell") {
+      if (chatOnly) {
+        showToast({
+          title: language.t("prompt.toast.promptSendFailed.title"),
+          description: "Tools are disabled in Chat-only mode. Switch to Agent mode to perform actions.",
+        })
+        return
+      }
       clearInput()
       client.session
         .shell({
           sessionID: session.id,
-          agent,
+          agent: agent as string,
           model,
           command: text,
         })
@@ -340,13 +353,20 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const commandName = cmdName.slice(1)
       const customCommand = sync.data.command.find((c) => c.name === commandName)
       if (customCommand) {
+        if (chatOnly) {
+          showToast({
+            title: language.t("prompt.toast.commandSendFailed.title"),
+            description: "Tools are disabled in Chat-only mode. Switch to Agent mode to perform actions.",
+          })
+          return
+        }
         clearInput()
         client.session
           .command({
             sessionID: session.id,
             command: commandName,
             arguments: args.join(" "),
-            agent,
+            agent: agent as string,
             model: `${model.providerID}/${model.modelID}`,
             variant,
             parts: images.map((attachment) => ({
@@ -394,14 +414,16 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       sendOption: selectedSendOption,
     })
 
-    const optimisticMessage: Message = {
+    // Build optimistic message as `any` to avoid strict typing issues for the
+    // transient optimistic object (agent may be omitted in chat-only).
+    const optimisticMessage: any = {
       id: messageID,
       sessionID: session.id,
       role: "user",
       time: { created: Date.now() },
-      agent,
       model,
     }
+    if (agent) optimisticMessage.agent = agent
 
     const addOptimisticMessage = () =>
       sync.session.optimistic.add({
@@ -489,14 +511,41 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       const ok = await waitForWorktree()
       if (!ok) return
       try {
-        await client.session.promptAsync({
+        // If chat-only is enabled, write a single diagnostic log entry (no secrets)
+        if (chatOnly) {
+          // Write a single diagnostic log entry (no secrets)
+          void client.app
+            .log({
+              service: "mode",
+              level: "info",
+              message: "[mode] chat_only — tools disabled by user",
+            })
+            .catch(() => {})
+        }
+
+        // When chat-only mode is enabled, strip any agent/tool parts from the
+        // outgoing parts array so that no tool metadata can be sent to the
+        // backend. This is mandatory to ensure the request payload contains
+        // zero tool-related fields in parts.
+        const filteredParts = chatOnly
+          ? requestParts.filter((p) => {
+              const t = (p as any).type
+              return t !== "agent" && t !== "tool"
+            })
+          : requestParts
+
+        const body: any = {
           sessionID: session.id,
-          agent,
           model,
           messageID,
-          parts: requestParts,
+          parts: filteredParts,
           variant,
-        })
+        }
+        // Only include top-level agent when not in chat-only mode. Do not set
+        // any tool/tool_choice aliases here.
+        if (agent) body.agent = agent
+
+        await client.session.promptAsync(body)
         // Ensure messages are synced after sending prompt
         // This provides a fallback in case SSE events are delayed/not received
         if (session.id) {
