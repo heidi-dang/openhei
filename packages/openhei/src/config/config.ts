@@ -1245,7 +1245,8 @@ export namespace Config {
     const isFile = "path" in options
 
     text = text.replace(/\{env:([^}]+)\}/g, (_, varName) => {
-      return process.env[varName] || ""
+      const val = process.env[varName] || ""
+      return val.replace(/\\/g, "\\\\")
     })
 
     const fileMatches = text.match(/\{file:[^}]+\}/g)

@@ -1392,7 +1392,9 @@ export namespace Provider {
       return { providerID: entry.providerID, modelID: entry.modelID }
     }
 
-    const provider = Object.values(providers).find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id))
+    const provider =
+      Object.values(providers).find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id)) ||
+      Object.values(providers)[0]
     if (!provider) throw new Error("no providers found")
     const [model] = sort(Object.values(provider.models))
     if (!model) throw new Error("no models found")
