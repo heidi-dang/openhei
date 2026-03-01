@@ -126,6 +126,7 @@ export namespace Config {
     }
 
     result.agent = result.agent || {}
+    result.chat_mode = result.chat_mode || "tool_execution"
     result.mode = result.mode || {}
     result.plugin = result.plugin || []
 
@@ -214,6 +215,11 @@ export namespace Config {
           mode: "primary" as const,
         },
       })
+    }
+
+    // Migrate deprecated mode field to chat_mode
+    if (result.mode && typeof result.mode === "object" && !result.chat_mode) {
+      result.chat_mode = "tool_execution"
     }
 
     if (Flag.OPENHEI_PERMISSION) {
@@ -1134,6 +1140,12 @@ export namespace Config {
         .catchall(Agent)
         .optional()
         .describe("@deprecated Use `agent` field instead."),
+      chat_mode: z
+        .enum(["tool_execution", "simple_chat"])
+        .optional()
+        .describe(
+          "Control whether the system uses tool execution or simple chat mode. 'tool_execution' enables tool calls and file operations, 'simple_chat' provides a conversational experience without tool execution.",
+        ),
       agent: z
         .object({
           // primary

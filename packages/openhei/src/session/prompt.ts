@@ -33,6 +33,7 @@ import { spawn } from "child_process"
 import { Command } from "../command"
 import { $, fileURLToPath, pathToFileURL } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
+import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { NamedError } from "@openhei-ai/util/error"
 import { fn } from "@/util/fn"
@@ -50,7 +51,6 @@ import { ActivityEvent } from "@/stream/activity-events"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
-
 
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
@@ -733,6 +733,10 @@ export namespace SessionPrompt {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
       }
 
+      // Check for chat mode configuration and bypass tools if needed
+      const config = await Config.get()
+      const toolsForLLM = config.chat_mode === "simple_chat" ? {} : tools
+
       const result = await processor.process({
         user: lastUser,
         agent,
@@ -750,7 +754,7 @@ export namespace SessionPrompt {
               ]
             : []),
         ],
-        tools,
+        tools: toolsForLLM,
         model,
         toolChoice: format.type === "json_schema" ? "required" : undefined,
       })
