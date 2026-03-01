@@ -82,6 +82,10 @@ export namespace Config {
     }
 
     // Add default values for commonly accessed fields
+    if (source && (source as any).experimental && !(merged as any).experimental) (merged as any).experimental = {}
+    if (source && (source as any).formatter && !(merged as any).formatter) (merged as any).formatter = {}
+    if (source && (source as any).lsp && !(merged as any).lsp) (merged as any).lsp = {}
+    if (source && (source as any).enterprise && !(merged as any).enterprise) (merged as any).enterprise = {}
     if (source && (source as any).plugin && !(merged as any).plugin) (merged as any).plugin = []
     if (source && (source as any).instructions && !(merged as any).instructions) (merged as any).instructions = []
     if (source && (source as any).permission && !(merged as any).permission) (merged as any).permission = {}
@@ -1194,6 +1198,14 @@ export namespace Config {
         .describe("Agent configuration, see https://openhei.ai/docs/agents"),
       provider: z.record(z.string(), Provider).optional().describe("Provider configuration"),
       mcp: z.record(z.string(), Mcp).optional().describe("MCP configuration"),
+      // Experimental and feature-gated settings (kept loose to allow rapid iteration)
+      experimental: z.record(z.string(), z.any()).optional().describe("Experimental/feature flags and settings"),
+      // Formatter configuration used by formatting utilities
+      formatter: z.any().optional().describe("Formatter configuration (may be object or array)"),
+      // LSP configuration overrides
+      lsp: z.any().optional().describe("Language Server Protocol configuration options"),
+      // Enterprise/managed deployment flags
+      enterprise: z.any().optional().describe("Enterprise-specific settings"),
     })
     .meta({
       ref: "Config",

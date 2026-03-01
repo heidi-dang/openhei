@@ -1679,11 +1679,6 @@ export type McpRemoteConfig = {
   timeout?: number
 }
 
-/**
- * @deprecated Always uses stretch layout.
- */
-export type LayoutConfig = "auto" | "stretch"
-
 export type Config = {
   /**
    * JSON schema reference for configuration validation
@@ -1747,6 +1742,17 @@ export type Config = {
     ignore?: Array<string>
   }
   plugin?: Array<string>
+  instructions?: Array<string>
+  permission?: PermissionConfig
+  compaction?: {
+    [key: string]: unknown
+  }
+  /**
+   * @deprecated Use 'permission' field instead
+   */
+  tools?: {
+    [key: string]: boolean
+  }
   snapshot?: boolean
   /**
    * Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
@@ -1793,6 +1799,10 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
+   * Control whether the system uses tool execution or simple chat mode. 'tool_execution' enables tool calls and file operations, 'simple_chat' provides a conversational experience without tool execution.
+   */
+  chat_mode?: "tool_execution" | "simple_chat"
+  /**
    * Agent configuration, see https://openhei.ai/docs/agents
    */
   agent?: {
@@ -1806,104 +1816,16 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Custom provider configurations and model overrides
+   * Provider configuration
    */
   provider?: {
     [key: string]: ProviderConfig
   }
   /**
-   * MCP (Model Context Protocol) server configurations
+   * MCP configuration
    */
   mcp?: {
-    [key: string]:
-      | McpLocalConfig
-      | McpRemoteConfig
-      | {
-          enabled: boolean
-        }
-  }
-  formatter?:
-    | false
-    | {
-        [key: string]: {
-          disabled?: boolean
-          command?: Array<string>
-          environment?: {
-            [key: string]: string
-          }
-          extensions?: Array<string>
-        }
-      }
-  lsp?:
-    | false
-    | {
-        [key: string]:
-          | {
-              disabled: true
-            }
-          | {
-              command: Array<string>
-              extensions?: Array<string>
-              disabled?: boolean
-              env?: {
-                [key: string]: string
-              }
-              initialization?: {
-                [key: string]: unknown
-              }
-            }
-      }
-  /**
-   * Additional instruction files or patterns to include
-   */
-  instructions?: Array<string>
-  layout?: LayoutConfig
-  permission?: PermissionConfig
-  tools?: {
-    [key: string]: boolean
-  }
-  enterprise?: {
-    /**
-     * Enterprise URL
-     */
-    url?: string
-  }
-  compaction?: {
-    /**
-     * Enable automatic compaction when context is full (default: true)
-     */
-    auto?: boolean
-    /**
-     * Enable pruning of old tool outputs (default: true)
-     */
-    prune?: boolean
-    /**
-     * Token buffer for compaction. Leaves enough window to avoid overflow during compaction.
-     */
-    reserved?: number
-  }
-  experimental?: {
-    disable_paste_summary?: boolean
-    /**
-     * Enable the batch tool
-     */
-    batch_tool?: boolean
-    /**
-     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)
-     */
-    openTelemetry?: boolean
-    /**
-     * Tools that should only be available to primary agents.
-     */
-    primary_tools?: Array<string>
-    /**
-     * Continue the agent loop when a tool call is denied
-     */
-    continue_loop_on_deny?: boolean
-    /**
-     * Timeout in milliseconds for model context protocol (MCP) requests
-     */
-    mcp_timeout?: number
+    [key: string]: McpLocalConfig | McpRemoteConfig
   }
 }
 
@@ -4882,6 +4804,76 @@ export type QloraLogsResponses = {
    */
   200: unknown
 }
+
+export type QloraGetPidsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/pids"
+}
+
+export type QloraGetPidsResponses = {
+  /**
+   * Process list
+   */
+  200: {
+    processes: Array<{
+      pid: number
+      ppid: number
+      cmd: string
+      cwd?: string
+      user: string
+      started_at: string
+      tag: "qlora" | "child"
+    }>
+  }
+}
+
+export type QloraGetPidsResponse = QloraGetPidsResponses[keyof QloraGetPidsResponses]
+
+export type QloraKillData = {
+  body?: {
+    pid: number
+    signal?: "SIGTERM" | "SIGKILL"
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/kill"
+}
+
+export type QloraKillErrors = {
+  /**
+   * Invalid request
+   */
+  400: {
+    error: string
+  }
+  /**
+   * Not eligible for kill
+   */
+  403: {
+    error: string
+  }
+}
+
+export type QloraKillError = QloraKillErrors[keyof QloraKillErrors]
+
+export type QloraKillResponses = {
+  /**
+   * Kill result
+   */
+  200: {
+    ok: boolean
+    message: string
+    used_signal?: "SIGTERM" | "SIGKILL"
+  }
+}
+
+export type QloraKillResponse = QloraKillResponses[keyof QloraKillResponses]
 
 export type FindTextData = {
   body?: never

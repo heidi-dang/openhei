@@ -100,8 +100,11 @@ import type {
   QloraBaseModelsResponses,
   QloraDoctorResponses,
   QloraGetConfigResponses,
+  QloraGetPidsResponses,
   QloraGetStacksResponses,
   QloraInstallResponses,
+  QloraKillErrors,
+  QloraKillResponses,
   QloraLogsResponses,
   QloraPutConfigErrors,
   QloraPutConfigResponses,
@@ -2708,6 +2711,58 @@ export class Qlora extends HeyApiClient {
       url: "/api/v1/qlora/logs",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * List QLoRA processes
+   */
+  public getPids<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraGetPidsResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/pids",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Kill a QLoRA process
+   */
+  public kill<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      pid?: number
+      signal?: "SIGTERM" | "SIGKILL"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "pid" },
+            { in: "body", key: "signal" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<QloraKillResponses, QloraKillErrors, ThrowOnError>({
+      url: "/api/v1/qlora/kill",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 }
