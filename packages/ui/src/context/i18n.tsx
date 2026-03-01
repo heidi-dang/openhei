@@ -7,8 +7,8 @@ export type UiI18nParams = Record<string, string | number | boolean>
 
 export type UiI18n = {
   locale: Accessor<string>
-  // Accept known keys or arbitrary strings to avoid strict literal typing
-  t: (key: UiI18nKey | string, params?: UiI18nParams) => string
+  // Accept known keys or arbitrary strings; allow different translator shapes
+  t: (key: any, params?: UiI18nParams) => string
 }
 
 function resolveTemplate(text: string, params?: UiI18nParams) {
@@ -23,7 +23,7 @@ function resolveTemplate(text: string, params?: UiI18nParams) {
 const fallback: UiI18n = {
   locale: () => "en",
   t: (key, params) => {
-    const value = en[key] ?? String(key)
+    const value = (en as Record<string, string>)[key] ?? String(key)
     return resolveTemplate(value, params)
   },
 }

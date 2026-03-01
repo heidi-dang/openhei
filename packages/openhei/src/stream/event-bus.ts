@@ -41,7 +41,7 @@ export namespace RunEventBus {
     }
   }
 
-  export function publish(event: ActivityEvent.Any) {
+  export function publish(event: any) {
     const run = getOrCreateRun(event.run_id)
     const seq = ++globalSeq
     const runSeq = ++run.seq
