@@ -14,6 +14,7 @@ import { DialogSelectProvider } from "./dialog-select-provider"
 import { DialogManageModels } from "./dialog-manage-models"
 import { ModelTooltip } from "./model-tooltip"
 import { useLanguage } from "@/context/language"
+import { useGlobalSync } from "@/context/global-sync"
 
 const isFree = (provider: string, cost: { input: number } | undefined) =>
   provider === "openhei" && (!cost || cost.input === 0)
@@ -81,6 +82,82 @@ const ModelList: Component<{
         </div>
       )}
     </List>
+  )
+}
+
+export function ModelSelectorPopover(props: {
+  provider?: string
+  children?: JSX.Element
+  triggerAs?: ValidComponent
+  triggerProps?: ComponentProps<typeof Kobalte.Trigger>
+}) {
+  const [store, setStore] = createStore<{
+    open: boolean
+    dismiss: "escape" | "outside" | null
+  }>({
+    open: false,
+    dismiss: null,
+  })
+  const local = useLocal()
+  const language = useLanguage()
+  const global = useGlobalSync()
+  const dialog = useDialog()
+
+  const currentModel = local.model.current()
+
+  return (
+    <Kobalte.Root
+      open={store.open}
+      onOpenChange={(open) => {
+        setStore("open", open)
+        setStore("dismiss", null)
+      }}
+    >
+      <Kobalte.Trigger
+        {...props.triggerProps}
+        as={props.triggerAs}
+        class="flex items-center justify-between w-full gap-2 px-3 py-2 text-left rounded-md border border-input bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {props.children || (
+          <>
+            <span class="truncate">
+              {currentModel ? `${currentModel.provider.name}/${currentModel.name}` : language.t("model.none")}
+            </span>
+            <IconButton icon="chevron-down" size="sm" />
+          </>
+        )}
+      </Kobalte.Trigger>
+      <Kobalte.Portal>
+        <Kobalte.Content
+          class="z-50 w-72 rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+          onCloseAutoFocus={(e) => {
+            if (store.dismiss === "outside") {
+              e.preventDefault()
+            }
+          }}
+        >
+          <div class="p-1">
+            <ModelList
+              provider={props.provider}
+              onSelect={() => setStore("open", false)}
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="w-full justify-start"
+                  onClick={() => {
+                    dialog.open(<DialogManageModels />)
+                    setStore("open", false)
+                  }}
+                >
+                  {language.t("model.manage")}
+                </Button>
+              }
+            />
+          </div>
+        </Kobalte.Content>
+      </Kobalte.Portal>
+    </Kobalte.Root>
   )
 }
 

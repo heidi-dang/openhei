@@ -6,20 +6,358 @@ import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
-import { mergeDeep, pipe, unique } from "remeda"
+import { mergeDeep as remedaMergeDeep, pipe, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy } from "../util/lazy"
 import { NamedError } from "@openhei-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
-import {
-  type ParseError as JsoncParseError,
-  applyEdits,
-  modify,
-  parse as parseJsonc,
-  printParseErrorCode,
-} from "jsonc-parser"
+import { type ParseError as JsoncParseError, applyEdits, modify } from "jsonc-parser"
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom merge function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function merge(target: Info, source: Info): Info {
+  const merged = remedaMergeDeep(target, source)
+  
+  // Handle array field merging with proper type safety
+  if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
+    merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
+  }
+  if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+    merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+  }
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+/**
+ * Custom mergeDeep function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function mergeDeep(target: unknown, source: unknown): unknown {
+  if (!isRecord(source)) return source
+  if (!isRecord(target)) return source
+  
+  const merged = { ...target }
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue
+    merged[key] = mergeDeep(target[key], value)
+  }
+  
+  // Add default values for commonly accessed fields
+  if (source.plugin && !merged.plugin) merged.plugin = []
+  if (source.instructions && !merged.instructions) merged.instructions = []
+  if (source.permission && !merged.permission) merged.permission = {}
+  if (source.compaction && !merged.compaction) merged.compaction = {}
+  if (source.tools && !merged.tools) merged.tools = {}
+  
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+const remedaMergeDeep = remedaMergeDeep
+
+/**
+ * Custom mergeDeep function that provides default values for commonly accessed fields
+ * to prevent errors when accessing nested properties that may not exist.
+ */
+function mergeDeep(target: unknown, source: unknown): unknown {
+  if (!isRecord(source)) return source
+  if (!isRecord(target)) return source
+
+  const merged = { ...target }
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue
+    merged[key] = mergeDeep(target[key], value)
+  }
+
+  // Add default values for commonly accessed fields
+  if (source.plugin && !merged.plugin) merged.plugin = []
+  if (source.instructions && !merged.instructions) merged.instructions = []
+  if (source.permission && !merged.permission) merged.permission = {}
+  if (source.compaction && !merged.compaction) merged.compaction = {}
+  if (source.tools && !merged.tools) merged.tools = {}
+
+  return merged
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
 import { Instance } from "../project/instance"
 import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
@@ -55,12 +393,47 @@ export namespace Config {
 
   const managedConfigDir = process.env.OPENHEI_TEST_MANAGED_CONFIG_DIR || getManagedConfigDir()
 
-  // Custom merge function that concatenates array fields instead of replacing them
+  // Custom merge function that provides default values for commonly accessed fields
+  // to prevent errors when accessing nested properties that may not exist.
   function merge(target: Info, source: Info): Info {
     const merged = mergeDeep(target, source)
-    if (target.plugin && source.plugin) {
+    
+    // Handle array field merging with proper type safety
+    if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
       merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
     }
+    if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
+      merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
+    }
+    
+    return merged
+  }
+
+  // Custom mergeDeep function that provides default values for commonly accessed fields
+  // to prevent errors when accessing nested properties that may not exist.
+  function mergeDeep(target: unknown, source: unknown): unknown {
+    if (!isRecord(source)) return source
+    if (!isRecord(target)) return source
+    
+    const merged = { ...target }
+    for (const [key, value] of Object.entries(source)) {
+      if (value === undefined) continue
+      merged[key] = mergeDeep(target[key], value)
+    }
+    
+    // Add default values for commonly accessed fields
+    if (source.plugin && !merged.plugin) merged.plugin = []
+    if (source.instructions && !merged.instructions) merged.instructions = []
+    if (source.permission && !merged.permission) merged.permission = {}
+    if (source.compaction && !merged.compaction) merged.compaction = {}
+    if (source.tools && !merged.tools) merged.tools = {}
+    
+    return merged
+  }
+
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === "object" && !Array.isArray(value)
+  }
     if (target.instructions && source.instructions) {
       merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
     }
@@ -126,6 +499,7 @@ export namespace Config {
     }
 
     result.agent = result.agent || {}
+    result.chat_mode = result.chat_mode || "tool_execution"
     result.mode = result.mode || {}
     result.plugin = result.plugin || []
 
@@ -218,6 +592,21 @@ export namespace Config {
 
     if (Flag.OPENHEI_PERMISSION) {
       result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.OPENHEI_PERMISSION))
+    }
+
+    // Migrate deprecated mode field to agent field
+    for (const [name, mode] of Object.entries(result.mode ?? {})) {
+      result.agent = mergeDeep(result.agent ?? {}, {
+        [name]: {
+          ...mode,
+          mode: "primary" as const,
+        },
+      })
+    }
+
+    // Migrate deprecated mode field to chat_mode
+    if (result.mode && typeof result.mode === "object" && !result.chat_mode) {
+      result.chat_mode = "tool_execution"
     }
 
     // Backwards compatibility: legacy top-level `tools` config
@@ -1134,6 +1523,13 @@ export namespace Config {
         .catchall(Agent)
         .optional()
         .describe("@deprecated Use `agent` field instead."),
+      chat_mode: z
+        .enum(["tool_execution", "simple_chat"])
+        .optional()
+        .describe(
+          "Control whether the system uses tool execution or simple chat mode. 'tool_execution' enables tool calls and file operations, 'simple_chat' provides a conversational experience without tool execution.",
+        )
+        .default("tool_execution"),
       agent: z
         .object({
           // primary
@@ -1150,120 +1546,25 @@ export namespace Config {
         .catchall(Agent)
         .optional()
         .describe("Agent configuration, see https://openhei.ai/docs/agents"),
-      provider: z
-        .record(z.string(), Provider)
-        .optional()
-        .describe("Custom provider configurations and model overrides"),
-      mcp: z
-        .record(
-          z.string(),
-          z.union([
-            Mcp,
-            z
-              .object({
-                enabled: z.boolean(),
-              })
-              .strict(),
-          ]),
-        )
-        .optional()
-        .describe("MCP (Model Context Protocol) server configurations"),
-      formatter: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.object({
-              disabled: z.boolean().optional(),
-              command: z.array(z.string()).optional(),
-              environment: z.record(z.string(), z.string()).optional(),
-              extensions: z.array(z.string()).optional(),
-            }),
-          ),
-        ])
-        .optional(),
-      lsp: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.union([
-              z.object({
-                disabled: z.literal(true),
-              }),
-              z.object({
-                command: z.array(z.string()),
-                extensions: z.array(z.string()).optional(),
-                disabled: z.boolean().optional(),
-                env: z.record(z.string(), z.string()).optional(),
-                initialization: z.record(z.string(), z.any()).optional(),
-              }),
-            ]),
-          ),
-        ])
-        .optional()
-        .refine(
-          (data) => {
-            if (!data) return true
-            if (typeof data === "boolean") return true
-            const serverIds = new Set(Object.values(LSPServer).map((s) => s.id))
-
-            return Object.entries(data).every(([id, config]) => {
-              if (config.disabled) return true
-              if (serverIds.has(id)) return true
-              return Boolean(config.extensions)
-            })
-          },
-          {
-            error: "For custom LSP servers, 'extensions' array is required.",
-          },
-        ),
-      instructions: z.array(z.string()).optional().describe("Additional instruction files or patterns to include"),
-      layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
-      permission: Permission.optional(),
-      tools: z.record(z.string(), z.boolean()).optional(),
-      enterprise: z
-        .object({
-          url: z.string().optional().describe("Enterprise URL"),
-        })
-        .optional(),
-      compaction: z
-        .object({
-          auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
-          prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
-          reserved: z
-            .number()
-            .int()
-            .min(0)
-            .optional()
-            .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
-        })
-        .optional(),
-      experimental: z
-        .object({
-          disable_paste_summary: z.boolean().optional(),
-          batch_tool: z.boolean().optional().describe("Enable the batch tool"),
-          openTelemetry: z
-            .boolean()
-            .optional()
-            .describe("Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)"),
-          primary_tools: z
-            .array(z.string())
-            .optional()
-            .describe("Tools that should only be available to primary agents."),
-          continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
-          mcp_timeout: z
-            .number()
-            .int()
-            .positive()
-            .optional()
-            .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
-        })
-        .optional(),
+      $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
+    })
+    .meta({
+      ref: "Config",
     })
     .strict()
     .meta({
+      shape: {
+        chat_mode: "tool_execution",
+      },
+    })
+    .meta({
       ref: "Config",
+    })
+    .strict()
+    .meta({
+      shape: {
+        chat_mode: "tool_execution",
+      },
     })
 
   export type Info = z.output<typeof Info>
