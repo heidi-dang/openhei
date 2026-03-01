@@ -24,6 +24,8 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     showReasoningSummaries: boolean
+    shellToolPartsExpanded: boolean
+    editToolPartsExpanded: boolean
     density?: "comfortable" | "compact" | "spacious"
     // Persisted user-selected send option for the composer. Use the string
     // "default" to indicate the logical default (no metadata attached).
@@ -80,6 +82,8 @@ const defaultSettings: Settings = {
     dismissedWhatsNewPhase5: false,
     sendOption: "default",
     showReasoningSummaries: false,
+    shellToolPartsExpanded: true,
+    editToolPartsExpanded: false,
     density: "comfortable",
     thinkingDrawerMode: "auto",
   },
@@ -183,6 +187,20 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         ),
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
+        },
+        shellToolPartsExpanded: withFallback(
+          () => store.general?.shellToolPartsExpanded,
+          defaultSettings.general.shellToolPartsExpanded,
+        ),
+        setShellToolPartsExpanded(value: boolean) {
+          setStore("general", "shellToolPartsExpanded", value)
+        },
+        editToolPartsExpanded: withFallback(
+          () => store.general?.editToolPartsExpanded,
+          defaultSettings.general.editToolPartsExpanded,
+        ),
+        setEditToolPartsExpanded(value: boolean) {
+          setStore("general", "editToolPartsExpanded", value)
         },
         thinkingDrawerMode: withFallback(
           () => store.general?.thinkingDrawerMode as "auto" | "always" | "never" | undefined,
