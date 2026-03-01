@@ -44,6 +44,16 @@ export namespace ProviderError {
       return "Please reauthenticate with the copilot provider to ensure your credentials work properly with OpenHei."
     }
 
+    // Handle OpenRouter 404 "No endpoints found that support tool use" error
+    if (providerID === "openrouter" && error.statusCode === 404) {
+      const errorBody = error.responseBody ? JSON.parse(error.responseBody) : null
+      const errorMessage = errorBody?.error?.message || error.message || ""
+
+      if (errorMessage.includes("No endpoints found that support tool use")) {
+        return "Selected model/routing has no tool-capable endpoints. Switch to a tool-capable model, remove provider.only/order constraints, or enable simple chat mode. Learn more: https://openrouter.ai/docs/guides/routing/provider-selection"
+      }
+    }
+
     return error.message
   }
 

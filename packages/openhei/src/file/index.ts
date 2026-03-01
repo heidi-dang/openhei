@@ -593,15 +593,6 @@ export namespace File {
       return []
     }
 
-    if (!(await Filesystem.exists(resolved))) {
-      return []
-    }
-
-    const stat = await fs.promises.stat(resolved).catch(() => undefined)
-    if (!stat || !stat.isDirectory()) {
-      return []
-    }
-
     const nodes: Node[] = []
     for (const entry of await fs.promises
       .readdir(resolved, {
