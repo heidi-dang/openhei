@@ -17,6 +17,7 @@ export namespace SessionStatus {
       }),
       z.object({
         type: z.literal("busy"),
+        runId: z.string().optional(),
       }),
       z.object({
         type: z.literal("replay"),
