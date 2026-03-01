@@ -46,6 +46,9 @@ const clientFor = (directory: string) => {
       command: async () => ({ data: undefined }),
       abort: async () => ({ data: undefined }),
     },
+    app: {
+      log: async () => ({ data: undefined }),
+    },
     worktree: {
       create: async () => ({ data: { directory: `${directory}/new` } }),
     },
@@ -366,6 +369,7 @@ describe("prompt submit stale session recovery", () => {
 
     const event = { preventDefault: () => undefined } as unknown as Event
     await submit.handleSubmit(event)
+    await new Promise(r => setTimeout(r, 50))
 
     // Inspect the last promptAsync call and assert no agent/tools fields
     expect(promptAsyncCalls.length).toBeGreaterThan(0)
@@ -379,6 +383,30 @@ describe("prompt submit stale session recovery", () => {
     const hasToolPart = call.input.parts.some((p: any) => p.type === "tool")
     expect(hasAgentPart).toBe(false)
     expect(hasToolPart).toBe(false)
+
+    // Restore settings mock so other tests are not affected
+    mock.module("@/context/settings", () => ({
+      useSettings: () => ({
+        general: {
+          chatMode: () => "agent",
+          setChatMode: (v: string) => undefined,
+        },
+      }),
+    }))
+
+    // Restore prompt mock
+    mock.module("@/context/prompt", () => ({
+      usePrompt: () => ({
+        current: () => promptValue,
+        reset: () => undefined,
+        set: () => undefined,
+        context: {
+          add: () => undefined,
+          remove: () => undefined,
+          items: () => [],
+        },
+      }),
+    }))
   })
 
   test("default selection omits metadata", async () => {
