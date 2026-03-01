@@ -24,7 +24,7 @@ const getRealHome = async (): Promise<string> => {
       const parts = line.split(":")
       if (parts[5]) return parts[5]
     }
-  } catch { }
+  } catch {}
   return "/home/heidi"
 }
 
@@ -103,7 +103,7 @@ const findpy = async () => {
   try {
     const txt = await fs.readFile(configPath, "utf-8").catch(() => "")
     if (txt) cfg = JSON.parse(txt)
-  } catch { }
+  } catch {}
 
   const realHome = await getRealHome()
   const candidates = [
@@ -744,7 +744,7 @@ export const QLoRARoutes = lazy(() =>
         let cfg: any = {}
         try {
           if (cfgTxt) cfg = JSON.parse(cfgTxt)
-        } catch { }
+        } catch {}
 
         const diag = await doctorHeidiEngine(cfg?.heidi_engine_python, uniqueCandidates)
 
@@ -1103,10 +1103,19 @@ export const QLoRARoutes = lazy(() =>
         state.run = { run_id, pid: proc.pid, started_at, dir, log, proc }
         await writeactive({ run_id, pid: proc.pid, started_at })
 
+        // Register in process registry for tracking
+        const registry = await readProcessRegistry()
+        registry.push({ pid: proc.pid, run_id, started_at, tag: "qlora" })
+        await writeProcessRegistry(registry)
+
         void proc.exited.then(async () => {
           if (state.run?.run_id === run_id) state.run = undefined
           const cur = await readactive()
           if (cur?.run_id === run_id) await writeactive(undefined)
+          // Clean up registry entry
+          const reg = await readProcessRegistry()
+          const filtered = reg.filter((r) => r.pid !== proc.pid)
+          if (filtered.length !== reg.length) await writeProcessRegistry(filtered)
         })
 
         return c.json({ ok: true, run_id, message: "started" })
@@ -1159,7 +1168,7 @@ export const QLoRARoutes = lazy(() =>
               s.stage = "STOPPED"
               return fs.writeFile(statusFile, JSON.stringify(s, null, 2))
             })
-            .catch(() => { })
+            .catch(() => {})
         }
 
         await writeactive(undefined)
@@ -1306,7 +1315,377 @@ export const QLoRARoutes = lazy(() =>
           })
         })
       },
+    )
+    .get(
+      "/pids",
+      describeRoute({
+        summary: "List QLoRA processes",
+        operationId: "qlora.get_pids",
+        responses: {
+          200: {
+            description: "Process list",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    processes: z.array(
+                      z.object({
+                        pid: z.number().int(),
+                        ppid: z.number().int(),
+                        cmd: z.string(),
+                        cwd: z.string().optional(),
+                        user: z.string(),
+                        started_at: z.string(),
+                        tag: z.enum(["qlora", "child"]),
+                      }),
+                    ),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const processes = await listQLoRAProcesses()
+        return c.json({ processes })
+      },
+    )
+    .post(
+      "/kill",
+      describeRoute({
+        summary: "Kill a QLoRA process",
+        operationId: "qlora.kill",
+        responses: {
+          200: {
+            description: "Kill result",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    ok: z.boolean(),
+                    message: z.string(),
+                    used_signal: z.enum(["SIGTERM", "SIGKILL"]).optional(),
+                  }),
+                ),
+              },
+            },
+          },
+          400: {
+            description: "Invalid request",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ error: z.string() })),
+              },
+            },
+          },
+          403: {
+            description: "Not eligible for kill",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ error: z.string() })),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          pid: z.number().int().positive(),
+          signal: z.enum(["SIGTERM", "SIGKILL"]).optional(),
+        }),
+      ),
+      async (c) => {
+        const body = c.req.valid("json")
+        const result = await killProcess(body.pid, body.signal)
+        if (!result.ok && result.code === 403) return c.json({ error: result.message }, 403)
+        if (!result.ok) return c.json({ error: result.message }, 400)
+        return c.json({ ok: true, message: result.message, used_signal: result.signal })
+      },
     ),
 )
+
+// Process tracking registry file
+const processRegistryPath = path.join(Global.Path.state, "qlora.processes.json")
+
+// Read the process registry
+const readProcessRegistry = async (): Promise<
+  Array<{ pid: number; run_id?: string; started_at: string; tag: "qlora" | "child" }>
+> => {
+  const txt = await fs.readFile(processRegistryPath, "utf-8").catch(() => "")
+  if (!txt) return []
+  try {
+    const parsed = JSON.parse(txt)
+    if (Array.isArray(parsed)) return parsed
+  } catch {}
+  return []
+}
+
+// Write the process registry
+const writeProcessRegistry = async (
+  data: Array<{ pid: number; run_id?: string; started_at: string; tag: "qlora" | "child" }>,
+) => {
+  await fs.mkdir(path.dirname(processRegistryPath), { recursive: true })
+  await fs.writeFile(processRegistryPath, JSON.stringify(data, null, 2) + "\n")
+}
+
+// Parse /proc/PID/stat to get process info
+const readProcStat = async (pid: number): Promise<{ ppid: number; starttime: number } | undefined> => {
+  try {
+    const statPath = "/proc/" + pid + "/stat"
+    const stat = await fs.readFile(statPath, "utf-8")
+    // Format: pid (comm) state ppid ... starttime ...
+    // comm can contain spaces and parentheses, so we need to parse carefully
+    const match = stat.match(/^\d+\s+\([^)]+\)\s+\w+\s+(\d+)\s+(?:\S+\s+){18}(\d+)/)
+    if (!match) return undefined
+    return { ppid: parseInt(match[1], 10), starttime: parseInt(match[2], 10) }
+  } catch {
+    return undefined
+  }
+}
+
+// Parse /proc/PID/cmdline to get command
+const readProcCmdline = async (pid: number): Promise<string> => {
+  try {
+    const cmdlinePath = "/proc/" + pid + "/cmdline"
+    const buf = await fs.readFile(cmdlinePath)
+    // cmdline is null-separated
+    return buf.toString().replace(/\0/g, " ").trim()
+  } catch {
+    return ""
+  }
+}
+
+// Parse /proc/PID/cwd to get current working directory
+const readProcCwd = async (pid: number): Promise<string | undefined> => {
+  try {
+    const cwdPath = "/proc/" + pid + "/cwd"
+    return await fs.readlink(cwdPath)
+  } catch {
+    return undefined
+  }
+}
+
+// Parse /proc/PID/status to get user info
+const readProcUser = async (pid: number): Promise<string> => {
+  try {
+    const statusPath = "/proc/" + pid + "/status"
+    const status = await fs.readFile(statusPath, "utf-8")
+    const uidMatch = status.match(/^Uid:\s*(\d+)/m)
+    if (!uidMatch) return "unknown"
+    const uid = parseInt(uidMatch[1], 10)
+    // Try to resolve uid to username
+    try {
+      const passwd = await fs.readFile("/etc/passwd", "utf-8")
+      const uidColon = uid + ":"
+      const colonUidColon = ":" + uid + ":"
+      const line = passwd.split("\n").find((l) => l.startsWith(uidColon) || l.includes(colonUidColon))
+      if (line) {
+        const parts = line.split(":")
+        if (parts[2] === String(uid)) return parts[0]
+      }
+    } catch {}
+    return String(uid)
+  } catch {
+    return "unknown"
+  }
+}
+
+// Check if a process is a QLoRA-related process by signature
+const isQLoRAProcess = (cmd: string): boolean => {
+  if (!cmd) return false
+  const qloraSignatures = ["heidi_engine", "heidi-engine", "qlora", "python -m heidi_engine"]
+  return qloraSignatures.some((sig) => cmd.toLowerCase().includes(sig.toLowerCase()))
+}
+
+// Check if PID is eligible to be killed (not PID 1, not root system daemon)
+const isEligiblePID = (pid: number, user: string, cmd: string): boolean => {
+  if (pid <= 1) return false
+  if (pid === process.pid) return false
+  // Never allow killing root-owned system daemons
+  if (user === "root" && (cmd.includes("systemd") || cmd.includes("init") || cmd.includes("dbus"))) return false
+  return true
+}
+
+// List all QLoRA-related processes
+const listQLoRAProcesses = async (): Promise<
+  Array<{
+    pid: number
+    ppid: number
+    cmd: string
+    cwd: string | undefined
+    user: string
+    started_at: string
+    tag: "qlora" | "child"
+  }>
+> => {
+  if (process.platform !== "linux") return []
+
+  const results: Array<{
+    pid: number
+    ppid: number
+    cmd: string
+    cwd: string | undefined
+    user: string
+    started_at: string
+    tag: "qlora" | "child"
+  }> = []
+
+  // First, try to use the tracked registry
+  const registry = await readProcessRegistry()
+  const registryPids = new Set<number>()
+
+  for (const entry of registry) {
+    if (!pidok(entry.pid)) continue
+    registryPids.add(entry.pid)
+    const cmd = await readProcCmdline(entry.pid)
+    const stat = await readProcStat(entry.pid)
+    const cwd = await readProcCwd(entry.pid)
+    const user = await readProcUser(entry.pid)
+
+    if (!isEligiblePID(entry.pid, user, cmd)) continue
+
+    results.push({
+      pid: entry.pid,
+      ppid: stat?.ppid ?? 0,
+      cmd,
+      cwd,
+      user,
+      started_at: entry.started_at,
+      tag: entry.tag,
+    })
+  }
+
+  // Also scan /proc for QLoRA processes by signature
+  try {
+    const entries = await fs.readdir("/proc")
+    for (const entry of entries) {
+      const pid = parseInt(entry, 10)
+      if (!Number.isFinite(pid)) continue
+      if (registryPids.has(pid)) continue // Already included from registry
+
+      const cmd = await readProcCmdline(pid)
+      if (!isQLoRAProcess(cmd)) continue
+
+      const stat = await readProcStat(pid)
+      const cwd = await readProcCwd(pid)
+      const user = await readProcUser(pid)
+
+      if (!isEligiblePID(pid, user, cmd)) continue
+
+      // Determine if this is a root QLoRA process or a child
+      const isRoot = cmd.includes("pump") || cmd.includes("heidi_engine.pump")
+
+      results.push({
+        pid,
+        ppid: stat?.ppid ?? 0,
+        cmd,
+        cwd,
+        user,
+        started_at: new Date(Date.now() - (stat?.starttime ?? 0) * 10).toISOString(), // Approximate from starttime
+        tag: isRoot ? "qlora" : "child",
+      })
+    }
+  } catch {}
+
+  return results.sort((a, b) => a.pid - b.pid)
+}
+
+// Kill a process with safety checks
+type KillResult = { ok: boolean; message: string; code?: number; signal?: "SIGTERM" | "SIGKILL" }
+
+const killProcess = async (pid: number, requestedSignal?: "SIGTERM" | "SIGKILL"): Promise<KillResult> => {
+  // Get the list of eligible processes
+  const eligible = await listQLoRAProcesses()
+  const eligiblePids = new Set(eligible.map((p) => p.pid))
+
+  // Deny by default if not in eligible list
+  if (!eligiblePids.has(pid)) {
+    return { ok: false, message: "PID not eligible for termination", code: 403 }
+  }
+
+  // Check if PID is still alive
+  if (!pidok(pid)) {
+    return { ok: false, message: "Process not running" }
+  }
+
+  const proc = eligible.find((p) => p.pid === pid)
+  if (!proc) {
+    return { ok: false, message: "Process info not found", code: 403 }
+  }
+
+  // Validate ownership - must be current user or we must have permissions
+  const currentUid = process.getuid?.() ?? 1000
+  try {
+    const statusPath = "/proc/" + pid + "/status"
+    const status = await fs.readFile(statusPath, "utf-8")
+    const uidMatch = status.match(/^Uid:\s*(\d+)/m)
+    if (uidMatch) {
+      const procUid = parseInt(uidMatch[1], 10)
+      if (procUid !== currentUid && currentUid !== 0) {
+        return { ok: false, message: "Permission denied - not process owner", code: 403 }
+      }
+    }
+  } catch (err) {
+    return { ok: false, message: "Failed to verify process ownership" }
+  }
+
+  // Determine signal to use
+  let signal: "SIGTERM" | "SIGKILL" = requestedSignal ?? "SIGTERM"
+
+  // If SIGKILL requested but SIGTERM was never attempted, deny
+  if (signal === "SIGKILL") {
+    // Check if we have a record of SIGTERM being attempted
+    const termAttemptsPath = path.join(Global.Path.state, "qlora.term-attempts.json")
+    const termAttempts = await fs.readFile(termAttemptsPath, "utf-8").catch(() => "{}")
+    let attempts: Record<string, string> = {}
+    try {
+      attempts = JSON.parse(termAttempts)
+    } catch {}
+
+    const lastAttempt = attempts[String(pid)]
+    if (!lastAttempt) {
+      return { ok: false, message: "SIGTERM must be attempted before SIGKILL" }
+    }
+
+    // Check if 3 seconds have passed since SIGTERM
+    const elapsed = Date.now() - new Date(lastAttempt).getTime()
+    if (elapsed < 3000) {
+      const waitSeconds = Math.ceil((3000 - elapsed) / 1000)
+      return { ok: false, message: "Wait " + waitSeconds + "s before SIGKILL" }
+    }
+  }
+
+  // Send the signal
+  try {
+    process.kill(pid, signal)
+
+    // Record SIGTERM attempt
+    if (signal === "SIGTERM") {
+      const termAttemptsPath = path.join(Global.Path.state, "qlora.term-attempts.json")
+      const termAttempts = await fs.readFile(termAttemptsPath, "utf-8").catch(() => "{}")
+      let attempts: Record<string, string> = {}
+      try {
+        attempts = JSON.parse(termAttempts)
+      } catch {}
+      attempts[String(pid)] = new Date().toISOString()
+      await fs.mkdir(path.dirname(termAttemptsPath), { recursive: true })
+      await fs.writeFile(termAttemptsPath, JSON.stringify(attempts, null, 2) + "\n")
+    }
+
+    // Wait briefly to confirm
+    const died = await waitdead(pid, 1000)
+
+    if (signal === "SIGTERM" && !died) {
+      return { ok: true, message: "SIGTERM sent - process may need SIGKILL if still alive in 3s", signal }
+    }
+
+    return { ok: true, message: died ? "Process terminated" : "Signal sent", signal }
+  } catch (err: any) {
+    const errMsg = err?.message ?? String(err)
+    return { ok: false, message: "Failed to send signal: " + errMsg }
+  }
+}
 
 const dt = () => new Date().toISOString().replaceAll(":", "").replaceAll(".", "-")
