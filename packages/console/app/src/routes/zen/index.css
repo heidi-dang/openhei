@@ -126,8 +126,9 @@ body {
   }
 
   [data-component="top"] {
-    padding: 24px var(--padding);
-    height: 80px;
+    /* Respect iOS safe-area */
+    padding: calc(24px + var(--sat)) var(--padding) 24px var(--padding);
+    height: calc(80px + var(--sat));
     position: sticky;
     top: 0;
     display: flex;
@@ -232,7 +233,7 @@ body {
         [data-component="nav-mobile-menu-list"] {
           position: fixed;
           background: var(--color-background);
-          top: 80px;
+          top: calc(80px + var(--sat));
           left: 0;
           right: 0;
           height: 100vh;
