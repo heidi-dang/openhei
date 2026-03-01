@@ -47,7 +47,7 @@ export function createScrollPersistence(opts: Options) {
     if (prev) clearTimeout(prev)
     timers.set(
       sessionKey,
-      setTimeout(() => flush(sessionKey), wait),
+      setTimeout(() => flush(sessionKey), wait) as any,
     )
   }
 
