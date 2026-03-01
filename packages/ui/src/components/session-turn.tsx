@@ -17,6 +17,7 @@ import { TextShimmer } from "./text-shimmer"
 import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
 import ThinkingDrawer from "./thinking-drawer"
+import { ActivityPanel } from "./activity-panel"
 // imported helper used below
 import shouldRenderThinkingDrawer from "./session-turn.helpers"
 
@@ -152,6 +153,22 @@ export function SessionTurn(
       root?: string
       content?: string
       container?: string
+    }
+    activityPanel?: {
+      phaseTitle: string
+      terminalLines: Array<{
+        kind: "cmd" | "out" | "err" | "meta"
+        text: string
+        ts: number
+      }>
+      status: "running" | "error" | "done"
+      disconnected: boolean
+      idle: boolean
+      errorDetails?: {
+        message: string
+        code?: string
+        lastLogs?: string[]
+      }
     }
   }>,
 ) {
@@ -399,6 +416,20 @@ export function SessionTurn(
                     <TextShimmer text={i18n.t("ui.sessionTurn.status.thinking")} />
                     <Show when={!showReasoningSummaries() && reasoningHeading()}>
                       {(text) => <span data-slot="session-turn-thinking-heading">{text()}</span>}
+                    </Show>
+                    <Show when={props.activityPanel}>
+                      <div class="mt-4">
+                        <ActivityPanel
+                          phaseTitle={props.activityPanel!.phaseTitle}
+                          terminalLines={props.activityPanel!.terminalLines}
+                          status={props.activityPanel!.status}
+                          disconnected={props.activityPanel!.disconnected}
+                          idle={props.activityPanel!.idle}
+                          errorDetails={props.activityPanel!.errorDetails}
+                          defaultExpanded={props.activityPanel!.status === "error"}
+                          maxHeight="220px"
+                        />
+                      </div>
                     </Show>
                   </div>
                 </Show>

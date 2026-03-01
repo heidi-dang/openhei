@@ -45,6 +45,8 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
+import { RunEventBus } from "@/stream/event-bus"
+import { ActivityEvent } from "@/stream/activity-events"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -253,6 +255,40 @@ export namespace SessionPrompt {
     return s[sessionID].abort.signal
   }
 
+  async function createPlaceholderAssistant(
+    sessionID: string,
+    parentID: string,
+    agentName: string,
+    model: { providerID: string; modelID: string },
+  ): Promise<MessageV2.Assistant> {
+    const placeholder: MessageV2.Assistant = {
+      id: Identifier.ascending("message"),
+      sessionID,
+      parentID,
+      role: "assistant",
+      mode: agentName,
+      agent: agentName,
+      path: {
+        cwd: Instance.directory,
+        root: Instance.worktree,
+      },
+      time: {
+        created: Date.now(),
+      },
+      cost: 0,
+      tokens: {
+        input: 0,
+        output: 0,
+        reasoning: 0,
+        cache: { read: 0, write: 0 },
+      },
+      modelID: model.modelID,
+      providerID: model.providerID,
+    }
+    await Session.updateMessage(placeholder)
+    return placeholder
+  }
+
   export function cancel(sessionID: string) {
     log.info("cancel", { sessionID })
     const s = state()
@@ -292,7 +328,6 @@ export namespace SessionPrompt {
     let step = 0
     const session = await Session.get(sessionID)
     while (true) {
-      SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
       if (abort.aborted) break
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
@@ -315,6 +350,60 @@ export namespace SessionPrompt {
       }
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+
+      // Create placeholder assistant message and set busy status with runId
+      let placeholderAssistant: MessageV2.Assistant | undefined
+      let currentModel
+
+      if (!lastAssistant || (lastAssistant.finish && !["tool-calls", "unknown"].includes(lastAssistant.finish))) {
+        currentModel = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID).catch((e) => {
+          if (Provider.ModelNotFoundError.isInstance(e)) {
+            const hint = e.data.suggestions?.length ? ` Did you mean: ${e.data.suggestions.join(", ")}?` : ""
+            Bus.publish(Session.Event.Error, {
+              sessionID,
+              error: new NamedError.Unknown({
+                message: `Model not found: ${e.data.providerID}/${e.data.modelID}.${hint}`,
+              }).toObject(),
+            })
+          }
+          throw e
+        })
+        const agent = await Agent.get(lastUser.agent)
+        placeholderAssistant = await createPlaceholderAssistant(sessionID, lastUser.id, agent.name, {
+          providerID: currentModel.providerID,
+          modelID: currentModel.id,
+        })
+        SessionStatus.set(sessionID, { type: "busy", runId: placeholderAssistant.id })
+
+        // Emit run started event
+        RunEventBus.publish({
+          type: "run.started",
+          run_id: placeholderAssistant.id,
+          seq: 0,
+          ts: Date.now(),
+          stream: "system",
+          level: "info",
+          data: {
+            phase: "starting",
+            parent_id: lastUser.id,
+          },
+        })
+      } else {
+        SessionStatus.set(sessionID, { type: "busy", runId: lastAssistant.id })
+        currentModel = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID).catch((e) => {
+          if (Provider.ModelNotFoundError.isInstance(e)) {
+            const hint = e.data.suggestions?.length ? ` Did you mean: ${e.data.suggestions.join(", ")}?` : ""
+            Bus.publish(Session.Event.Error, {
+              sessionID,
+              error: new NamedError.Unknown({
+                message: `Model not found: ${e.data.providerID}/${e.data.modelID}.${hint}`,
+              }).toObject(),
+            })
+          }
+          throw e
+        })
+      }
+
       if (
         lastAssistant?.finish &&
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
@@ -332,26 +421,13 @@ export namespace SessionPrompt {
           providerID: lastUser.model.providerID,
           history: msgs,
         })
-
-      const model = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID).catch((e) => {
-        if (Provider.ModelNotFoundError.isInstance(e)) {
-          const hint = e.data.suggestions?.length ? ` Did you mean: ${e.data.suggestions.join(", ")}?` : ""
-          Bus.publish(Session.Event.Error, {
-            sessionID,
-            error: new NamedError.Unknown({
-              message: `Model not found: ${e.data.providerID}/${e.data.modelID}.${hint}`,
-            }).toObject(),
-          })
-        }
-        throw e
-      })
       const task = tasks.pop()
 
       // pending subtask
       // TODO: centralize "invoke tool" logic
       if (task?.type === "subtask") {
         const taskTool = await TaskTool.init()
-        const taskModel = task.model ? await Provider.getModel(task.model.providerID, task.model.modelID) : model
+        const taskModel = task.model ? await Provider.getModel(task.model.providerID, task.model.modelID) : currentModel
         const assistantMessage = (await Session.updateMessage({
           id: Identifier.ascending("message"),
           role: "assistant",
@@ -377,6 +453,23 @@ export namespace SessionPrompt {
             created: Date.now(),
           },
         })) as MessageV2.Assistant
+
+        // Set busy status with runId for task
+        SessionStatus.set(sessionID, { type: "busy", runId: assistantMessage.id })
+
+        // Emit run started event for task
+        RunEventBus.publish({
+          type: "run.started",
+          run_id: assistantMessage.id,
+          seq: 0,
+          ts: Date.now(),
+          stream: "system",
+          level: "info",
+          data: {
+            phase: "task",
+            parent_id: lastUser.id,
+          },
+        })
         let part = (await Session.updatePart({
           id: Identifier.ascending("part"),
           messageID: assistantMessage.id,
@@ -563,34 +656,11 @@ export namespace SessionPrompt {
         session,
       })
 
+      const assistantMessage = placeholderAssistant || lastAssistant!
       const processor = SessionProcessor.create({
-        assistantMessage: (await Session.updateMessage({
-          id: Identifier.ascending("message"),
-          parentID: lastUser.id,
-          role: "assistant",
-          mode: agent.name,
-          agent: agent.name,
-          variant: lastUser.variant,
-          path: {
-            cwd: Instance.directory,
-            root: Instance.worktree,
-          },
-          cost: 0,
-          tokens: {
-            input: 0,
-            output: 0,
-            reasoning: 0,
-            cache: { read: 0, write: 0 },
-          },
-          modelID: model.id,
-          providerID: model.providerID,
-          time: {
-            created: Date.now(),
-          },
-          sessionID,
-        })) as MessageV2.Assistant,
+        assistantMessage,
         sessionID: sessionID,
-        model,
+        model: currentModel!,
         abort,
       })
       using _ = defer(() => InstructionPrompt.clear(processor.message.id))
@@ -651,7 +721,9 @@ export namespace SessionPrompt {
       const system = [...(await SystemPrompt.environment(model)), ...(await InstructionPrompt.system())]
 
       // Multi-agent collaboration prompt
-      system.push("You can collaborate with other agents by mentioning them using @name (e.g., @build, @plan). When you mention another agent, they will be automatically triggered to respond after you finish your current message. Use this to delegate tasks or ask for specialized help.")
+      system.push(
+        "You can collaborate with other agents by mentioning them using @name (e.g., @build, @plan). When you mention another agent, they will be automatically triggered to respond after you finish your current message. Use this to delegate tasks or ask for specialized help.",
+      )
 
       const format = lastUser.format ?? { type: "text" }
       if (format.type === "json_schema") {
@@ -668,11 +740,11 @@ export namespace SessionPrompt {
           ...MessageV2.toModelMessages(msgs, model),
           ...(isLastStep
             ? [
-              {
-                role: "assistant" as const,
-                content: MAX_STEPS,
-              },
-            ]
+                {
+                  role: "assistant" as const,
+                  content: MAX_STEPS,
+                },
+              ]
             : []),
         ],
         tools,
@@ -1185,8 +1257,8 @@ export namespace SessionPrompt {
                       messageID: info.id,
                       extra: { bypassCwdCheck: true, model },
                       messages: [],
-                      metadata: async () => { },
-                      ask: async () => { },
+                      metadata: async () => {},
+                      ask: async () => {},
                     }
                     const result = await t.execute(args, readCtx)
                     pieces.push({
@@ -1244,8 +1316,8 @@ export namespace SessionPrompt {
                   messageID: info.id,
                   extra: { bypassCwdCheck: true },
                   messages: [],
-                  metadata: async () => { },
-                  ask: async () => { },
+                  metadata: async () => {},
+                  ask: async () => {},
                 }
                 const result = await ReadTool.init().then((t) => t.execute(args, listCtx))
                 return [
@@ -1871,19 +1943,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
     const parts = isSubtask
       ? [
-        {
-          type: "subtask" as const,
-          agent: agent.name,
-          description: command.description ?? "",
-          command: input.command,
-          model: {
-            providerID: taskModel.providerID,
-            modelID: taskModel.modelID,
+          {
+            type: "subtask" as const,
+            agent: agent.name,
+            description: command.description ?? "",
+            command: input.command,
+            model: {
+              providerID: taskModel.providerID,
+              modelID: taskModel.modelID,
+            },
+            // TODO: how can we make task tool accept a more complex input?
+            prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
           },
-          // TODO: how can we make task tool accept a more complex input?
-          prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
-        },
-      ]
+        ]
       : [...templateParts, ...(input.parts ?? [])]
 
     const userAgent = isSubtask ? (input.agent ?? (await Agent.defaultAgent())) : agentName
