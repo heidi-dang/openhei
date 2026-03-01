@@ -398,17 +398,6 @@ install_from_repo() {
         print_message warning "${MUTED}Not a git repo, cannot determine SHA${NC}"
     fi
 
-        # Optional: enable opencode-go models for a workspace during install
-        # Set ENABLE_OPENCODE_GO=1 and provide DB_* env vars to run the helper.
-        if [ "${ENABLE_OPENCODE_GO:-}" = "1" ]; then
-            if command -v node >/dev/null 2>&1 && [ -f "$SCRIPT_DIR/packages/console/scripts/enable-opencode-go.ts" ]; then
-                print_message info "${MUTED}Enabling opencode-go models (running DB helper)...${NC}"
-                node "$SCRIPT_DIR/packages/console/scripts/enable-opencode-go.ts" "$WORKSPACE_ID"
-            else
-                print_message warning "${ORANGE}Cannot run enable-opencode-go helper: node not found or script missing.${NC}"
-                print_message warning "${ORANGE}You can run: node packages/console/scripts/enable-opencode-go.ts <WORKSPACE_ID>${NC}"
-            fi
-        fi
 
     # Set version to git SHA for this local build
     specific_version="${current_sha:0:8}"

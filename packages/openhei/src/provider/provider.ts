@@ -1063,6 +1063,13 @@ export namespace Provider {
       const provider = s.providers[model.providerID]
       const options = { ...provider.options }
 
+      // Disable tools if in simple chat mode
+      const globalConfig = await Config.get()
+      if (globalConfig.chat_mode === "simple_chat") {
+        options["tools"] = undefined
+        options["tool_choice"] = undefined
+      }
+
       if (model.providerID === "google-vertex" && !model.api.npm.includes("@ai-sdk/openai-compatible")) {
         delete options.fetch
       }

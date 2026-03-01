@@ -581,7 +581,16 @@ export namespace File {
 
     // Canonical containment check as defense-in-depth.
     if (!Instance.containsPath(resolved)) {
-      throw new Error(`Access denied: path escapes project directory`)
+      return []
+    }
+
+    if (!(await Filesystem.exists(resolved))) {
+      return []
+    }
+
+    const stat = await fs.promises.stat(resolved).catch(() => undefined)
+    if (!stat || !stat.isDirectory()) {
+      return []
     }
 
     if (!(await Filesystem.exists(resolved))) {
