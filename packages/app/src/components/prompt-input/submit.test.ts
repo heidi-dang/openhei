@@ -49,6 +49,9 @@ const clientFor = (directory: string) => {
     worktree: {
       create: async () => ({ data: { directory: `${directory}/new` } }),
     },
+    app: {
+      log: async () => ({ data: undefined }),
+    },
   }
 }
 
