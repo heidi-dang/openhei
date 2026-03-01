@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 APP=openhei
 specific_version=""
 requested_version=""
@@ -8,7 +9,81 @@ echo "OpenHei Installer started..."
 MUTED='\033[0;2m'
 RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
-NC='\033[0m' # No Color
+# No Color
+NC='\033[0m'
+
+print_message() {
+    local level=$1
+    local msg=$2
+    case "$level" in
+        info)    echo -e "${msg}" ;;
+        warning) echo -e "${ORANGE}Warning:${NC} ${msg}" ;;
+        error)   echo -e "${RED}Error:${NC} ${msg}" ;;
+        *)       echo -e "${msg}" ;;
+    esac
+}
+
+check_version() {
+    if [ -n "$requested_version" ]; then
+        specific_version="$requested_version"
+    else
+        specific_version=$(curl -fsSL https://api.github.com/repos/heidi-dang/openhei/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    fi
+    if [ -z "$specific_version" ]; then
+        print_message error "Could not detect version to install."
+        exit 1
+    fi
+}
+
+download_and_install() {
+    local version=$specific_version
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    [ "$os" == "darwin" ] && os="macos"
+    [[ "$arch" == "x86_64" ]] && arch="x64"
+    [[ "$arch" == "aarch64" ]] && arch="arm64"
+
+    local target="openhei-$os-$arch"
+    local extension="tar.gz"
+    [ "$os" == "windows" ] && extension="zip"
+
+    local url="https://github.com/heidi-dang/openhei/releases/download/v${version}/${target}.${extension}"
+    local tmp_dir=$(mktemp -d)
+    
+    print_message info "Downloading OpenHei v${version} for ${target}..."
+    if ! curl -fsSL "$url" -o "$tmp_dir/package.${extension}"; then
+        print_message error "Failed to download OpenHei from $url"
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+
+    print_message info "Extracting package..."
+    if [ "$extension" == "tar.gz" ]; then
+        tar -xzf "$tmp_dir/package.tar.gz" -C "$tmp_dir"
+    else
+        unzip -q "$tmp_dir/package.zip" -d "$tmp_dir"
+    fi
+
+    # Atomic move
+    rm -rf "$INSTALL_DIR/openhei.tmp"
+    cp "$tmp_dir/bin/openhei" "$INSTALL_DIR/openhei.tmp"
+    chmod 700 "$INSTALL_DIR/openhei.tmp"
+    mv "$INSTALL_DIR/openhei.tmp" "$INSTALL_DIR/openhei"
+    
+    rm -rf "$DASHBOARD_DIR"
+    mkdir -p "$DASHBOARD_DIR"
+    chmod 700 "$DASHBOARD_DIR"
+    cp -r "$tmp_dir/dashboard/"* "$DASHBOARD_DIR/"
+    
+    rm -rf "$tmp_dir"
+    hash -r
+    print_message info "OpenHei v${version} installed successfully."
+}
+
+install_from_binary() {
+    print_message error "install_from_binary not implemented in this script version."
+    exit 1
+}
 
 show_logo() {
     echo -e ""
@@ -27,8 +102,40 @@ show_logo() {
     echo -e ""
 }
 
+print_install_summary() {
+    local build_id="${specific_version:-unknown}"
+    local server_port="4096"
+    local smoke_url="http://localhost:${server_port}/health"
+    local current_sha=""
+
+    if [ -d "$SCRIPT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
+        current_sha=$(cd "$SCRIPT_DIR" && git rev-parse HEAD 2>/dev/null | cut -c1-8 || echo "unknown")
+    fi
+
+    echo -e ""
+    echo -e "${MUTED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${MUTED}  Installation Summary${NC}"
+    echo -e "${MUTED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e ""
+    echo -e "  ${MUTED}Mode:${NC}            local-repo"
+    echo -e "  ${MUTED}Git SHA:${NC}        ${current_sha:-unknown}"
+    echo -e "  ${MUTED}Build ID:${NC}       $build_id"
+    echo -e "  ${MUTED}Install Dir:${NC}    $INSTALL_DIR"
+    echo -e "  ${MUTED}Dashboard Dir:${NC}  $DASHBOARD_DIR"
+    echo -e "  ${MUTED}Server Port:${NC}    $server_port"
+    echo -e "  ${MUTED}Smoke URL:${NC}      $smoke_url"
+    echo -e ""
+    echo -e "${MUTED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e ""
+    echo -e "${ORANGE}To verify installation:${NC}"
+    echo -e "  which openhei"
+    echo -e "  ls -l \$(which openhei)"
+    echo -e "  openhei --version"
+    echo -e ""
+}
+
 usage() {
-    cat <<EOF
+    cat <<'EOF'
 OpenHei Installer
 
 Usage: install.sh [options]
@@ -38,19 +145,26 @@ Options:
     -v, --version <version> Install a specific version (e.g., 1.0.180)
     -b, --binary <path>     Install from a local binary instead of downloading
     --local-repo            Build and install from the current repository
-     --repo-local            Alias for --local-repo
-     -repo-local             Legacy alias for --local-repo
-     --reuse-build           Reuse existing local build output if present
-     --skip-install          Skip dependency install for --local-repo
-     --skip-build            Skip building for --local-repo (requires existing dist)
-     --link                  Symlink into ~/.openhei instead of copying (dev)
-        --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
+    --repo-local            Alias for --local-repo
+    -repo-local             Legacy alias for --local-repo
+    --latest-main          Install latest main branch build (unstable)
+    --latest-release       Install latest stable release (default)
+    --dev                  Alias for --local-repo (development mode)
+    --reuse-build           Reuse existing local build output if present
+    --skip-install          Skip dependency install for --local-repo
+    --skip-build            Skip building for --local-repo (requires existing dist)
+    --link                  Symlink into ~/.openhei instead of copying (dev)
+    --no-modify-path        Don't modify shell config files (.zshrc, .bashrc, etc.)
+    --uninstall             Uninstall openhei and clean up
 
 Examples:
-    curl -fsSL https://openhei.ai/install | bash
-    curl -fsSL https://openhei.ai/install | bash -s -- --version 1.0.180
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)" -- --version 1.0.180
     ./install.sh --binary /path/to/openhei
     ./install.sh --local-repo --no-modify-path
+    ./install.sh --latest-main
+    ./install.sh --latest-release
+    ./install.sh --uninstall
     ./install.sh -repo-local --reuse-build --skip-install --skip-build --link
 EOF
 }
@@ -58,6 +172,10 @@ EOF
 no_modify_path=false
 binary_path=""
 local_repo=false
+latest_main=false
+latest_release=false
+dev_mode=false
+uninstall_mode=false
 skip_install=false
 skip_build=false
 reuse_build=false
@@ -91,6 +209,23 @@ while [[ $# -gt 0 ]]; do
             local_repo=true
             shift
             ;;
+        --latest-main)
+            latest_main=true
+            shift
+            ;;
+        --latest-release)
+            latest_release=true
+            shift
+            ;;
+        --dev)
+            dev_mode=true
+            local_repo=true
+            shift
+            ;;
+        --uninstall)
+            uninstall_mode=true
+            shift
+            ;;
         --reuse-build)
             reuse_build=true
             shift
@@ -111,6 +246,10 @@ while [[ $# -gt 0 ]]; do
             no_modify_path=true
             shift
             ;;
+        --with-plugins)
+            WITH_PLUGINS=true
+            shift
+            ;;
         *)
             echo -e "${ORANGE}Warning: Unknown option '$1'${NC}" >&2
             shift
@@ -123,327 +262,189 @@ INSTALL_DIR="$INSTALL_BASE/bin"
 DASHBOARD_DIR="$INSTALL_BASE/dashboard"
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$DASHBOARD_DIR"
+chmod 700 "$INSTALL_BASE"
+chmod 700 "$INSTALL_DIR"
+chmod 700 "$DASHBOARD_DIR"
 
-# Detect local dashboard in repo for development
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
+# Detect local dashboard in repo for development (only if run from a file)
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
 USE_LOCAL_DASHBOARD=false
-if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; then
-    USE_LOCAL_DASHBOARD=true
-fi
-
-if [ "$local_repo" = "true" ]; then
-    specific_version="local"
-elif [ -n "$binary_path" ]; then
-    if [ ! -f "$binary_path" ]; then
-        echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
-        exit 1
-    fi
-    specific_version="local"
-else
-    raw_os=$(uname -s)
-    os=$(echo "$raw_os" | tr '[:upper:]' '[:lower:]')
-    case "$raw_os" in
-      Darwin*) os="darwin" ;;
-      Linux*) os="linux" ;;
-      MINGW*|MSYS*|CYGWIN*) os="windows" ;;
-    esac
-
-    arch=$(uname -m)
-    if [[ "$arch" == "aarch64" ]]; then
-      arch="arm64"
-    fi
-    if [[ "$arch" == "x86_64" ]]; then
-      arch="x64"
-    fi
-
-    if [ "$os" = "darwin" ] && [ "$arch" = "x64" ]; then
-      rosetta_flag=$(sysctl -n sysctl.proc_translated 2>/dev/null || echo 0)
-      if [ "$rosetta_flag" = "1" ]; then
-        arch="arm64"
-      fi
-    fi
-
-    combo="$os-$arch"
-    case "$combo" in
-      linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64)
-        ;;
-      *)
-        echo -e "${RED}Unsupported OS/Arch: $os/$arch${NC}"
-        exit 1
-        ;;
-    esac
-
-    archive_ext=".zip"
-    if [ "$os" = "linux" ]; then
-      archive_ext=".tar.gz"
-    fi
-
-    is_musl=false
-    if [ "$os" = "linux" ]; then
-      if [ -f /etc/alpine-release ]; then
-        is_musl=true
-      fi
-
-      if command -v ldd >/dev/null 2>&1; then
-        if ldd --version 2>&1 | grep -qi musl; then
-          is_musl=true
-        fi
-      fi
-    fi
-
-    needs_baseline=false
-    if [ "$arch" = "x64" ]; then
-      if [ "$os" = "linux" ]; then
-        if ! grep -qwi avx2 /proc/cpuinfo 2>/dev/null; then
-          needs_baseline=true
-        fi
-      fi
-
-      if [ "$os" = "darwin" ]; then
-        avx2=$(sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0)
-        if [ "$avx2" != "1" ]; then
-          needs_baseline=true
-        fi
-      fi
-
-      if [ "$os" = "windows" ]; then
-        ps="(Add-Type -MemberDefinition \"[DllImport(\"\"kernel32.dll\"\")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);\" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)"
-        out=""
-        if command -v powershell.exe >/dev/null 2>&1; then
-          out=$(powershell.exe -NoProfile -NonInteractive -Command "$ps" 2>/dev/null || true)
-        elif command -v pwsh >/dev/null 2>&1; then
-          out=$(pwsh -NoProfile -NonInteractive -Command "$ps" 2>/dev/null || true)
-        fi
-        out=$(echo "$out" | tr -d '\r' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
-        if [ "$out" != "true" ] && [ "$out" != "1" ]; then
-          needs_baseline=true
-        fi
-      fi
-    fi
-
-    target="$os-$arch"
-    if [ "$needs_baseline" = "true" ]; then
-      target="$target-baseline"
-    fi
-    if [ "$is_musl" = "true" ]; then
-      target="$target-musl"
-    fi
-
-    filename="$APP-$target$archive_ext"
-
-    if [ "$os" = "linux" ]; then
-        if ! command -v tar >/dev/null 2>&1; then
-             echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
-             exit 1
-        fi
-    else
-        if ! command -v unzip >/dev/null 2>&1; then
-            echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
-            exit 1
-        fi
-    fi
-
-    if [ -z "$requested_version" ]; then
-        # Fetch latest version from API
-        response=$(curl -s https://api.github.com/repos/heidi-dang/openhei/releases/latest)
-        specific_version=$(echo "$response" | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
-
-        if [ -z "$specific_version" ]; then
-            echo -e "${RED}Error: No releases found for heidi-dang/openhei${NC}"
-            echo -e "${ORANGE}Since this is a new repo, you need to create your first GitHub Release.${NC}"
-            echo -e "${MUTED}For more info: https://github.com/heidi-dang/openhei/releases${NC}"
-            exit 1
-        fi
-        url="https://github.com/heidi-dang/openhei/releases/download/v${specific_version}/$filename"
-    else
-        # Strip leading 'v' if present
-        requested_version="${requested_version#v}"
-        url="https://github.com/heidi-dang/openhei/releases/download/v${requested_version}/$filename"
-        specific_version=$requested_version
-
-        # Verify the release exists before downloading
-        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/heidi-dang/openhei/releases/tag/v${requested_version}")
-        if [ "$http_status" = "404" ]; then
-            echo -e "${RED}Error: Release v${requested_version} not found${NC}"
-            echo -e "${MUTED}Available releases: https://github.com/heidi-dang/openhei/releases${NC}"
-            exit 1
-        fi
-    fi
-
-    # Verify asset exists before attempting download - use -L to follow redirects if necessary
-    asset_check=$(curl -sLI "$url" | grep -Ei "^HTTP/" | awk '{print $2}' | tail -n 1 || echo "failed")
-    if [ "$asset_check" != "200" ]; then
-        echo -e "${RED}Error: Binary asset '$filename' not found at $url (Status: $asset_check)${NC}"
-        echo -e "${ORANGE}Please check that the binaries are correctly uploaded to the release.${NC}"
-        exit 1
+if [ -n "$SCRIPT_DIR" ]; then
+    LOCAL_DASHBOARD_DIR="$SCRIPT_DIR/packages/app/dist"
+    if [ -d "$LOCAL_DASHBOARD_DIR" ] && [ -f "$LOCAL_DASHBOARD_DIR/index.html" ]; then
+        USE_LOCAL_DASHBOARD=true
     fi
 fi
 
-print_message() {
-    local level=$1
-    local message=$2
-    local color=""
-    case $level in
-        info) color="${NC}" ;;
-        warning) color="${NC}" ;;
-        error) color="${RED}" ;;
-    esac
-    echo -e "${color}${message}${NC}"
-}
 
-check_version() {
-    if command -v openhei >/dev/null 2>&1; then
-        openhei_path=$(which openhei)
-        installed_version=$(openhei --version 2>/dev/null || echo "")
-        if [[ "$installed_version" == "$specific_version" ]]; then
-            echo -e "${NC}Version $specific_version already installed at $openhei_path${NC}"
-            show_logo
-            exit 0
+uninstall_openhei() {
+    print_message info "${MUTED}Uninstalling openhei...${NC}"
+
+    # Remove managed PATH block from shell configs (marker-based)
+    for config_file in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$HOME/.zshrc" "$HOME/.zshenv" "$HOME/.config/fish/config.fish"; do
+        if [ -f "$config_file" ]; then
+            # Remove the entire managed block between markers
+            sed -i '/# >>> openhei install marker >>>/,/# <<< openhei install marker <<</d' "$config_file" 2>/dev/null || true
+            # Also remove any leftover markers
+            sed -i '/# >>> openhei install marker >>>/d' "$config_file" 2>/dev/null || true
+            sed -i '/# <<< openhei install marker <<</d' "$config_file" 2>/dev/null || true
+            # Remove old-style entries
+            sed -i '/# openhei$/d' "$config_file" 2>/dev/null || true
+            sed -i '/^# openhei$/d' "$config_file" 2>/dev/null || true
+            sed -i '/OPENHEI_DASHBOARD_DIR/d' "$config_file" 2>/dev/null || true
+            sed -i "/export PATH=\$HOME\/.openhei:\$PATH/d" "$config_file" 2>/dev/null || true
+            sed -i "/fish_add_path.*\.openhei/d" "$config_file" 2>/dev/null || true
         fi
-    fi
+    done
+
+    # Remove installation directories
+    rm -rf "$INSTALL_BASE"
+
+    print_message info "${MUTED}OpenHei has been uninstalled.${NC}"
+    print_message info "${MUTED}Please restart your shell or run: hash -r${NC}"
 }
 
-unbuffered_sed() {
-    if echo | sed -u -e "" >/dev/null 2>&1; then
-        sed -nu "$@"
-    elif echo | sed -l -e "" >/dev/null 2>&1; then
-        sed -nl "$@"
-    else
-        local pad="$(printf "\n%512s" "")"
-        sed -ne "s/$/\\${pad}/" "$@"
-    fi
-}
+# Marker-managed uninstaller block
+OPENHEI_INSTALL_MARKER="# >>> openhei install marker >>>"
+OPENHEI_UNINSTALL_MARKER="# <<< openhei install marker <<<"
 
-print_progress() {
-    local bytes="$1"
-    local length="$2"
-    [ "$length" -gt 0 ] || return 0
-    local width=50
-    local percent=$(( bytes * 100 / length ))
-    [ "$percent" -gt 100 ] && percent=100
-    local on=$(( percent * width / 100 ))
-    local off=$(( width - on ))
-    local filled=$(printf "%*s" "$on" "")
-    filled=${filled// /■}
-    local empty=$(printf "%*s" "$off" "")
-    empty=${empty// /･}
-    printf "\r${ORANGE}%s%s %3d%%${NC}" "$filled" "$empty" "$percent" >&4
-}
+if [ "$uninstall_mode" = "true" ]; then
+    uninstall_openhei
+    exit 0
+fi
 
-download_with_progress() {
-    local url="$1"
-    local output="$2"
-    if [ -t 2 ]; then
-        exec 4>&2
-    else
-        exec 4>/dev/null
+# Auto-install opencode-morph-fast-apply plugin for local repo installs
+install_opencode_morph_plugin() {
+    # Only run for local repo installs
+    local plugin_repo="https://github.com/JRedeker/opencode-morph-fast-apply.git"
+    XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+    local plugins_dir="$XDG_CONFIG_HOME/openhei/plugins"
+    local plugin_dir="$plugins_dir/opencode-morph-fast-apply"
+
+    mkdir -p "$plugins_dir"
+
+    print_message info "${MUTED}Installing plugin:${NC} opencode-morph-fast-apply -> $plugin_dir"
+
+    if command -v git >/dev/null 2>&1; then
+        if [ -d "$plugin_dir/.git" ]; then
+            print_message info "${MUTED}Updating existing plugin at:${NC} $plugin_dir"
+            git -C "$plugin_dir" pull --ff-only || git -C "$plugin_dir" fetch --all --prune || true
+        else
+            git clone --depth 1 "$plugin_repo" "$plugin_dir" || true
+        fi
+        return
     fi
-    local tmp_dir=${TMPDIR:-/tmp}
-    local basename="${tmp_dir}/openhei_install_$$"
-    local tracefile="${basename}.trace"
-    rm -f "$tracefile"
-    mkfifo "$tracefile"
-    printf "\033[?25l" >&4
-    trap "trap - RETURN; rm -f \"$tracefile\"; printf '\033[?25h' >&4; exec 4>&-" RETURN
-    (
-        curl --trace-ascii "$tracefile" -s -L -o "$output" "$url"
-    ) &
-    local curl_pid=$!
-    unbuffered_sed \
-        -e 'y/ACDEGHLNORTV/acdeghlnortv/' \
-        -e '/^0000: content-length:/p' \
-        -e '/^<= recv data/p' \
-        "$tracefile" | \
-    {
-        local length=0
-        local bytes=0
-        while IFS=" " read -r -a line; do
-            [ "${#line[@]}" -lt 2 ] && continue
-            local tag="${line[0]} ${line[1]}"
-            if [ "$tag" = "0000: content-length:" ]; then
-                length="${line[2]}"
-                length=$(echo "$length" | tr -d '\r')
-                bytes=0
-            elif [ "$tag" = "<= recv" ]; then
-                local size="${line[3]}"
-                bytes=$(( bytes + size ))
-                if [ "$length" -gt 0 ]; then
-                    print_progress "$bytes" "$length"
+
+    # Fallback to curl+tar if git is not available
+    if command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
+        tmp=$(mktemp -d)
+        for branch in main master; do
+            url="https://github.com/JRedeker/opencode-morph-fast-apply/archive/refs/heads/${branch}.tar.gz"
+            if curl -fsSL "$url" -o "$tmp/plugin.tar.gz"; then
+                mkdir -p "$plugin_dir"
+                tar -xzf "$tmp/plugin.tar.gz" -C "$tmp"
+                extracted_dir=$(find "$tmp" -maxdepth 1 -type d -name "opencode-morph-fast-apply-*" | head -n1)
+                if [ -n "$extracted_dir" ]; then
+                    rm -rf "$plugin_dir"
+                    mv "$extracted_dir" "$plugin_dir"
                 fi
+                rm -rf "$tmp"
+                return
             fi
         done
-    }
-    wait $curl_pid
-    local ret=$?
-    echo "" >&4
-    return $ret
+        rm -rf "$tmp"
+    fi
+
+    print_message warning "Could not install opencode-morph-fast-apply plugin (git/curl/tar not available or network error)."
 }
 
-download_and_install() {
-    print_message info "\n${MUTED}Installing ${NC}openhei ${MUTED}version: ${NC}$specific_version"
-    local tmp_dir="${TMPDIR:-/tmp}/openhei_install_$$"
-    mkdir -p "$tmp_dir"
-    if [[ "$os" == "windows" ]] || ! [ -t 2 ] || ! download_with_progress "$url" "$tmp_dir/$filename"; then
-        curl -# -L -o "$tmp_dir/$filename" "$url"
-    fi
-    if [ "$os" = "linux" ]; then
-        tar -xzf "$tmp_dir/$filename" -C "$tmp_dir"
-    else
-        unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
-    fi
-
-    # Support both new bundled structure (bin/, dashboard/) and legacy flat structure
-    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
-    mkdir -p "$INSTALL_DIR"
-    mkdir -p "$DASHBOARD_DIR"
-
-    if [ -d "$tmp_dir/bin" ]; then
-        mv "$tmp_dir/bin"/* "$INSTALL_DIR/"
-    elif [ -f "$tmp_dir/openhei" ]; then
-        mv "$tmp_dir/openhei" "$INSTALL_DIR/"
-    elif [ -f "$tmp_dir/openhei.exe" ]; then
-        mv "$tmp_dir/openhei.exe" "$INSTALL_DIR/"
-    fi
-
-    if [ -d "$tmp_dir/dashboard" ]; then
-        mv "$tmp_dir/dashboard"/* "$DASHBOARD_DIR/"
-    fi
-
-    chmod 755 "${INSTALL_DIR}/openhei" 2>/dev/null || chmod 755 "${INSTALL_DIR}/openhei.exe" 2>/dev/null || true
-    rm -rf "$tmp_dir"
+install_dynamic_pruning_plugin() {
+    # Dynamic context pruning is optional. Do not fail install if upstream repo is missing.
+    # This function performs a best-effort checkout only when the user explicitly
+    # passes --with-plugins to the installer. By default it is a no-op.
+    :
 }
 
-install_from_binary() {
-    print_message info "\n${MUTED}Installing ${NC}openhei ${MUTED}from: ${NC}$binary_path"
-    # When installing from a local binary, we don't necessarily have a dashboard folder
-    # but we'll try to find it relative to the binary
-    cp "$binary_path" "${INSTALL_DIR}/openhei"
-    local src_dir=$(dirname "$binary_path")
-    if [ -d "$src_dir/../dashboard" ]; then
-        cp -r "$src_dir/../dashboard" "$DASHBOARD_DIR"
-    fi
-    chmod 755 "${INSTALL_DIR}/openhei"
+download_from_main() {
+    # Fetch latest main branch artifact from GitHub Actions
+    # This requires the artifact to be uploaded to a public location
+    print_message info "${MUTED}Fetching latest main branch build...${NC}"
+
+    # Try to get the latest main branch artifact info
+    response=$(curl -s "https://api.github.com/repos/heidi-dang/openhei/actions/artifacts?per_page=1&branch=main" 2>/dev/null || echo '{"artifacts":[]}')
+
+    # For now, fall back to latest release if main artifact not available
+    print_message warning "${MUTED}Main branch artifacts not directly available. Using latest release.${NC}"
+    specific_version=$(curl -s https://api.github.com/repos/heidi-dang/openhei/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+    download_and_install
 }
 
 install_from_repo() {
-    print_message info "\n${MUTED}Building openhei from source...${NC}"
+    print_message info "\n${MUTED}=========================================${NC}"
+    print_message info "${MUTED}  INSTALL MODE: local-repo${NC}"
+    print_message info "${MUTED}=========================================${NC}"
+
+    # Get current git SHA for this installation
+    local current_sha=""
+    if command -v git >/dev/null 2>&1 && [ -d "$SCRIPT_DIR/.git" ]; then
+        current_sha=$(cd "$SCRIPT_DIR" && git rev-parse HEAD 2>/dev/null || echo "unknown")
+        print_message info "${MUTED}Building from git SHA: ${NC}$current_sha"
+    else
+        current_sha="unknown"
+        print_message warning "${MUTED}Not a git repo, cannot determine SHA${NC}"
+    fi
+
+    # Set version to git SHA for this local build
+    specific_version="${current_sha:0:8}"
+
     cd "$SCRIPT_DIR"
 
     # Ensure dependencies are installed
     if [ "$skip_install" != "true" ]; then
+        print_message info "${MUTED}Installing dependencies...${NC}"
         HUSKY=0 bun install
+    fi
+
+    # Build the app (packages/app) first
+    local app_dist_dir="$SCRIPT_DIR/packages/app/dist"
+    if [ "$skip_build" != "true" ]; then
+        print_message info "${MUTED}Building app (packages/app)...${NC}"
+        (
+            cd "$SCRIPT_DIR/packages/app"
+            bun run build
+        )
+    fi
+
+    # Verify app dist was built and write .build_sha
+    if [ ! -d "$app_dist_dir" ] || [ ! -f "$app_dist_dir/index.html" ]; then
+        echo -e "${RED}Error: App build failed - no dist/index.html found at $app_dist_dir${NC}"
+        exit 1
+    fi
+
+    # Write .build_sha to app dist
+    echo "$current_sha" > "$app_dist_dir/.build_sha"
+    print_message info "${MUTED}Wrote .build_sha to app dist: ${NC}$current_sha"
+
+    # Verify .build_sha matches
+    local dist_sha=$(cat "$app_dist_dir/.build_sha" 2>/dev/null || echo "")
+    if [ "$current_sha" != "$dist_sha" ]; then
+        echo -e "${RED}Error: SHA verification failed! Expected $current_sha, got $dist_sha${NC}"
+        exit 1
     fi
 
     # Detect target name used by build script
     local os=$(uname -s | tr '[:upper:]' '[:lower:]')
     [ "$os" == "linux" ] && os="linux"
     [ "$os" == "darwin" ] && os="darwin"
-    
+
     local arch=$(uname -m)
     [[ "$arch" == "x86_64" ]] && arch="x64"
     [[ "$arch" == "aarch64" ]] && arch="arm64"
-    
+
     local target_name="openhei-$os-$arch"
     local build_dir="$SCRIPT_DIR/packages/openhei/dist/$target_name"
 
@@ -452,11 +453,13 @@ install_from_repo() {
         skip_build=true
     fi
 
-    # Run build - removing --cwd and using relative path to avoid context issues
+    # Run build - MUST build from local source, no downloads
     if [ "$skip_build" != "true" ]; then
+        print_message info "${MUTED}Building openhei from local source...${NC}"
         (
             cd "$SCRIPT_DIR/packages/openhei"
-            OPENHEI_CHANNEL=local OPENHEI_VERSION=local bun run build --single --skip-install --reuse-dashboard --reuse-models
+            # Force local build - DO NOT download releases
+            OPENHEI_CHANNEL=local OPENHEI_VERSION=local BUILD_FROM_GIT=1 bun run build --single --skip-install --reuse-dashboard --reuse-models
         )
     fi
 
@@ -498,23 +501,126 @@ install_from_repo() {
         ln -sf "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
         ln -s "$dashboard_src" "$DASHBOARD_DIR"
         chmod 755 "${INSTALL_DIR}/openhei" || true
-        return
+    else
+        rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
+        mkdir -p "$INSTALL_DIR"
+        mkdir -p "$DASHBOARD_DIR"
+
+        cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
+        cp -r "$dashboard_src/"* "$DASHBOARD_DIR/"
+        chmod 755 "${INSTALL_DIR}/openhei"
     fi
 
-    rm -rf "$INSTALL_DIR" "$DASHBOARD_DIR"
-    mkdir -p "$INSTALL_DIR"
-    mkdir -p "$DASHBOARD_DIR"
+    # Write SHA to a file for validation
+    echo "$current_sha" > "$INSTALL_DIR/.build_sha"
+    print_message info "${MUTED}Installed binary SHA: ${NC}$current_sha"
 
-    cp "$build_dir/bin/openhei" "${INSTALL_DIR}/openhei"
-    cp -r "$dashboard_src/"* "$DASHBOARD_DIR/"
-    chmod 755 "${INSTALL_DIR}/openhei"
+    # Validate the installed binary
+    validate_install "$current_sha"
+}
+
+validate_install() {
+    local expected_sha="$1"
+
+    print_message info "${MUTED}Validating installation...${NC}"
+
+    # Check if binary runs
+    if [ ! -x "${INSTALL_DIR}/openhei" ]; then
+        echo -e "${RED}Error: Installed binary is not executable${NC}"
+        exit 1
+    fi
+
+    # Detect other openhei binaries in PATH
+    local other_binaries=""
+    while IFS= read -r -d '' bin; do
+        if [ "$bin" != "${INSTALL_DIR}/openhei" ]; then
+            other_binaries="$other_binaries$bin"$'\n'
+        fi
+    done < <(which -a openhei 2>/dev/null | tr '\n' '\0')
+
+    if [ -n "$other_binaries" ]; then
+        echo -e ""
+        echo -e "${RED}========================================${NC}"
+        echo -e "${RED}  WARNING: Duplicate openhei found!${NC}"
+        echo -e "${RED}========================================${NC}"
+        echo -e ""
+        echo -e "${RED}Other openhei binaries in PATH:${NC}"
+        echo -e "$other_binaries"
+        echo -e ""
+        echo -e "${RED}Installed binary: ${NC}${INSTALL_DIR}/openhei"
+        echo -e ""
+        echo -e "This may cause the wrong openhei to run."
+        echo -e "Run: ${MUTED}hash -r && which openhei${NC}"
+        echo -e ""
+        echo -e "${RED}========================================${NC}"
+        echo -e ""
+    fi
+
+    # Try to get version from binary
+    local installed_version=$("${INSTALL_DIR}/openhei" --version 2>/dev/null || echo "unknown")
+    print_message info "${MUTED}Installed version: ${NC}$installed_version"
+
+    # For local-repo mode, FAIL if SHA doesn't match
+    if [ "$local_repo" = "true" ]; then
+        # Read SHA from installed binary's location
+        local installed_sha=""
+        if [ -f "${INSTALL_DIR}/.build_sha" ]; then
+            installed_sha=$(cat "${INSTALL_DIR}/.build_sha" 2>/dev/null || echo "")
+        fi
+
+        # Compare SHAs (short form for display)
+        local expected_short="${expected_sha:0:8}"
+        local installed_short="${installed_sha:0:8}"
+
+        if [ "$expected_sha" != "$installed_sha" ]; then
+            echo -e ""
+            echo -e "${RED}========================================${NC}"
+            echo -e "${RED}  ERROR: SHA MISMATCH!${NC}"
+            echo -e "${RED}========================================${NC}"
+            echo -e ""
+            echo -e "Expected git SHA: ${expected_short}"
+            echo -e "Installed SHA:    ${installed_short:-unknown}"
+            echo -e ""
+            echo -e "Your PATH may point to a different openhei binary,"
+            echo -e "or there is an install prefix mismatch."
+            echo -e ""
+            echo -e "Fix: Run these commands:"
+            echo -e "  ${MUTED}hash -r${NC}"
+            echo -e "  ${MUTED}which openhei${NC}"
+            echo -e "  ${MUTED}ls -la \$(which openhei)${NC}"
+            echo -e ""
+            echo -e "Expected path: ${INSTALL_DIR}/openhei"
+            echo -e ""
+            echo -e "${RED}========================================${NC}"
+            echo -e ""
+            exit 1
+        fi
+
+        print_message info "${MUTED}SHA verified: ${installed_short} (matches expected)${NC}"
+    fi
 }
 
 if [ "$local_repo" = "true" ]; then
     install_from_repo
+    # Install external OpenCode plugins into the user's global plugin dir only
+    # when the user explicitly requests it via an opt-in flag.
+    if [ "${WITH_PLUGINS:-false}" = "true" ]; then
+        install_opencode_morph_plugin
+        install_dynamic_pruning_plugin
+    else
+        print_message info "${MUTED}Skipping optional plugin installs (pass --with-plugins to opt-in)${NC}"
+    fi
+elif [ "$latest_main" = "true" ]; then
+    print_message info "${MUTED}Installing latest main branch build...${NC}"
+    download_from_main
+elif [ "$latest_release" = "true" ]; then
+    print_message info "${MUTED}Installing latest stable release...${NC}"
+    check_version
+    download_and_install
 elif [ -n "$binary_path" ]; then
     install_from_binary
 else
+    # Default: install latest release
     check_version
     download_and_install
 fi
@@ -531,11 +637,22 @@ clean_old_env() {
 add_to_path() {
     local config_file=$1
     local command=$2
-    if grep -Fxq "$command" "$config_file"; then
-        print_message info "Command already exists in $config_file, skipping write."
-    elif [[ -w $config_file ]]; then
-        echo -e "\n# openhei" >> "$config_file"
+
+    # Check if already managed by our marker block
+    if grep -q "# >>> openhei install marker >>>" "$config_file" 2>/dev/null; then
+        print_message info "PATH already managed in $config_file, skipping."
+        return
+    fi
+
+    if grep -Fxq "$command" "$config_file" 2>/dev/null; then
+        # Old-style entry exists, replace with marker block
+        sed -i "/$command/d" "$config_file" 2>/dev/null || true
+    fi
+
+    if [[ -w $config_file ]]; then
+        echo -e "\n# >>> openhei install marker >>>" >> "$config_file"
         echo "$command" >> "$config_file"
+        echo "# <<< openhei install marker <<<" >> "$config_file"
         print_message info "${MUTED}Successfully added ${NC}openhei ${MUTED}to \$PATH in ${NC}$config_file"
     else
         print_message warning "Manually add the directory to $config_file (or similar):"
@@ -586,11 +703,18 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
 fi
 
 show_logo
+print_install_summary
 
 # Optional: Run immediately
 export PATH="$INSTALL_DIR:$PATH"
+hash -r
+
+print_message info "\nVerification:"
+print_message info "  Path:    $(which openhei)"
+print_message info "  Version: $(openhei --version)"
+
 if [ -t 0 ]; then
-    echo -e "${ORANGE}Installation complete!${NC}"
+    echo ""
     read -p "Would you like to run openhei now? (y/N) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then

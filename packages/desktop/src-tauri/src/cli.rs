@@ -272,7 +272,7 @@ pub fn spawn_command(
                 "BIN=\"$HOME/.openhei/bin/openhei\"".to_string(),
                 "if [ ! -x \"$BIN\" ]; then".to_string(),
                 format!(
-                    "  curl -fsSL https://openhei.ai/install | bash -s -- --version {} --no-modify-path",
+                    "  bash -c \"$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/v{}/install.sh)\" bash -- --no-modify-path",
                     shell_escape(&version)
                 ),
                 "fi".to_string(),

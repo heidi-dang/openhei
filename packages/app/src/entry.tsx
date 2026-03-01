@@ -68,7 +68,7 @@ const notify: Platform["notify"] = async (title, description, href) => {
 
   const notification = new Notification(title, {
     body: description ?? "",
-    icon: "https://openhei.ai/favicon-96x96-v3.png",
+    icon: "/favicon-96x96-v3.png",
   })
 
   notification.onclick = () => {
@@ -92,11 +92,22 @@ const forward: Platform["forward"] = () => {
 const defaultUrl = iife(() => {
   const lsDefault = readDefaultServerUrl()
   if (lsDefault) return lsDefault
-  if (location.hostname.includes("openhei.ai")) return "http://localhost:4096"
   if (import.meta.env.DEV)
     return `http://${import.meta.env.VITE_OPENHEI_SERVER_HOST ?? "localhost"}:${import.meta.env.VITE_OPENHEI_SERVER_PORT ?? "4096"}`
   return location.origin
 })
+
+const registerSw = () => {
+  const enabled = import.meta.env.PROD || import.meta.env.VITE_PWA_DEV === "1"
+  if (!enabled) return
+  if (!("serviceWorker" in navigator)) return
+
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => undefined)
+  })
+}
+
+if (typeof window === "object") registerSw()
 
 const restart: Platform["restart"] = async () => {
   // Try to ping the server until it's back

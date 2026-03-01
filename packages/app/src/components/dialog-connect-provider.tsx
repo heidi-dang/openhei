@@ -10,7 +10,7 @@ import { ProviderIcon } from "@openhei-ai/ui/provider-icon"
 import { Spinner } from "@openhei-ai/ui/spinner"
 import { TextField } from "@openhei-ai/ui/text-field"
 import { showToast } from "@openhei-ai/ui/toast"
-import { createMemo, Match, onCleanup, onMount, Switch } from "solid-js"
+import { createMemo, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { Link } from "@/components/link"
 import { useLanguage } from "@/context/language"
@@ -27,6 +27,12 @@ export function DialogConnectProvider(props: { provider: string }) {
   const platform = usePlatform()
   const language = useLanguage()
 
+  const local = () => {
+    if (typeof window === "undefined") return true
+    const host = window.location.hostname
+    return host === "localhost" || host === "127.0.0.1" || host === "::1"
+  }
+
   const alive = { value: true }
   const timer = { current: undefined as ReturnType<typeof setTimeout> | undefined }
 
@@ -38,7 +44,7 @@ export function DialogConnectProvider(props: { provider: string }) {
   })
 
   const provider = createMemo(() => globalSync.data.provider.all.find((x) => x.id === props.provider)!)
-  const methods = createMemo(
+  const raw = createMemo(
     () =>
       globalSync.data.provider_auth[props.provider] ?? [
         {
@@ -47,6 +53,8 @@ export function DialogConnectProvider(props: { provider: string }) {
         },
       ],
   )
+
+  const methods = createMemo(() => raw().map((m, index) => ({ m, index })))
   const [store, setStore] = createStore({
     methodIndex: undefined as undefined | number,
     authorization: undefined as undefined | ProviderAuthAuthorization,
@@ -95,7 +103,7 @@ export function DialogConnectProvider(props: { provider: string }) {
     )
   }
 
-  const method = createMemo(() => (store.methodIndex !== undefined ? methods().at(store.methodIndex!) : undefined))
+  const method = createMemo(() => (store.methodIndex !== undefined ? raw().at(store.methodIndex!) : undefined))
 
   const methodLabel = (value?: { type?: string; label?: string }) => {
     if (!value) return ""
@@ -127,8 +135,22 @@ export function DialogConnectProvider(props: { provider: string }) {
       timer.current = undefined
     }
 
-    const method = methods()[index]
+    const method = raw()[index]
     dispatch({ type: "method.select", index })
+
+    if (
+      props.provider === "openai" &&
+      !local() &&
+      method.type === "oauth" &&
+      method.label?.toLowerCase().includes("codex subscription")
+    ) {
+      showToast({
+        variant: "error",
+        title: "May not work from mobile",
+        description:
+          "This flow redirects to localhost:1455 on the device you open it on. Use Device Code or Manual URL Paste if you're not on the OpenHei machine.",
+      })
+    }
 
     if (method.type === "oauth") {
       dispatch({ type: "auth.pending" })
@@ -174,8 +196,15 @@ export function DialogConnectProvider(props: { provider: string }) {
   }
 
   onMount(() => {
+    if (props.provider === "openai" && !local()) {
+      const device = methods().find((x) => x.m.type === "oauth" && x.m.label?.toLowerCase().includes("device"))
+      if (device) {
+        selectMethod(device.index)
+        return
+      }
+    }
     if (methods().length === 1) {
-      selectMethod(0)
+      selectMethod(methods()[0]!.index)
     }
   })
 
@@ -218,9 +247,28 @@ export function DialogConnectProvider(props: { provider: string }) {
               listRef = ref
             }}
             items={methods}
-            key={(m) => m?.label}
+            key={(i) => i?.m?.label}
             onSelect={async (selected, index) => {
               if (!selected) return
+              if (props.provider === "openai" && !local()) {
+                const m = methods()[index]
+                const label = (m.m?.label ?? "").toLowerCase()
+                if (m.m?.type === "oauth" && label.includes("browser")) {
+                  showToast({
+                    variant: "error",
+                    title: "Use headless login",
+                    description:
+                      "The browser login redirects to localhost (this device) and will 404 on mobile/remote. Select the headless method instead.",
+                  })
+                  const headless = methods().findIndex(
+                    (x) => x.m.type === "oauth" && (x.m.label ?? "").toLowerCase().includes("headless"),
+                  )
+                  if (headless !== -1) {
+                    selectMethod(headless)
+                  }
+                  return
+                }
+              }
               selectMethod(index)
             }}
           >
@@ -229,11 +277,16 @@ export function DialogConnectProvider(props: { provider: string }) {
                 <div class="w-4 h-2 rounded-[1px] bg-input-base shadow-xs-border-base flex items-center justify-center">
                   <div class="w-2.5 h-0.5 ml-0 bg-icon-strong-base hidden" data-slot="list-item-extra-icon" />
                 </div>
-                <span>{methodLabel(i)}</span>
+                <span>{methodLabel(i.m)}</span>
               </div>
             )}
           </List>
         </div>
+        <Show when={props.provider === "openai" && !local()}>
+          <div class="text-12-regular text-text-weak">
+            Mobile/remote login: choose the headless method (device code). The browser method redirects to localhost.
+          </div>
+        </Show>
       </>
     )
   }
@@ -411,6 +464,14 @@ export function DialogConnectProvider(props: { provider: string }) {
       })()
     })
 
+    const showCode = createMemo(() => {
+      const value = code()
+      if (!value) return false
+      if (value.length > 32) return false
+      if (value.includes(" ")) return false
+      return true
+    })
+
     return (
       <div class="flex flex-col gap-6">
         <div class="text-14-regular text-text-base">
@@ -418,13 +479,15 @@ export function DialogConnectProvider(props: { provider: string }) {
           <Link href={store.authorization!.url}>{language.t("provider.connect.oauth.auto.visit.link")}</Link>
           {language.t("provider.connect.oauth.auto.visit.suffix", { provider: provider().name })}
         </div>
-        <TextField
-          label={language.t("provider.connect.oauth.auto.confirmationCode")}
-          class="font-mono"
-          value={code()}
-          readOnly
-          copyable
-        />
+        <Show when={showCode()}>
+          <TextField
+            label={language.t("provider.connect.oauth.auto.confirmationCode")}
+            class="font-mono"
+            value={code()}
+            readOnly
+            copyable
+          />
+        </Show>
         <div class="text-14-regular text-text-base flex items-center gap-4">
           <Spinner />
           <span>{language.t("provider.connect.status.waiting")}</span>

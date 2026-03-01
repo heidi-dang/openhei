@@ -2,6 +2,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@openhei-ai/ui/context"
 import { persisted } from "@/utils/persist"
+import { normalizeDensity } from "@/components/density.helper"
 
 export interface NotificationSettings {
   agent: boolean
@@ -23,6 +24,24 @@ export interface Settings {
     autoSave: boolean
     releaseNotes: boolean
     showReasoningSummaries: boolean
+    density?: "comfortable" | "compact" | "spacious"
+    // Persisted user-selected send option for the composer. Use the string
+    // "default" to indicate the logical default (no metadata attached).
+    sendOption?: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority"
+    // Dismissed flag for an experimental discovery notice in Settings UI.
+    dismissedExperimentalNotice?: boolean
+    // Dismissed flag for the Phase 5 "What's new" banner.
+    dismissedWhatsNewPhase5?: boolean
+    // Controls how the thinking/summary drawer behaves when the feature is enabled.
+    // This is a user preference only - the feature gate remains `flags["ui.thinking_drawer"]`.
+    // Allowed values:
+    //  - 'auto'  : show summaries only for messages that include a reasoning_summary
+    //  - 'always': render the drawer for assistant messages even if reasoning_summary is missing
+    //  - 'never' : never render (useful as a user preference independent of the feature flag)
+    thinkingDrawerMode?: "auto" | "always" | "never"
+  }
+  ml: {
+    qloraEnabled: boolean
   }
   updates: {
     startup: boolean
@@ -35,6 +54,20 @@ export interface Settings {
   permissions: {
     autoApprove: boolean
   }
+  flags: {
+    "ui.streaming_status": boolean
+    "ui.stream_banners": boolean
+    "ui.scroll_anchor": boolean
+    "ui.stop_stream": boolean
+    "ui.tool_cards": boolean
+    "ui.step_timeline": boolean
+    "ui.error_cards": boolean
+    "ui.thinking_drawer": boolean
+    "ui.send_options": boolean
+    "ui.draft_persist": boolean
+    "ui.composer_palette": boolean
+    "ui.density_modes": boolean
+  }
   notifications: NotificationSettings
   sounds: SoundSettings
 }
@@ -43,7 +76,15 @@ const defaultSettings: Settings = {
   general: {
     autoSave: true,
     releaseNotes: true,
+    dismissedExperimentalNotice: false,
+    dismissedWhatsNewPhase5: false,
+    sendOption: "default",
     showReasoningSummaries: false,
+    density: "comfortable",
+    thinkingDrawerMode: "auto",
+  },
+  ml: {
+    qloraEnabled: false,
   },
   updates: {
     startup: true,
@@ -55,6 +96,20 @@ const defaultSettings: Settings = {
   keybinds: {},
   permissions: {
     autoApprove: false,
+  },
+  flags: {
+    "ui.streaming_status": false,
+    "ui.stream_banners": false,
+    "ui.scroll_anchor": false,
+    "ui.stop_stream": false,
+    "ui.tool_cards": false,
+    "ui.step_timeline": false,
+    "ui.error_cards": false,
+    "ui.thinking_drawer": false,
+    "ui.send_options": false,
+    "ui.draft_persist": false,
+    "ui.composer_palette": false,
+    "ui.density_modes": false,
   },
   notifications: {
     agent: true,
@@ -129,6 +184,63 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
         },
+        thinkingDrawerMode: withFallback(
+          () => store.general?.thinkingDrawerMode as "auto" | "always" | "never" | undefined,
+          defaultSettings.general.thinkingDrawerMode as "auto" | "always" | "never",
+        ),
+        setThinkingDrawerMode(value: "auto" | "always" | "never") {
+          setStore("general", "thinkingDrawerMode", value)
+        },
+        density: withFallback(
+          () => store.general?.density as "comfortable" | "compact" | "spacious" | undefined,
+          defaultSettings.general.density as "comfortable" | "compact" | "spacious",
+        ),
+        setDensity(value: "comfortable" | "compact" | "spacious") {
+          setStore("general", "density", value)
+        },
+        sendOption: withFallback(
+          () =>
+            store.general?.sendOption as
+              | "default"
+              | "no_reply"
+              | "plan"
+              | "act"
+              | "explain"
+              | "search"
+              | "priority"
+              | undefined,
+          defaultSettings.general.sendOption as
+            | "default"
+            | "no_reply"
+            | "plan"
+            | "act"
+            | "explain"
+            | "search"
+            | "priority",
+        ),
+        dismissedExperimentalNotice: withFallback(
+          () => store.general?.dismissedExperimentalNotice as boolean | undefined,
+          false,
+        ),
+        setDismissedExperimentalNotice(value: boolean) {
+          setStore("general", "dismissedExperimentalNotice", value)
+        },
+        dismissedWhatsNewPhase5: withFallback(
+          () => store.general?.dismissedWhatsNewPhase5 as boolean | undefined,
+          false,
+        ),
+        setDismissedWhatsNewPhase5(value: boolean) {
+          setStore("general", "dismissedWhatsNewPhase5", value)
+        },
+        setSendOption(value: "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority") {
+          setStore("general", "sendOption", value)
+        },
+      },
+      ml: {
+        qloraEnabled: withFallback(() => store.ml?.qloraEnabled, defaultSettings.ml.qloraEnabled),
+        setQLoRAEnabled(value: boolean) {
+          setStore("ml", "qloraEnabled", value)
+        },
       },
       updates: {
         startup: withFallback(() => store.updates?.startup, defaultSettings.updates.startup),
@@ -167,6 +279,14 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         autoApprove: withFallback(() => store.permissions?.autoApprove, defaultSettings.permissions.autoApprove),
         setAutoApprove(value: boolean) {
           setStore("permissions", "autoApprove", value)
+        },
+      },
+      flags: {
+        get: <K extends keyof Settings["flags"]>(key: K) => {
+          return withFallback(() => store.flags?.[key], defaultSettings.flags[key])()
+        },
+        set: <K extends keyof Settings["flags"]>(key: K, value: boolean) => {
+          setStore("flags", key, value)
         },
       },
       notifications: {
@@ -215,3 +335,8 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
     }
   },
 })
+
+// Export the default settings so tests and docs can reason about the
+// initial feature-flag state without instantiating the UI context.
+// This is a non-invasive export used only for verification and docs.
+export const DEFAULT_SETTINGS = defaultSettings

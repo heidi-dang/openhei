@@ -24,6 +24,18 @@ const env = {
 }
 
 const root = path.dirname(rootPkgPath)
+const GIT_SHA = await (async () => {
+  if (env.OPENHEI_VERSION) {
+    const shaPath = path.join(root, ".git/SHA")
+    if (await Bun.file(shaPath).exists()) {
+      return (await Bun.file(shaPath).text()).trim()
+    }
+  }
+  return "unknown"
+})()
+
+const BUILD_TIME = new Date().toISOString()
+
 const CHANNEL = await (async () => {
   if (env.OPENHEI_CHANNEL) return env.OPENHEI_CHANNEL
   if (env.OPENHEI_BUMP) return "latest"
@@ -96,6 +108,12 @@ export const Script = {
   },
   get team() {
     return team
+  },
+  get gitSha() {
+    return GIT_SHA
+  },
+  get buildTime() {
+    return BUILD_TIME
   },
 }
 console.log(`openhei script`, JSON.stringify(Script, null, 2))

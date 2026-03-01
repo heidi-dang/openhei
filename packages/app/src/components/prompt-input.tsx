@@ -46,6 +46,9 @@ import {
   promptLength,
 } from "./prompt-input/history"
 import { createPromptSubmit } from "./prompt-input/submit"
+import { draftKey, readDraft, writeDraft, removeDraft } from "./prompt-input/draft-persist"
+import { useSettings } from "@/context/settings"
+import Palette, { createPalette } from "./prompt-input/palette"
 import { PromptPopover, type AtOption, type SlashCommand } from "./prompt-input/slash-popover"
 import { PromptContextItems } from "./prompt-input/context-items"
 import { PromptImageAttachments } from "./prompt-input/image-attachments"
@@ -106,6 +109,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   const permission = usePermission()
   const language = useLanguage()
   const platform = usePlatform()
+  const settings = useSettings()
+  // Narrow alias for send option values used across this component
+  type SendOption = "default" | "no_reply" | "plan" | "act" | "explain" | "search" | "priority"
   let editorRef!: HTMLDivElement
   let fileInputRef: HTMLInputElement | undefined
   let scrollRef!: HTMLDivElement
@@ -233,6 +239,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     mode: "normal",
     applyingHistory: false,
   })
+
+  const palette = createPalette()
 
   const commentCount = createMemo(() => {
     if (store.mode === "shell") return 0
@@ -608,6 +616,20 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const item = items.find((entry) => entry.id === active) ?? items[0]
       handleSlashSelect(item)
     }
+    // Palette selection handling: keep runtime change minimal in this fix.
+    // The palette command parsing/strip logic lives in the palette-specific
+    // patch. Here we only set the selected send option and close the palette
+    // to avoid touching prompt text in this PR.
+    if (settings.flags.get("ui.composer_palette") && palette.open()) {
+      const items = palette.filtered()
+      if (items.length === 0) return
+      const idx = Math.max(0, Math.min(palette.activeIndex(), items.length - 1))
+      const item = items[idx]
+      if (item) {
+        settings.general.setSendOption(item.id as SendOption)
+        palette.setOpen(false)
+      }
+    }
   }
 
   createEffect(
@@ -740,7 +762,19 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     if (!shellMode) {
       const atMatch = rawText.substring(0, cursorPosition).match(/@(\S*)$/)
+      // existing slash popover logic (command list)
       const slashMatch = rawText.match(/^\/(\S*)$/)
+
+      // composer palette (flag-gated): open when input begins with '/'
+      if (settings.flags.get("ui.composer_palette")) {
+        const paletteMatch = rawText.match(/^\/(\S*)/)
+        if (paletteMatch) {
+          palette.setQuery(paletteMatch[1] ?? "")
+          palette.setOpen(true)
+        } else {
+          palette.setOpen(false)
+        }
+      }
 
       if (atMatch) {
         atOnInput(atMatch[1])
@@ -759,6 +793,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     mirror.input = true
     prompt.set([...rawParts, ...images], cursorPosition)
+    if (settings.flags.get("ui.draft_persist")) {
+      const key = draftStorageKey()
+      // store plain text only
+      const rawText = prompt
+        .current()
+        .map((p) => ("content" in p ? p.content : ""))
+        .join("")
+      writeDraft(key, rawText)
+    }
     queueScroll()
   }
 
@@ -897,6 +940,23 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     newSessionWorktree: () => props.newSessionWorktree,
     onNewSessionWorktreeReset: props.onNewSessionWorktreeReset,
     onSubmit: props.onSubmit,
+    // Use persisted settings for selected send option. Map the logical
+    // "default" to undefined so no metadata is attached on submit.
+    selectedSendOption: () => (settings.general.sendOption() === "default" ? undefined : settings.general.sendOption()),
+  })
+
+  // Draft persistence banner state
+  const [showRestoreBanner, setShowRestoreBanner] = createSignal(false)
+  const draftStorageKey = createMemo(() => draftKey(sdk.directory, params.id))
+
+  createEffect(() => {
+    if (!settings.flags.get("ui.draft_persist")) {
+      setShowRestoreBanner(false)
+      return
+    }
+    const key = draftStorageKey()
+    const existing = readDraft(key)
+    setShowRestoreBanner(!!existing)
   })
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -936,6 +996,13 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
 
     if (event.key === "Escape") {
+      // Close composer palette first if open
+      if (settings.flags.get("ui.composer_palette") && palette.open()) {
+        palette.setOpen(false)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       if (store.popover) {
         closePopover()
         event.preventDefault()
@@ -988,7 +1055,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
 
-    if (store.popover) {
+    if (store.popover || (settings.flags.get("ui.composer_palette") && palette.open())) {
       if (event.key === "Tab") {
         selectPopoverActive()
         event.preventDefault()
@@ -997,6 +1064,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const nav = event.key === "ArrowUp" || event.key === "ArrowDown" || event.key === "Enter"
       const ctrlNav = ctrl && (event.key === "n" || event.key === "p")
       if (nav || ctrlNav) {
+        if (settings.flags.get("ui.composer_palette") && palette.open()) {
+          // handle palette navigation
+          if (event.key === "ArrowUp") {
+            palette.setActiveIndex(Math.max(0, palette.activeIndex() - 1))
+          } else if (event.key === "ArrowDown") {
+            palette.setActiveIndex(Math.min(palette.filtered().length - 1, palette.activeIndex() + 1))
+          } else if (event.key === "Enter") {
+            selectPopoverActive()
+          }
+          event.preventDefault()
+          return
+        }
         if (store.popover === "at") {
           atOnKeyDown(event)
           event.preventDefault()
@@ -1153,7 +1232,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </Show>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2">
+          <div class="pointer-events-none absolute bottom-2 right-2 flex items-center gap-2 overflow-x-hidden">
             <input
               ref={fileInputRef}
               type="file"
@@ -1174,6 +1253,64 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 "opacity-0 translate-y-2 scale-95 pointer-events-none": store.mode !== "normal",
               }}
             >
+              <Show when={showRestoreBanner()}>
+                <div class="pointer-events-auto absolute -top-10 right-0 bg-surface-2 rounded px-3 py-2 shadow-sm flex items-center gap-2">
+                  <span class="text-13-regular hidden sm:inline">Restore draft?</span>
+                  <span class="text-13-regular sm:hidden">Draft:</span>
+                  <button
+                    class="ml-1 sm:ml-2 text-blue-600 px-2 py-1.5 min-h-[40px] sm:min-h-0"
+                    onClick={() => {
+                      const key = draftStorageKey()
+                      const txt = readDraft(key)
+                      if (txt) {
+                        // load into editor/prompt
+                        prompt.set([{ type: "text", content: txt, start: 0, end: txt.length }], txt.length)
+                      }
+                      setShowRestoreBanner(false)
+                    }}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    class="ml-1 sm:ml-2 text-text-weak px-2 py-1.5 min-h-[40px] sm:min-h-0"
+                    onClick={() => {
+                      removeDraft(draftStorageKey())
+                      setShowRestoreBanner(false)
+                    }}
+                  >
+                    Discard
+                  </button>
+                </div>
+              </Show>
+              <Show when={settings.flags.get("ui.send_options")}>
+                <div class="pointer-events-auto mr-1 sm:mr-2 min-h-[44px] min-w-[44px] flex items-center sm:min-h-0 sm:min-w-0">
+                  <Select
+                    data-action="prompt-send-option"
+                    size="compact"
+                    options={[
+                      { value: "default", label: (language.t as any)("prompt.sendOptions.option.default") },
+                      { value: "no_reply", label: (language.t as any)("prompt.sendOptions.option.no_reply") },
+                      { value: "plan", label: (language.t as any)("prompt.sendOptions.option.plan") },
+                      { value: "act", label: (language.t as any)("prompt.sendOptions.option.act") },
+                      { value: "explain", label: (language.t as any)("prompt.sendOptions.option.explain") },
+                      { value: "search", label: (language.t as any)("prompt.sendOptions.option.search") },
+                      { value: "priority", label: (language.t as any)("prompt.sendOptions.option.priority") },
+                    ]}
+                    current={{
+                      value: settings.general.sendOption(),
+                      label: (language.t as any)("prompt.sendOptions.option." + settings.general.sendOption()),
+                    }}
+                    value={(o: any) => o.value}
+                    label={(o: any) => o.label}
+                    onSelect={(option: any) => {
+                      if (!option) return
+                      settings.general.setSendOption(option.value as SendOption)
+                    }}
+                    aria-label="Send options"
+                    variant="ghost"
+                  />
+                </div>
+              </Show>
               <TooltipKeybind
                 placement="top"
                 title={language.t("prompt.action.attachFile")}
@@ -1183,7 +1320,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   data-action="prompt-attach"
                   type="button"
                   variant="ghost"
-                  class="size-8 p-0"
+                  class="size-8 p-0 min-h-[44px] min-w-[44px] sm:size-8 sm:min-h-8 sm:min-w-8"
                   onClick={pick}
                   disabled={store.mode !== "normal"}
                   tabIndex={store.mode === "normal" ? undefined : -1}
@@ -1220,7 +1357,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   tabIndex={store.mode === "normal" ? undefined : -1}
                   icon={working() ? "stop" : "arrow-up"}
                   variant="primary"
-                  class="size-8"
+                  class="size-8 min-h-[44px] min-w-[44px] sm:size-8 sm:min-h-8 sm:min-w-8"
                   aria-label={working() ? language.t("prompt.action.stop") : language.t("prompt.action.send")}
                 />
               </Tooltip>
@@ -1373,6 +1510,29 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </TooltipKeybind>
               </Show>
             </div>
+            {/* Palette overlay (flag-gated) */}
+            <Show when={settings.flags.get("ui.composer_palette") && palette.open()}>
+              <div class="absolute left-2 right-2 top-full mt-1 sm:left-2 sm:right-auto">
+                <Palette
+                  palette={palette}
+                  onSelect={(id) => {
+                    const items = palette.filtered()
+                    const item = items.find((i) => i.id === id)
+                    if (!item) return
+                    const rawParts = prompt.current()
+                    const text = rawParts.map((p) => ("content" in p ? p.content : "")).join("")
+                    const remainder = text.replace(new RegExp(`^/${item.id}\s?`), "")
+                    mirror.input = true
+                    prompt.set(
+                      [{ type: "text", content: remainder, start: 0, end: remainder.length }],
+                      remainder.length,
+                    )
+                    settings.general.setSendOption(item.id as SendOption)
+                    palette.setOpen(false)
+                  }}
+                />
+              </div>
+            </Show>
             <div class="shrink-0">
               <RadioGroup
                 options={["shell", "normal"] as const}

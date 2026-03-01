@@ -1,0 +1,37 @@
+.density-root {
+  /* comfortable defaults */
+  --gap-session: 18px;
+  --gap-assistant: 12px;
+  --composer-padding-vertical: 11px;
+  --composer-padding-horizontal: 12px;
+}
+.density-root[data-density="compact"] {
+  --gap-session: 10px;
+  --gap-assistant: 8px;
+  --composer-padding-vertical: 8px;
+  --composer-padding-horizontal: 8px;
+}
+.density-root[data-density="spacious"] {
+  --gap-session: 26px;
+  --gap-assistant: 18px;
+  --composer-padding-vertical: 16px;
+  --composer-padding-horizontal: 16px;
+}
+
+/* Apply vars to existing UI classes used in timeline and composer */
+[data-component="session-turn"] [data-slot="session-turn-message-container"] {
+  gap: var(--gap-session);
+}
+
+[data-component="session-turn"] [data-slot="session-turn-assistant-content"] {
+  gap: var(--gap-assistant);
+}
+
+.composer-density {
+  padding: var(--composer-padding-vertical) var(--composer-padding-horizontal);
+}
+
+/* Ensure scrollable lists on mobile are touch-friendly */
+.density-root .no-scrollbar {
+  -webkit-overflow-scrolling: touch;
+}

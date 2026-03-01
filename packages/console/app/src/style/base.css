@@ -1,3 +1,10 @@
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
 html {
   line-height: 1;
   background-color: var(--color-bg);
@@ -18,4 +25,19 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* Global safe-area helpers and mobile hit targets */
+[data-component="top"] {
+  /* Ensure header respects safe-area on all pages by default; per-route CSS may augment */
+  padding-top: calc(var(--sat));
+}
+
+[data-component="nav-mobile-toggle"] {
+  /* Baseline tappable target and touch behavior */
+  min-width: 44px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 60;
 }

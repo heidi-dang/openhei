@@ -314,7 +314,7 @@ function configSchema() {
     hooks: {
       "astro:build:done": async () => {
         console.log("generating config schema")
-        spawnSync("../openhei/script/schema.ts", ["./dist/config.json"])
+        spawnSync("../openhei/script/schema.ts", ["./dist/docs/config.json"])
       },
     },
   }

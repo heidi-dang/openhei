@@ -22,11 +22,27 @@ import { useSettings } from "@/context/settings"
 type Doctor = {
   installed: boolean
   tool_dir: string
+  tool_dir_candidates?: string[]
+  selected_tool_dir?: string
+  checks?: {
+    exists: boolean
+    pump_import_ok: boolean
+    venv_python_path?: string
+  }
   python?: string
   version?: string
   gpu?: string
   disk?: { path: string; free_bytes: number }
   active?: { run_id: string; pid: number; started_at: string }
+  diagnostics?: any
+}
+
+type Stack = {
+  id: string
+  label: string
+  description: string
+  available: boolean
+  reason?: string
 }
 
 type Status = {
@@ -98,6 +114,8 @@ export const SettingsQLoRA: Component = () => {
     openhei_agent: "",
     openhei_start: true,
     openhei_attach_strict: false,
+    heidi_engine_python: "",
+    heidi_engine_path: "",
 
     stack: "python",
     max_repos: preset.safe.max_repos,
@@ -120,11 +138,14 @@ export const SettingsQLoRA: Component = () => {
     stage: "" as string,
     progress: undefined as undefined | { done: number; total: number; pct: number; rate: number; eta: number },
     logs: [] as string[],
+    connected: false,
+    lastEventTime: 0,
   })
 
-  const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor"))
-  const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models"))
-  const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models"))
+  const [doc, docActions] = createResource(() => get<Doctor>("/api/v1/qlora/doctor").catch(() => undefined as unknown as Doctor))
+  const [teachers] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/teacher-models").catch(() => ({ models: [] })))
+  const [bases] = createResource(() => get<{ models: string[] }>("/api/v1/qlora/base-models").catch(() => ({ models: [] })))
+  const [stacks] = createResource(() => get<Stack[]>("/api/v1/qlora/stacks").catch(() => [] as Stack[]))
 
   // Saved config as returned from server (canonical). We keep it separate from the UI store
   const [saved, setSaved] = createStore<Record<string, unknown>>({})
@@ -171,6 +192,8 @@ export const SettingsQLoRA: Component = () => {
       openhei_start: store.openhei_start,
       openhei_attach_strict: store.openhei_attach_strict,
     },
+    heidi_engine_python: store.heidi_engine_python,
+    heidi_engine_path: store.heidi_engine_path,
   })
 
   // Compare fields for dirty state. We map logical fields to tabs so we can show per-tab dirty badges.
@@ -261,9 +284,26 @@ export const SettingsQLoRA: Component = () => {
     close()
     setStore("logs", [])
     setStore("progress", undefined)
+    setStore("connected", false)
+    setStore("lastEventTime", 0)
     es = new EventSource(`/api/v1/qlora/logs?run_id=${encodeURIComponent(run_id)}`)
+    let reconnectTimeout: ReturnType<typeof setTimeout> | undefined
+    const updateEventTime = () => {
+      setStore("lastEventTime", Date.now())
+      setStore("connected", true)
+    }
+    const scheduleReconnect = () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      reconnectTimeout = setTimeout(() => {
+        if (store.run_id && store.running && !store.connected) {
+          connect(store.run_id)
+        }
+      }, 10000)
+    }
     es.onmessage = (e) => {
-      const data = JSON.parse(e.data) as { type: string; [k: string]: unknown }
+      updateEventTime()
+      const data = JSON.parse(e.data) as { type: string;[k: string]: unknown }
+      if (data.type === "heartbeat" || data.type === "connected") return
       if (data.type === "progress") {
         setStore("progress", {
           done: Number(data.done),
@@ -282,7 +322,8 @@ export const SettingsQLoRA: Component = () => {
       })
     }
     es.onerror = () => {
-      // Allow automatic reconnect behavior from EventSource.
+      setStore("connected", false)
+      scheduleReconnect()
     }
   }
 
@@ -356,9 +397,16 @@ export const SettingsQLoRA: Component = () => {
     const d = doc.latest
     if (!d) return
     const parts = [`Installed: ${d.installed ? "yes" : "no"}`, `Tool dir: ${d.tool_dir}`]
+    if (d.selected_tool_dir) parts.push(`Detected: ${d.selected_tool_dir}`)
+    if (d.python) parts.push(`Python: ${d.python}`)
     if (d.version) parts.push(`heidi-engine: ${d.version}`)
     if (d.gpu) parts.push(`GPU: ${d.gpu.split("\n")[0]}`)
     if (d.disk) parts.push(`Disk free: ${Math.round(d.disk.free_bytes / 1024 / 1024 / 1024)} GB`)
+    // diagnostics
+    const diag = (d as any).diagnostics
+    if (diag?.sys_executable) parts.push(`Checked executable: ${diag.sys_executable}`)
+    if (diag?.install_cmd) parts.push(`Install command: ${diag.install_cmd}`)
+    if ((d as any).import_err) parts.push(`Import error: ${(d as any).import_err}`)
     return parts
   })
 
@@ -412,6 +460,8 @@ export const SettingsQLoRA: Component = () => {
         openhei_agent: t?.openhei_agent ?? s.openhei_agent,
         openhei_start: t?.openhei_start ?? s.openhei_start,
         openhei_attach_strict: t?.openhei_attach_strict ?? s.openhei_attach_strict,
+        heidi_engine_python: t?.heidi_engine_python ?? s.heidi_engine_python,
+        heidi_engine_path: t?.heidi_engine_path ?? s.heidi_engine_path,
       }))
     } catch (err) {
       // ignore server errors — UI can still function with local values
@@ -436,7 +486,7 @@ export const SettingsQLoRA: Component = () => {
   }
 
   return (
-    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-4 pb-10 sm:px-10 sm:pb-10">
+    <div class="flex flex-col h-full overflow-y-auto no-scrollbar px-3 pb-10 sm:px-10 sm:pb-10 min-w-0">
       <div class="sticky top-0 z-10 bg-[linear-gradient(to_bottom,var(--surface-stronger-non-alpha)_calc(100%_-_24px),transparent)]">
         <div class="flex flex-col gap-2 pt-6 pb-6 max-w-[900px]">
           <h2 class="text-16-medium text-text-strong">QLoRA</h2>
@@ -446,7 +496,7 @@ export const SettingsQLoRA: Component = () => {
         </div>
       </div>
 
-      <div class="flex flex-col gap-8 max-w-[900px]">
+      <div class="flex flex-col gap-8 max-w-[900px] min-w-0">
         <div class="bg-surface-raised-base px-4 rounded-lg">
           <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
             <div class="flex flex-col gap-0.5 min-w-0">
@@ -470,8 +520,8 @@ export const SettingsQLoRA: Component = () => {
         </div>
 
         <div class="bg-surface-raised-base px-4 rounded-lg">
-          <div class="flex items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-            <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 py-3 border-b border-border-weak-base overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+            <div class="flex items-center gap-2 min-w-max pr-4 sm:pr-0 sm:min-w-0">
               {activeTabs.map((t) => (
                 <button
                   type="button"
@@ -535,21 +585,82 @@ export const SettingsQLoRA: Component = () => {
                 <TextField
                   value={store.openhei_attach}
                   onChange={(v) => setStore("openhei_attach", v)}
-                  class="w-[320px]"
+                  class="w-full sm:w-[320px] max-w-full"
                 />
               </Row>
 
               <Row
-                title="Stack"
-                desc="Execution stack"
-                help="Execution backend used to run heidi-engine (python/other)."
+                title="heidi_engine_python"
+                desc="Interpreter used to run heidi-engine"
+                help="Full path to the Python interpreter to use for heidi-engine (optional). Use the 'Check' button to validate."
               >
+                <div class="flex gap-2 items-center">
+                  <TextField
+                    value={store.heidi_engine_python}
+                    onChange={(v) => setStore("heidi_engine_python", v)}
+                    class="w-full sm:w-[320px] max-w-full"
+                  />
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await save()
+                        await docActions.refetch()
+                        showToast({ title: "Checked", description: "Doctor refreshed with configured python" })
+                      } catch (e: any) {
+                        showToast({ title: "Check failed", description: String(e?.message ?? e) })
+                      }
+                    }}
+                  >
+                    Check
+                  </Button>
+                </div>
+              </Row>
+
+              <Row
+                title="heidi_engine_path"
+                desc="Path to heidi-engine tool dir"
+                help="Directory where heidi-engine is installed (optional). Doctor will prefer .venv under this dir when resolving python."
+              >
+                <div class="flex gap-2 items-center">
+                  <TextField
+                    value={store.heidi_engine_path}
+                    onChange={(v) => setStore("heidi_engine_path", v)}
+                    class="w-full sm:w-[320px] max-w-full"
+                  />
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await save()
+                        await docActions.refetch()
+                        showToast({ title: "Checked", description: "Doctor refreshed with configured tool path" })
+                      } catch (e: any) {
+                        showToast({ title: "Check failed", description: String(e?.message ?? e) })
+                      }
+                    }}
+                  >
+                    Check
+                  </Button>
+                </div>
+              </Row>
+
+              <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">
                 <Select
-                  options={[{ id: "python", name: "python" }]}
-                  current={{ id: store.stack }}
+                  options={stacks() ?? []}
+                  current={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
                   value={(x) => x.id}
-                  label={(x) => (x as any).name ?? String((x as any).id)}
-                  onSelect={(x) => x && setStore("stack", x.id)}
+                  label={(x) => x.label ?? String(x.id)}
+                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
                 />
@@ -570,28 +681,32 @@ export const SettingsQLoRA: Component = () => {
                   value={(x) => x.id}
                   label={(x) => x.id}
                   onSelect={(x) => x && setStore("teacher_model", x.id)}
-                  class="w-[320px] max-w-full"
+                  class="w-full sm:w-[320px] max-w-full"
                   variant="secondary"
                   size="small"
                   triggerVariant="settings"
                 />
               </Row>
 
-              <Row
-                title="Base model"
-                desc="HF base model for QLoRA"
-                help="Hugging Face base model to fine-tune with QLoRA."
-              >
+              <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">
                 <Select
-                  options={baseOptions()}
-                  current={baseOptions().find((x) => x.id === store.base_model)}
+                  options={stacks() ?? []}
+                  current={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
                   value={(x) => x.id}
-                  label={(x) => x.id}
-                  onSelect={(x) => x && setStore("base_model", x.id)}
-                  class="w-[320px] max-w-full"
+                  label={(x) => {
+                    const s = x as Stack
+                    return s.available ? s.label : `${s.label} (${s.reason ?? "unavailable"})`
+                  }}
+                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
-                  triggerVariant="settings"
                 />
               </Row>
             </div>
@@ -728,6 +843,24 @@ export const SettingsQLoRA: Component = () => {
                 <div class="py-3 text-12-regular text-text-weak">
                   <div>run_id: {store.run_id}</div>
                   <div>stage: {store.stage || "(unknown)"}</div>
+                  <div class="flex items-center gap-2">
+                    <span classList={{ "text-text-success": store.connected, "text-text-weak": !store.connected }}>
+                      {store.connected ? "●" : "○"}
+                    </span>
+                    <span>
+                      {store.connected
+                        ? `connected (last: ${store.lastEventTime ? `${Math.round((Date.now() - store.lastEventTime) / 1000)}s ago` : "just now"})`
+                        : "disconnected"}
+                    </span>
+                    <Show when={!store.connected && store.running}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => store.run_id && connect(store.run_id)}
+                      >
+                        reconnect
+                      </button>
+                    </Show>
+                  </div>
                   <Show when={store.progress}>
                     {(p) => (
                       <div>
@@ -766,7 +899,7 @@ const clampInt = (value: number, min: number, max: number) => {
 
 const Row: Component<any> = (props) => (
   <div class="flex flex-wrap items-center justify-between gap-4 py-3 border-b border-border-weak-base last:border-none">
-    <div class="flex flex-col gap-0.5 min-w-0">
+    <div class="flex flex-col gap-0.5 min-w-0 flex-1 sm:flex-none">
       <span class="text-14-medium text-text-strong">
         <span class="inline-flex items-center gap-2">
           <span>{props.title}</span>
@@ -797,5 +930,10 @@ const Help: Component<{ text: string }> = (props) => (
 )
 
 const Num: Component<{ value: number; onChange: (v: number) => void }> = (props) => (
-  <TextField type="number" value={String(props.value)} onChange={(v) => props.onChange(Number(v))} class="w-[120px]" />
+  <TextField
+    type="number"
+    value={String(props.value)}
+    onChange={(v) => props.onChange(Number(v))}
+    class="w-full sm:w-[120px]"
+  />
 )

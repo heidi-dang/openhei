@@ -18,6 +18,7 @@ import { setCursorPosition } from "./editor-dom"
 import { Persist, removePersisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
 import { isNotFoundError } from "@/utils/api-error"
+import { draftKey, removeDraft } from "./draft-persist"
 
 type PendingPrompt = {
   abort: AbortController
@@ -61,6 +62,7 @@ type PromptSubmitInput = {
   newSessionWorktree?: Accessor<string | undefined>
   onNewSessionWorktreeReset?: () => void
   onSubmit?: () => void
+  selectedSendOption?: () => string | undefined
 }
 
 type CommentItem = {
@@ -376,6 +378,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     const commentItems = context.filter((item) => item.type === "file" && !!item.comment?.trim())
 
     const messageID = Identifier.ascending("message")
+    // The selected send option is provided by the PromptInput component when
+    // creating the submit handler. If no option is supplied, it will be
+    // undefined and omitted from the metadata.
+    const selectedSendOption = input.selectedSendOption?.()
+
     const { requestParts, optimisticParts } = buildRequestParts({
       prompt: currentPrompt,
       context,
@@ -384,6 +391,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       sessionID: session.id,
       messageID,
       sessionDirectory,
+      sendOption: selectedSendOption,
     })
 
     const optimisticMessage: Message = {
@@ -413,6 +421,14 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     removeCommentItems(commentItems)
     clearInput()
     addOptimisticMessage()
+
+    // Attempt to clear persisted draft (best-effort; must not throw)
+    try {
+      const key = draftKey(sessionDirectory, session.id)
+      removeDraft(key)
+    } catch (e) {
+      // ignore
+    }
 
     const waitForWorktree = async () => {
       const worktree = WorktreeState.get(sessionDirectory)

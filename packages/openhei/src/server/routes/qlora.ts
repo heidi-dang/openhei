@@ -15,6 +15,19 @@ const tools = path.join(Global.Path.data, "tools")
 const heidi = path.join(tools, "heidi-engine")
 const venv = path.join(heidi, ".venv")
 
+const getRealHome = async (): Promise<string> => {
+  try {
+    const uid = process.getuid?.() || 1000
+    const p = await fs.readFile("/etc/passwd", "utf-8")
+    const line = p.split("\n").find((l) => l.startsWith(`heidi:`))
+    if (line) {
+      const parts = line.split(":")
+      if (parts[5]) return parts[5]
+    }
+  } catch { }
+  return "/home/heidi"
+}
+
 const runs = path.join(Global.Path.data, "runs")
 const active = path.join(Global.Path.state, "qlora.active.json")
 const installing = path.join(Global.Path.state, "qlora.install.json")
@@ -59,7 +72,8 @@ const run = async (cmd: string[], opts?: { cwd?: string; env?: Record<string, st
 }
 
 const spawnLogged = (cmd: string[], logPath: string, opts?: { env?: Record<string, string> }) => {
-  const proc = Bun.spawn(cmd, {
+  const args = ["setsid", "-w", ...cmd]
+  const proc = Bun.spawn(args, {
     env: { ...process.env, ...(opts?.env ?? {}) },
     stdout: "pipe",
     stderr: "pipe",
@@ -84,13 +98,129 @@ const spawnLogged = (cmd: string[], logPath: string, opts?: { env?: Record<strin
 }
 
 const findpy = async () => {
-  const v = await getpy()
-  if (v) {
-    const ok = await run([v, "-c", "import heidi_engine"]).then((x) => x.code === 0)
-    if (ok) return v
+  // Prefer a configured python from qlora.config.json if present
+  let cfg: any = {}
+  try {
+    const txt = await fs.readFile(configPath, "utf-8").catch(() => "")
+    if (txt) cfg = JSON.parse(txt)
+  } catch { }
+
+  const realHome = await getRealHome()
+  const candidates = [
+    cfg?.heidi_engine_path,
+    path.join(Global.Path.data, "tools", "heidi-engine"),
+    path.join(realHome, ".local", "share", "openhei", "tools", "heidi-engine"),
+    path.join(Global.Path.home, ".local", "share", "openhei", "tools", "heidi-engine"),
+    "/home/heidi/.local/share/openhei/tools/heidi-engine",
+  ].filter(Boolean) as string[]
+
+  const uniqueCandidates = [...new Set(candidates)]
+
+  // If a specific python path is configured, prefer that.
+  if (cfg?.heidi_engine_python) {
+    const py = cfg.heidi_engine_python
+    const ok = await run([py, "-c", "import heidi_engine"])
+      .then((x) => x.code === 0)
+      .catch(() => false)
+    if (ok) return py
   }
-  const ok = await run(["python3", "-c", "import heidi_engine"]).then((x) => x.code === 0)
-  return ok ? "python3" : undefined
+
+  for (const cand of uniqueCandidates) {
+    try {
+      const venvPath = path.join(cand, ".venv")
+      const venvPy = path.join(venvPath, "bin", "python")
+      const it = await fs
+        .stat(venvPy)
+        .then(() => venvPy)
+        .catch(() => undefined)
+      if (it) {
+        const ok = await run([it, "-c", "import heidi_engine"]).then((x) => x.code === 0)
+        if (ok) return it
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Fallback: try python3 and python on PATH
+  const checks = ["python3", "python"]
+  for (const p of checks) {
+    const ok = await run([p, "-c", "import heidi_engine"])
+      .then((x) => x.code === 0)
+      .catch(() => false)
+    if (ok) return p
+  }
+  return undefined
+}
+
+// Run an extended diagnostic using a specific python interpreter (if provided).
+const doctorHeidiEngine = async (python?: string, toolDirCandidates?: string[]) => {
+  const tried: Array<{ cmd: string[]; code: number; out: string; err: string }> = []
+  const push = async (cmd: string[]) => {
+    const r = await run(cmd)
+    tried.push({ cmd, code: r.code ?? 127, out: r.out ?? "", err: r.err ?? "" })
+    return r
+  }
+
+  let pick = python
+  if (!pick) {
+    try {
+      pick = await findpy()
+    } catch {
+      pick = undefined
+    }
+  }
+
+  const result: any = { python: pick }
+
+  if (!pick) {
+    result.import_ok = false
+    result.import_err = "no python found"
+    result.tried = tried
+    return result
+  }
+
+  // sys.executable, sys.prefix, site.getsitepackages()
+  const infoCmd = [
+    pick,
+    "-c",
+    "import sys,site,json;print(sys.executable);print(sys.prefix);print(json.dumps(getattr(site,'getsitepackages',lambda:[] )()))",
+  ]
+  const info = await push(infoCmd)
+  const lines = (info.out || "").split(/\r?\n/).filter((l) => l)
+  result.sys_executable = lines[0]
+  result.sys_prefix = lines[1]
+  try {
+    result.site_packages = JSON.parse(lines[2] || "[]")
+  } catch {
+    result.site_packages = []
+  }
+
+  // pip show
+  await push([pick, "-m", "pip", "show", "heidi-engine"]).then((r) => (result.pip_show = r.out || r.err || ""))
+
+  // import check and version
+  const imp = await push([pick, "-c", "import heidi_engine;print(getattr(heidi_engine,'__version__', ''))"]).catch(
+    () => ({ code: 127, out: "", err: "import failed" }),
+  )
+  result.import_ok = imp.code === 0
+  result.import_err = imp.code === 0 ? undefined : imp.err || imp.out
+  result.module_version = imp.code === 0 ? (imp.out || "").trim() : undefined
+
+  // try console entrypoint variants
+  const entrypoints = [
+    [pick, "-m", "heidi_engine", "--help"],
+    [pick, "-m", "heidi_engine.dashboard", "--help"],
+  ]
+  result.entrypoints = []
+  for (const e of entrypoints) {
+    const r = await push(e)
+    result.entrypoints.push({ cmd: e, code: r.code, out: r.out, err: r.err })
+  }
+
+  if (toolDirCandidates) result.tool_dir_candidates = toolDirCandidates
+  result.tried = tried
+  return result
 }
 
 const pidok = (pid: number) => {
@@ -119,6 +249,29 @@ const findInstallPidByPs = async () => {
 
 const sleep = (ms: number) => Bun.sleep(ms)
 
+const killchildren = async (pid: number) => {
+  if (process.platform === "win32") return
+  try {
+    const out = await run(["pgrep", "-P", String(pid)])
+    if (out.code !== 0) return
+    const pids = out.out
+      .split("\n")
+      .filter((x) => x.trim())
+      .map((x) => Number(x.trim()))
+    for (const child of pids) {
+      if (child) {
+        try {
+          process.kill(child, "SIGKILL")
+        } catch {
+          // ignore
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
 const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (!pid) return
   if (process.platform === "win32") {
@@ -143,8 +296,8 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     }
   }
   send(pid)
-  // Best-effort: also try process group if detached.
   send(-pid)
+  killchildren(pid)
 }
 
 const waitdead = async (pid: number, timeout_ms: number) => {
@@ -289,11 +442,12 @@ const cfg = z
       .max(80)
       .regex(/^[a-zA-Z0-9._-]+$/)
       .optional(),
-    stack: z
+    preset: z
       .string()
       .max(40)
       .regex(/^[a-zA-Z0-9_-]+$/)
-      .default("python"),
+      .default("safe"),
+    stack: z.enum(["python", "cpp", "github-ci", "mixed"]).default("python"),
     max_repos: z.number().int().min(1).max(500).default(50),
     rounds: z.number().int().min(1).max(50).default(2),
     samples_per_run: z.number().int().min(1).max(5000).default(100),
@@ -307,9 +461,40 @@ const cfg = z
     grad_accum: z.number().int().min(1).max(128).default(8),
     lora_r: z.number().int().min(4).max(256).default(32),
     val_ratio: z.number().min(0).max(0.5).default(0.05),
+    heidi_engine_python: z.string().max(400).optional(),
+    heidi_engine_path: z.string().max(400).optional(),
     teacher: teacher,
   })
   .strict()
+
+const stacks = z.array(
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    description: z.string(),
+    available: z.boolean(),
+    reason: z.string().optional(),
+  }),
+)
+
+const availableStacks = [
+  { id: "python", label: "Python", description: "Python repositories using pip/poetry/venv", available: true },
+  {
+    id: "cpp",
+    label: "C++",
+    description: "C++ repositories using CMake/ninja",
+    available: false,
+    reason: "Coming soon",
+  },
+  {
+    id: "github-ci",
+    label: "GitHub CI",
+    description: "Repositories with GitHub Actions workflows",
+    available: false,
+    reason: "Coming soon",
+  },
+  { id: "mixed", label: "Mixed", description: "Mixed language repositories", available: false, reason: "Coming soon" },
+]
 
 type Run = {
   run_id: string
@@ -324,6 +509,26 @@ const state = { run: undefined as Run | undefined }
 
 export const QLoRARoutes = lazy(() =>
   new Hono()
+    .get(
+      "/stacks",
+      describeRoute({
+        summary: "Get available execution stacks",
+        operationId: "qlora.get_stacks",
+        responses: {
+          200: {
+            description: "Stack list",
+            content: {
+              "application/json": {
+                schema: resolver(stacks),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(availableStacks)
+      },
+    )
     .get(
       "/config",
       describeRoute({
@@ -345,6 +550,7 @@ export const QLoRARoutes = lazy(() =>
         if (!txt)
           return c.json(
             cfg.parse({
+              preset: "safe",
               stack: "python",
               max_repos: 50,
               rounds: 2,
@@ -378,8 +584,8 @@ export const QLoRARoutes = lazy(() =>
           const ok = cfg.parse(parsed)
           return c.json(ok)
         } catch (e) {
-          // If config is corrupt, return default cfg
           const def = cfg.parse({
+            preset: "safe",
             stack: "python",
             max_repos: 50,
             rounds: 2,
@@ -424,6 +630,22 @@ export const QLoRARoutes = lazy(() =>
               },
             },
           },
+          400: {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    error: z.object({
+                      code: z.string(),
+                      message: z.string(),
+                      fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
+                    }),
+                  }),
+                ),
+              },
+            },
+          },
         },
       }),
       validator("json", cfg),
@@ -449,6 +671,19 @@ export const QLoRARoutes = lazy(() =>
                     .object({
                       installed: z.boolean(),
                       tool_dir: z.string(),
+                      tool_dir_candidates: z.array(z.string()),
+                      selected_tool_dir: z.string().optional(),
+                      venv_python: z.string().optional(),
+                      import_ok: z.boolean(),
+                      import_err: z.string().optional(),
+                      reason: z.string().optional(),
+                      checks: z
+                        .object({
+                          exists: z.boolean(),
+                          pump_import_ok: z.boolean(),
+                          venv_python_path: z.string().optional(),
+                        })
+                        .optional(),
                       python: z.string().optional(),
                       version: z.string().optional(),
                       gpu: z.string().optional(),
@@ -456,6 +691,27 @@ export const QLoRARoutes = lazy(() =>
                       install: z.object({ pid: z.number().int(), started_at: z.string(), log: z.string() }).optional(),
                       active: z
                         .object({ run_id: z.string(), pid: z.number().int(), started_at: z.string() })
+                        .optional(),
+                      diagnostics: z
+                        .object({
+                          sys_executable: z.string().optional(),
+                          sys_prefix: z.string().optional(),
+                          site_packages: z.array(z.string()).optional(),
+                          pip_show: z.string().optional(),
+                          module_version: z.string().optional(),
+                          entrypoints: z.array(z.any()).optional(),
+                          tried: z
+                            .array(
+                              z.object({
+                                cmd: z.array(z.string()),
+                                code: z.number().int(),
+                                out: z.string(),
+                                err: z.string(),
+                              }),
+                            )
+                            .optional(),
+                          install_cmd: z.string().optional(),
+                        })
                         .optional(),
                     })
                     .strict(),
@@ -466,8 +722,31 @@ export const QLoRARoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const py = await findpy()
-        const installed = !!py
+        const realHome = await getRealHome()
+        const envHome = process.env.HOME || ""
+        const isSnap = envHome.startsWith("/home/heidi/snap/") || envHome.startsWith("/snap/")
+
+        const candidates = [
+          path.join(Global.Path.data, "tools", "heidi-engine"),
+          path.join(realHome, ".local", "share", "openhei", "tools", "heidi-engine"),
+          path.join(Global.Path.home, ".local", "share", "openhei", "tools", "heidi-engine"),
+          "/home/heidi/.local/share/openhei/tools/heidi-engine",
+        ]
+
+        if (isSnap) {
+          candidates.push("/home/heidi/.local/share/openhei/tools/heidi-engine")
+        }
+
+        const uniqueCandidates = [...new Set(candidates)]
+
+        // Run the canonical doctor which prefers configured python keys if present
+        const cfgTxt = await fs.readFile(configPath, "utf-8").catch(() => "")
+        let cfg: any = {}
+        try {
+          if (cfgTxt) cfg = JSON.parse(cfgTxt)
+        } catch { }
+
+        const diag = await doctorHeidiEngine(cfg?.heidi_engine_python, uniqueCandidates)
 
         const a = await readactive()
         const active_ = a && pidok(a.pid) ? a : undefined
@@ -477,11 +756,11 @@ export const QLoRARoutes = lazy(() =>
         const install_ = i && pidok(i.pid) ? i : undefined
         if (i && !install_) await writeinstall(undefined)
 
-        const version =
-          py &&
-          (await run([py, "-c", "import importlib.metadata as m; print(m.version('heidi-engine'))"]).then((x) =>
-            x.code === 0 ? x.out.trim() : undefined,
-          ))
+        const installed = !!diag.python && diag.import_ok
+
+        const checks = diag.python
+          ? { exists: true, pump_import_ok: diag.import_ok, venv_python_path: diag.sys_executable }
+          : { exists: false, pump_import_ok: false, venv_python_path: undefined }
 
         const gpu = await run(["nvidia-smi", "-L"]).then((x) => (x.code === 0 ? x.out.trim() : undefined))
 
@@ -498,15 +777,40 @@ export const QLoRARoutes = lazy(() =>
           return { path: Global.Path.data, free_bytes }
         })
 
+        const install_cmd = diag.python
+          ? `${diag.python} -m pip install -U heidi-engine`
+          : `python3 -m pip install -U heidi-engine`
+
         return c.json({
           installed,
           tool_dir: heidi,
-          python: py ?? undefined,
-          version: version || undefined,
+          tool_dir_candidates: uniqueCandidates,
+          selected_tool_dir: cfg?.heidi_engine_path ?? undefined,
+          venv_python: diag.sys_executable,
+          import_ok: diag.import_ok,
+          import_err: diag.import_err ? String(diag.import_err).slice(0, 500) : undefined,
+          reason: !installed
+            ? diag.import_err
+              ? `import failed: ${String(diag.import_err).slice(0, 200)}`
+              : "not found"
+            : undefined,
+          checks,
+          python: diag.python ?? undefined,
+          version: diag.module_version || undefined,
           gpu,
           disk,
           install: install_ || undefined,
           active: active_ || undefined,
+          diagnostics: {
+            sys_executable: diag.sys_executable,
+            sys_prefix: diag.sys_prefix,
+            site_packages: diag.site_packages,
+            pip_show: diag.pip_show,
+            module_version: diag.module_version,
+            entrypoints: diag.entrypoints,
+            tried: diag.tried,
+            install_cmd,
+          },
         })
       },
     )
@@ -694,7 +998,22 @@ export const QLoRARoutes = lazy(() =>
       }),
       validator("json", cfg),
       async (c) => {
-        const py = await findpy()
+        const input = c.req.valid("json")
+
+        // Prefer python path from request body (unsaved) if present
+        let py: string | undefined
+        if (input?.heidi_engine_python) {
+          const test = await run([input.heidi_engine_python, "-c", "import heidi_engine"])
+          if (test.code === 0) py = input.heidi_engine_python
+          else
+            return c.json({
+              ok: false,
+              message: `Checked using ${input.heidi_engine_python}: import heidi_engine failed: ${String(test.err || test.out || "").trim()}`,
+            })
+        }
+        if (!py) {
+          py = await findpy()
+        }
         if (!py) return c.json({ ok: false, message: "heidi-engine not installed (run Install first)" })
 
         const a = await readactive()
@@ -702,7 +1021,6 @@ export const QLoRARoutes = lazy(() =>
         if (state.run && pidok(state.run.pid))
           return c.json({ ok: false, message: `already running: ${state.run.run_id}` })
 
-        const input = c.req.valid("json")
         const run_id = input.run_id || dt()
         const dir = path.join(runs, run_id)
         const log = path.join(dir, "pump.log")
@@ -759,7 +1077,7 @@ export const QLoRARoutes = lazy(() =>
         }
         if (input.teacher.openhei_attach_strict) args.push("--openhei-attach-strict")
 
-        const env = {
+        const env: Record<string, string> = {
           TEACHER_WORKERS: String(input.teacher.teacher_workers),
           TEACHER_BATCH_SIZE: String(input.teacher.teacher_batch_size),
           TEACHER_MAX_TOKENS: String(input.teacher.teacher_max_tokens),
@@ -774,8 +1092,10 @@ export const QLoRARoutes = lazy(() =>
         if (await exists(path.join(local, "scripts"))) env["HEIDI_ENGINE_PROJECT_ROOT"] = local
 
         // Ensure heidi-engine can find the OpenHei CLI even when it's not in PATH.
-        const cli = "/home/heidi/src/openhei/packages/openhei/src/index.ts"
-        if (await exists(cli)) env["OPENHEI_CLI"] = `/snap/bin/bun run --conditions=browser ${cli}`
+        const cli = path.resolve(__dirname, "../../index.ts")
+        if (await exists(cli)) {
+          env["OPENHEI_CLI"] = `/snap/bin/bun run --conditions=browser ${cli}`
+        }
 
         const proc = spawnLogged(args, log, { env })
 
@@ -824,10 +1144,22 @@ export const QLoRARoutes = lazy(() =>
         if (run_id && target.run_id !== run_id) return c.json({ ok: false, message: "run_id mismatch" })
 
         await killpid(target.pid, "SIGTERM")
-        await waitdead(target.pid, 2000)
+        await waitdead(target.pid, 5000)
         if (pidok(target.pid)) {
           await killpid(target.pid, "SIGKILL")
-          await waitdead(target.pid, 1500)
+          await waitdead(target.pid, 3000)
+        }
+
+        if (sr && target.run_id === sr.run_id && sr.dir) {
+          const statusFile = path.join(sr.dir, "status.json")
+          await fs
+            .readFile(statusFile, "utf-8")
+            .then((x) => JSON.parse(x) as Record<string, unknown>)
+            .then((s) => {
+              s.stage = "STOPPED"
+              return fs.writeFile(statusFile, JSON.stringify(s, null, 2))
+            })
+            .catch(() => { })
         }
 
         await writeactive(undefined)
@@ -907,6 +1239,7 @@ export const QLoRARoutes = lazy(() =>
         c.header("X-Content-Type-Options", "nosniff")
 
         let pos = 0
+        let partial = ""
         const send = async (stream: { writeSSE: (x: { data: string }) => Promise<void> }) => {
           const stat = await fs.stat(file).catch(() => undefined)
           if (!stat) return
@@ -917,10 +1250,28 @@ export const QLoRARoutes = lazy(() =>
           await fd.close()
           pos = stat.size
 
-          const text = buf.toString("utf-8")
-          const lines = text.split(/\r?\n/).filter((x) => x)
+          const text = partial + buf.toString("utf-8")
+          const segments = text.split(/(\r|\n)/).filter((x) => x)
+          partial = ""
+
+          const lines: string[] = []
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i]
+            if (seg === "\r" || seg === "\n") continue
+            const next = segments[i + 1]
+            if (next === "\r" || next === "\n") {
+              lines.push(seg)
+            } else if (i === segments.length - 1) {
+              partial = seg
+            } else {
+              lines.push(seg)
+            }
+          }
+
           for (const line of lines) {
-            const m = line.match(/\[INFO\] Generated (\d+)\/(\d+) \((\d+)%\) \| ([0-9.]+) it\/s \| ETA (\d+)s/)
+            const trimmed = line.trimEnd()
+            if (!trimmed) continue
+            const m = trimmed.match(/\[INFO\] Generated (\d+)\/(\d+) \((\d+)%\) \| ([0-9.]+) it\/s \| ETA (\d+)s/)
             if (m) {
               await stream.writeSSE({
                 data: JSON.stringify({
@@ -934,18 +1285,22 @@ export const QLoRARoutes = lazy(() =>
               })
               continue
             }
-            await stream.writeSSE({ data: JSON.stringify({ type: "log", line: redact(line) }) })
+            await stream.writeSSE({ data: JSON.stringify({ type: "log", line: redact(trimmed) }) })
           }
         }
 
         return streamSSE(c, async (stream) => {
           await stream.writeSSE({ data: JSON.stringify({ type: "connected" }) })
-          const t = setInterval(() => {
+          const poll = setInterval(() => {
             void send(stream)
           }, 250)
+          const heartbeat = setInterval(async () => {
+            await stream.writeSSE({ data: JSON.stringify({ type: "heartbeat" }) })
+          }, 2000)
           await new Promise<void>((resolve) => {
             stream.onAbort(() => {
-              clearInterval(t)
+              clearInterval(poll)
+              clearInterval(heartbeat)
               resolve()
             })
           })

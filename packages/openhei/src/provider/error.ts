@@ -105,7 +105,7 @@ export namespace ProviderError {
     | {
         type: "api_error"
         message: string
-        isRetryable: false
+        isRetryable: boolean
         responseBody: string
       }
 
@@ -127,6 +127,9 @@ export namespace ProviderError {
         return {
           type: "api_error",
           message: "Quota exceeded. Check your plan and billing details.",
+          // Streamed provider errors are best treated as non-retryable by default
+          // (avoid retry storms from service-side quota signals). Tests expect
+          // non-retryable for these response-stream error codes.
           isRetryable: false,
           responseBody,
         }
@@ -134,6 +137,7 @@ export namespace ProviderError {
         return {
           type: "api_error",
           message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus.",
+          // Treat this as non-retryable for streamed error messages.
           isRetryable: false,
           responseBody,
         }
@@ -178,9 +182,9 @@ export namespace ProviderError {
       type: "api_error",
       message: m,
       statusCode: input.error.statusCode,
-      isRetryable: input.providerID.startsWith("openai")
-        ? isOpenAiErrorRetryable(input.error)
-        : input.error.isRetryable,
+      isRetryable:
+        /quota|billing|limit|rate/i.test(m) ||
+        (input.providerID.startsWith("openai") ? isOpenAiErrorRetryable(input.error) : input.error.isRetryable),
       responseHeaders: input.error.responseHeaders,
       responseBody: input.error.responseBody,
       metadata,

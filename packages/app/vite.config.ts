@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    port: 3000,
+    port: 5000,
+    strictPort: true,
   },
   build: {
     target: "esnext",
@@ -15,6 +16,7 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return
           if (id.includes("katex")) return "katex"
+          if (id.includes("@pierre/diffs")) return "diffs"
           if (id.includes("@opentui")) return "opentui"
           return "vendor"
         },

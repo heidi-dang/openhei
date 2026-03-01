@@ -4,6 +4,7 @@ import type { Tool } from "../../src/tool/tool"
 import { Instance } from "../../src/project/instance"
 import { assertExternalDirectory } from "../../src/tool/external-directory"
 import type { PermissionNext } from "../../src/permission/next"
+import { tmpdir } from "../fixture/fixture"
 
 const baseCtx: Omit<Tool.Context, "ask"> = {
   sessionID: "test",
@@ -44,10 +45,11 @@ describe("tool.assertExternalDirectory", () => {
       },
     }
 
+    await using tmp = await tmpdir()
     await Instance.provide({
-      directory: "/tmp/project",
+      directory: tmp.path,
       fn: async () => {
-        await assertExternalDirectory(ctx, path.join("/tmp/project", "file.txt"))
+        await assertExternalDirectory(ctx, path.join(tmp.path, "file.txt"))
       },
     })
 
@@ -63,8 +65,9 @@ describe("tool.assertExternalDirectory", () => {
       },
     }
 
-    const directory = "/tmp/project"
-    const target = "/tmp/outside/file.txt"
+    await using tmp = await tmpdir()
+    const directory = tmp.path
+    const target = path.join(path.dirname(tmp.path), "outside", "file.txt")
     const expected = path.join(path.dirname(target), "*")
 
     await Instance.provide({
@@ -89,8 +92,9 @@ describe("tool.assertExternalDirectory", () => {
       },
     }
 
-    const directory = "/tmp/project"
-    const target = "/tmp/outside"
+    await using tmp = await tmpdir()
+    const directory = tmp.path
+    const target = path.join(path.dirname(tmp.path), "outside")
     const expected = path.join(target, "*")
 
     await Instance.provide({
@@ -115,10 +119,13 @@ describe("tool.assertExternalDirectory", () => {
       },
     }
 
+    await using tmp = await tmpdir()
+    const target = path.join(path.dirname(tmp.path), "outside", "file.txt")
+
     await Instance.provide({
-      directory: "/tmp/project",
+      directory: tmp.path,
       fn: async () => {
-        await assertExternalDirectory(ctx, "/tmp/outside/file.txt", { bypass: true })
+        await assertExternalDirectory(ctx, target, { bypass: true })
       },
     })
 

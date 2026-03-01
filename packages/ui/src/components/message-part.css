@@ -230,8 +230,26 @@
   color: var(--text-base);
   line-height: var(--line-height-normal);
 
+  [data-slot="reasoning-part-scroll"][data-scrollable] {
+    border: 1px solid var(--border-weak-base);
+    border-radius: 8px;
+    background: var(--background-stronger);
+    padding: 12px;
+    height: auto;
+    max-height: 240px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
   [data-component="markdown"] {
-    margin-top: 24px;
+    margin-top: 0;
     font-style: normal;
     font-size: inherit;
     color: var(--text-weak);

@@ -11,6 +11,11 @@ import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
 
+declare global {
+  const OPENHEI_GIT_SHA: string
+  const OPENHEI_BUILD_TIME: string
+}
+
 const log = Log.create({ service: "server" })
 
 export const GlobalDisposedEvent = BusEvent.define("global.disposed", z.object({}))
@@ -224,13 +229,91 @@ export const GlobalRoutes = lazy(() =>
       async (c) => {
         const info = await Installation.info()
         if (info.version !== info.latest) {
-          const method = await Installation.method()
-          // We don't await this because it will likely kill the server
-          void Installation.upgrade(method, info.latest).catch((err) => {
-            log.error("Update failed", { error: err })
-          })
+          void Installation.startUpdate(info.latest)
         }
         return c.json(true)
+      },
+    )
+    .get(
+      "/update/status",
+      describeRoute({
+        summary: "Update status",
+        description: "Get realtime update progress, if an update is running.",
+        operationId: "global.update.status",
+        responses: {
+          200: {
+            description: "Update status",
+            content: {
+              "application/json": {
+                schema: resolver(Installation.UpdateStatus),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(Installation.status())
+      },
+    )
+    .get(
+      "/debug",
+      describeRoute({
+        summary: "Get debug information",
+        description: "Get build debug information including build ID, git SHA, build time, and served dist SHA.",
+        operationId: "global.debug",
+        responses: {
+          200: {
+            description: "Debug information",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    buildId: z.string(),
+                    gitSha: z.string().nullable(),
+                    buildTime: z.string().nullable(),
+                    version: z.string(),
+                    channel: z.string(),
+                    distSha: z.string().nullable(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const gitSha = typeof OPENHEI_GIT_SHA === "string" ? OPENHEI_GIT_SHA : null
+        const buildTime = typeof OPENHEI_BUILD_TIME === "string" ? OPENHEI_BUILD_TIME : null
+
+        // Try to read .build_sha from served dashboard directory
+        let distSha: string | null = null
+        try {
+          const dashboardPaths = [process.env.OPENHEI_DASHBOARD_DIR, "./dashboard", "../../dashboard"]
+          for (const p of dashboardPaths) {
+            if (!p) continue
+            try {
+              const { existsSync, readFileSync } = await import("fs")
+              const shaPath = require("path").join(p, ".build_sha")
+              if (existsSync(shaPath)) {
+                distSha = readFileSync(shaPath, "utf-8").trim()
+                break
+              }
+            } catch {
+              // continue
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        return c.json({
+          buildId: Installation.VERSION,
+          gitSha,
+          buildTime,
+          version: Installation.VERSION,
+          channel: Installation.CHANNEL,
+          distSha,
+        })
       },
     ),
 )

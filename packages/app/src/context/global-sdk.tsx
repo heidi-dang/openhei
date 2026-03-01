@@ -59,6 +59,10 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         const part = payload.properties.part
         return `message.part.updated:${directory}:${part.messageID}:${part.id}`
       }
+      if (payload.type === "message.part.delta") {
+        const props = payload.properties
+        return `message.part.delta:${directory}:${props.messageID}:${props.partID}:${props.field}`
+      }
     }
 
     const flush = () => {
@@ -144,6 +148,20 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
             if (k) {
               const i = coalesced.get(k)
               if (i !== undefined) {
+                const prev = queue[i]
+                if (prev?.payload.type === "message.part.delta" && payload.type === "message.part.delta") {
+                  const a = prev.payload.properties
+                  const b = payload.properties
+                  prev.payload = {
+                    ...prev.payload,
+                    properties: {
+                      ...a,
+                      delta: `${a.delta}${b.delta}`,
+                    },
+                  }
+                  continue
+                }
+
                 queue[i] = { directory, payload }
                 continue
               }
@@ -201,10 +219,27 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       throwOnError: true,
     })
 
+    const forceReconnect = () => {
+      attempt?.abort()
+    }
+
+    const forceReconnectIfStale = (thresholdMs = 30_000) => {
+      if (Date.now() - lastEventAt > thresholdMs) attempt?.abort()
+    }
+
+    const lastRealtimeAt = () => lastEventAt
+
     return {
       url: currentServer.http.url,
       client: sdk,
       event: emitter,
+      // Force a reconnect unconditionally (idempotent)
+      forceReconnect,
+      // Abort the current attempt only if the last realtime timestamp is older
+      // than `thresholdMs`. Useful for resume handling.
+      forceReconnectIfStale,
+      // Expose the last seen realtime timestamp (ms since epoch)
+      lastRealtimeAt,
       createClient(opts: Omit<Parameters<typeof createSdkForServer>[0], "server" | "fetch">) {
         const s = server.current
         if (!s) throw new Error("Server not available")

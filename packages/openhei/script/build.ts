@@ -4,7 +4,10 @@ import { $ } from "bun"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import solidPlugin from "../node_modules/@opentui/solid/scripts/solid-plugin"
+import solidPlugin from "@opentui/solid/bun-plugin"
+import { createRequire } from "module"
+
+const require = createRequire(import.meta.url)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -191,7 +194,9 @@ for (const item of targets) {
   await $`mkdir -p dist/${name}/bin`
   await $`cp -r ../../packages/app/dist dist/${name}/dashboard`
 
-  const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
+  const parserWorker = fs.realpathSync(
+    path.join(path.dirname(require.resolve("@opentui/core/package.json")), "parser.worker.js"),
+  )
   const workerPath = "./src/cli/cmd/tui/worker.ts"
 
   // Use platform-specific bunfs root path based on target OS
@@ -220,6 +225,8 @@ for (const item of targets) {
       OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
       OPENHEI_WORKER_PATH: workerPath,
       OPENHEI_CHANNEL: `'${Script.channel}'`,
+      OPENHEI_GIT_SHA: `'${Script.gitSha}'`,
+      OPENHEI_BUILD_TIME: `'${Script.buildTime}'`,
       OPENHEI_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })

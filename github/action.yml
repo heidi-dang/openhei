@@ -58,7 +58,7 @@ runs:
     - name: Install openhei
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
-      run: curl -fsSL https://openhei.ai/install | bash
+      run: bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 
     - name: Add openhei to PATH
       shell: bash

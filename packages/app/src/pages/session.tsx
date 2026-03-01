@@ -19,13 +19,22 @@ import { UserMessage } from "@openhei-ai/sdk/v2"
 import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
 import { useComments } from "@/context/comments"
+import { useSettings } from "@/context/settings"
 import { SessionHeader, NewSessionView } from "@/components/session"
+import { StreamingStatus } from "@/components/session/streaming-status"
+import { StreamingBanner, type BannerType } from "@/components/session/streaming-banner"
+import TimelineNodes from "@/components/session/timeline-nodes/timeline-nodes"
+import ErrorCard from "@/components/session/error-card/error-card"
+import "@/components/session/timeline-nodes/timeline-nodes.css"
+import "@/components/session/error-card/error-card.css"
 import { same } from "@/utils/same"
 import { createOpenReviewFile } from "@/pages/session/helpers"
 import { createScrollSpy } from "@/pages/session/scroll-spy"
 import { SessionReviewTab, type DiffStyle, type SessionReviewTabProps } from "@/pages/session/review-tab"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { MessageTimeline } from "@/pages/session/message-timeline"
+import ToolCard from "@/components/session/tool-cards/tool-card"
+import "@/components/session/tool-cards/tool-card.css"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { SessionComposerRegion, createSessionComposerState } from "@/pages/session/composer"
 import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
@@ -49,6 +58,14 @@ export default function Page() {
   const prompt = usePrompt()
   const comments = useComments()
   const platform = usePlatform()
+  const settings = useSettings()
+
+  const sessionStatus = createMemo(() => sync.data.session_status[params.id ?? ""] ?? { type: "idle" })
+  const streamingStatusEnabled = createMemo(() => settings.current.flags["ui.streaming_status"])
+  const streamBannersEnabled = createMemo(() => settings.current.flags["ui.stream_banners"])
+  const toolCardsEnabled = createMemo(() => settings.current.flags["ui.tool_cards"])
+  const stepTimelineEnabled = createMemo(() => settings.current.flags["ui.step_timeline"])
+  const errorCardsEnabled = createMemo(() => settings.current.flags["ui.error_cards"])
 
   const [ui, setUi] = createStore({
     pendingMessage: undefined as string | undefined,
@@ -324,7 +341,10 @@ export default function Page() {
         removePersisted(Persist.session(sdk.directory, id, "prompt"), platform)
         removePersisted(Persist.session(sdk.directory, id, "file-view"), platform)
 
-        const created = await sdk.client.session.create().then((x) => x.data).catch(() => undefined)
+        const created = await sdk.client.session
+          .create()
+          .then((x) => x.data)
+          .catch(() => undefined)
         if (!created?.id) return
 
         showToast({
@@ -584,7 +604,7 @@ export default function Page() {
   )
 
   const reviewPanel = () => (
-    <div class="flex flex-col h-full overflow-hidden bg-background-stronger contain-strict">
+    <div class="flex flex-col flex-1 min-h-0 overflow-hidden bg-background-stronger contain-strict">
       <div class="relative pt-2 flex-1 min-h-0 overflow-hidden">
         {reviewContent({
           diffStyle: layout.review.diffStyle(),
@@ -1017,7 +1037,7 @@ export default function Page() {
   })
 
   return (
-    <div class="relative bg-background-base size-full overflow-hidden flex flex-col">
+    <div class="relative bg-background-base flex-1 min-h-0 w-full overflow-hidden flex flex-col">
       <SessionHeader />
       <div class="flex-1 min-h-0 flex flex-col md:flex-row">
         <SessionMobileTabs
@@ -1032,64 +1052,128 @@ export default function Page() {
         {/* Session panel */}
         <div
           classList={{
-            "@container relative shrink-0 flex flex-col min-h-0 h-full bg-background-stronger": true,
-            "flex-1": true,
+            // Always use flex column with minimum height.
+            "relative flex flex-col min-h-0 overflow-hidden bg-background-stronger": true,
+            // Ensure the panel fills available space and spans the full width on mobile.
+            "flex-1 w-full": true,
+            // Prevent shrinking only on desktop when the side panel is open.
+            "shrink-0": isDesktop() && desktopSidePanelOpen(),
+            // Maintain flex-none on desktop to allow the panel to collapse correctly when open.
             "md:flex-none": desktopSidePanelOpen(),
+            // Hide on mobile when the changes tab is active; on desktop the panel remains visible.
+            "hidden md:flex": !isDesktop() && store.mobileTab === "changes",
           }}
           style={{
-            width: sessionPanelWidth(),
+            // Only set an explicit width on desktop. On mobile, undefined prevents Safari miscalculation.
+            width: isDesktop() ? sessionPanelWidth() : undefined,
           }}
         >
-          <div class="flex-1 min-h-0 overflow-hidden">
+          <div class="flex-1 min-h-0 overflow-hidden flex flex-col">
             <Switch>
               <Match when={params.id}>
-                <Show when={activeMessage()}>
-                  <MessageTimeline
-                    mobileChanges={mobileChanges()}
-                    mobileFallback={reviewContent({
-                      diffStyle: "unified",
-                      classes: {
-                        root: "pb-8",
-                        header: "px-4",
-                        container: "px-4",
-                      },
-                      loadingClass: "px-4 py-4 text-text-weak",
-                      emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
-                    })}
-                    scroll={ui.scroll}
-                    onResumeScroll={resumeScroll}
-                    setScrollRef={setScrollRef}
-                    onScheduleScrollState={scheduleScrollState}
-                    onAutoScrollHandleScroll={autoScroll.handleScroll}
-                    onMarkScrollGesture={markScrollGesture}
-                    hasScrollGesture={hasScrollGesture}
-                    isDesktop={isDesktop()}
-                    onScrollSpyScroll={scrollSpy.onScroll}
-                    onAutoScrollInteraction={autoScroll.handleInteraction}
-                    centered={centered()}
-                    setContentRef={(el) => {
-                      content = el
-                      autoScroll.contentRef(el)
+                <Show when={streamingStatusEnabled()}>
+                  <div class="px-4 pt-3">
+                    <StreamingStatus status={sessionStatus} sessionID={() => params.id} />
+                  </div>
+                </Show>
+                <Show
+                  when={
+                    streamBannersEnabled() &&
+                    (sessionStatus().type === "replay" || sessionStatus().type === "resync_required")
+                  }
+                >
+                  <div class="px-4 pt-2">
+                    <StreamingBanner
+                      type={sessionStatus().type === "resync_required" ? "resync_required" : "replaying"}
+                    />
+                  </div>
+                </Show>
+                <MessageTimeline
+                  mobileChanges={mobileChanges()}
+                  mobileFallback={reviewContent({
+                    diffStyle: "unified",
+                    classes: {
+                      root: "pb-8",
+                      header: "px-4",
+                      container: "px-4",
+                    },
+                    loadingClass: "px-4 py-4 text-text-weak",
+                    emptyClass: "h-full pb-30 flex flex-col items-center justify-center text-center gap-6",
+                  })}
+                  scroll={ui.scroll}
+                  onResumeScroll={resumeScroll}
+                  setScrollRef={setScrollRef}
+                  onScheduleScrollState={scheduleScrollState}
+                  onAutoScrollHandleScroll={autoScroll.handleScroll}
+                  onMarkScrollGesture={markScrollGesture}
+                  hasScrollGesture={hasScrollGesture}
+                  isDesktop={isDesktop()}
+                  onScrollSpyScroll={scrollSpy.onScroll}
+                  onAutoScrollInteraction={autoScroll.handleInteraction}
+                  centered={centered()}
+                  setContentRef={(el) => {
+                    content = el
+                    autoScroll.contentRef(el)
 
-                      const root = scroller
-                      if (root) scheduleScrollState(root)
-                    }}
-                    turnStart={store.turnStart}
-                    onRenderEarlier={() => setStore("turnStart", 0)}
-                    historyMore={historyMore()}
-                    historyLoading={historyLoading()}
-                    onLoadEarlier={() => {
-                      const id = params.id
-                      if (!id) return
-                      setStore("turnStart", 0)
-                      sync.session.history.loadMore(id)
-                    }}
-                    renderedUserMessages={renderedUserMessages()}
-                    anchor={anchor}
-                    onRegisterMessage={scrollSpy.register}
-                    onUnregisterMessage={scrollSpy.unregister}
-                    lastUserMessageID={lastUserMessage()?.id}
-                  />
+                    const root = scroller
+                    if (root) scheduleScrollState(root)
+                  }}
+                  turnStart={store.turnStart}
+                  onRenderEarlier={() => setStore("turnStart", 0)}
+                  historyMore={historyMore()}
+                  historyLoading={historyLoading()}
+                  onLoadEarlier={() => {
+                    const id = params.id
+                    if (!id) return
+                    setStore("turnStart", 0)
+                    sync.session.history.loadMore(id)
+                  }}
+                  renderedUserMessages={renderedUserMessages()}
+                  anchor={anchor}
+                  onRegisterMessage={scrollSpy.register}
+                  onUnregisterMessage={scrollSpy.unregister}
+                  lastUserMessageID={lastUserMessage()?.id}
+                />
+                <Show when={toolCardsEnabled()}>
+                  <div class="px-4 pb-4">
+                    <ToolCard
+                      id="tool-1"
+                      title="Example Tool"
+                      subtitle="runs a command"
+                      status="completed"
+                      durationMs={1200}
+                      output={"This is an example output\nline2\nline3\n..."}
+                    />
+                  </div>
+                </Show>
+                <Show when={stepTimelineEnabled()}>
+                  <div class="px-4 pb-4">
+                    <TimelineNodes
+                      steps={[
+                        {
+                          id: "planner",
+                          label: "Planner",
+                          status: "completed",
+                          durationMs: 1200,
+                          anchorId: "message-123",
+                        },
+                        { id: "runner", label: "Runner", status: "running", durationMs: 800 },
+                        { id: "reviewer", label: "Reviewer", status: "pending" },
+                        { id: "self-audit", label: "Self-audit", status: "pending" },
+                      ]}
+                    />
+                  </div>
+                </Show>
+                <Show when={errorCardsEnabled()}>
+                  <div class="px-4 pb-4">
+                    <ErrorCard
+                      id="error-1"
+                      title="Tool execution failed"
+                      message="Command 'npm run build' exited with code 1"
+                      details={"npm ERR! missing script: build\nnpm ERR! \nSee 'npm run' for available scripts."}
+                      onRetry={() => console.log("retry clicked")}
+                    />
+                  </div>
                 </Show>
               </Match>
               <Match when={true}>
@@ -1143,7 +1227,13 @@ export default function Page() {
           </Show>
         </div>
 
-        <SessionSidePanel reviewPanel={reviewPanel} activeDiff={tree.activeDiff} focusReviewDiff={focusReviewDiff} />
+        <SessionSidePanel
+          reviewPanel={reviewPanel}
+          activeDiff={tree.activeDiff}
+          focusReviewDiff={focusReviewDiff}
+          mobileTab={store.mobileTab}
+          isDesktop={isDesktop()}
+        />
       </div>
 
       <TerminalPanel />

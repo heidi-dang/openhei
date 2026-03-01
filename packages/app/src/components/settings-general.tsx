@@ -7,6 +7,7 @@ import { Switch } from "@openhei-ai/ui/switch"
 import { Tooltip } from "@openhei-ai/ui/tooltip"
 import { useTheme, type ColorScheme } from "@openhei-ai/ui/theme"
 import { showToast } from "@openhei-ai/ui/toast"
+import { useLocation, useNavigate } from "@solidjs/router"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useSettings, monoFontFamily } from "@/context/settings"
@@ -42,6 +43,8 @@ export const SettingsGeneral: Component = () => {
   const language = useLanguage()
   const platform = usePlatform()
   const settings = useSettings()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [store, setStore] = createStore({
     checking: false,
@@ -66,27 +69,28 @@ export const SettingsGeneral: Component = () => {
           return
         }
 
-        const actions =
-          platform.update && platform.restart
-            ? [
-                {
-                  label: language.t("toast.update.action.installRestart"),
-                  onClick: async () => {
-                    await platform.update!()
-                    await platform.restart!()
-                  },
+        const actions = platform.update
+          ? [
+              {
+                label: language.t("toast.update.action.installRestart"),
+                onClick: async () => {
+                  const ret = `${location.pathname}${location.search}${location.hash}`
+                  navigate(
+                    `/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(result.version ?? "")}`,
+                  )
                 },
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
-            : [
-                {
-                  label: language.t("toast.update.action.notYet"),
-                  onClick: "dismiss" as const,
-                },
-              ]
+              },
+              {
+                label: language.t("toast.update.action.notYet"),
+                onClick: "dismiss" as const,
+              },
+            ]
+          : [
+              {
+                label: language.t("toast.update.action.notYet"),
+                onClick: "dismiss" as const,
+              },
+            ]
 
         showToast({
           persistent: true,
@@ -279,6 +283,148 @@ export const SettingsGeneral: Component = () => {
             />
           </div>
         </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.thinkingDrawer.title")}
+          description={language.t("settings.general.row.thinkingDrawer.description")}
+        >
+          <div data-action="settings-thinking-drawer-mode">
+            <Select
+              options={[
+                { value: "auto", label: language.t("settings.general.row.thinkingDrawer.option.auto") },
+                { value: "always", label: language.t("settings.general.row.thinkingDrawer.option.always") },
+                { value: "never", label: language.t("settings.general.row.thinkingDrawer.option.never") },
+              ]}
+              current={{
+                value: settings.general.thinkingDrawerMode(),
+                // language.t has a narrow literal key union; this dynamic key is safe here so cast to any
+                label: (language.t as any)(
+                  "settings.general.row.thinkingDrawer.option." + settings.general.thinkingDrawerMode(),
+                ),
+              }}
+              value={(o: any) => o.value}
+              label={(o: any) => o.label}
+              onSelect={(option: any) => option && settings.general.setThinkingDrawerMode(option.value)}
+              variant="secondary"
+              size="small"
+              triggerVariant="settings"
+            />
+          </div>
+        </SettingsRow>
+      </div>
+    </div>
+  )
+
+  const ExperimentalSection = () => (
+    <div class="flex flex-col gap-1">
+      <h3 class="text-14-medium text-text-strong pb-2">{language.t("settings.general.section.experimental")}</h3>
+
+      <div class="bg-surface-raised-base px-4 rounded-lg">
+        <Show when={!settings.general.dismissedExperimentalNotice()}>
+          <div class="mb-3 p-3 bg-surface-3 rounded flex items-start gap-3">
+            <div class="flex-1">
+              <div class="text-13-medium text-text-strong">
+                {language.t("settings.general.experimental.notice.title")}
+              </div>
+              <div class="text-12-regular text-text-weak">
+                {language.t("settings.general.experimental.notice.description")}
+              </div>
+            </div>
+            <div class="flex-shrink-0">
+              <Button
+                size="small"
+                variant="ghost"
+                onClick={() => settings.general.setDismissedExperimentalNotice(true)}
+                aria-label={language.t("settings.general.experimental.notice.dismiss")}
+              >
+                {language.t("common.dismiss")}
+              </Button>
+            </div>
+          </div>
+        </Show>
+        <SettingsRow
+          title={language.t("settings.general.row.sendOptions.title")}
+          description={language.t("settings.general.row.sendOptions.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.send_options")}
+            onChange={(checked) => settings.flags.set("ui.send_options", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.composerPalette.title")}
+          description={language.t("settings.general.row.composerPalette.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.composer_palette")}
+            onChange={(checked) => settings.flags.set("ui.composer_palette", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.draftPersist.title")}
+          description={language.t("settings.general.row.draftPersist.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.draft_persist")}
+            onChange={(checked) => settings.flags.set("ui.draft_persist", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.thinkingDrawer.title")}
+          description={language.t("settings.general.row.thinkingDrawer.description")}
+        >
+          <Switch
+            checked={settings.flags.get("ui.thinking_drawer")}
+            onChange={(checked) => settings.flags.set("ui.thinking_drawer", checked)}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          title={language.t("settings.general.row.densityModes.title")}
+          description={language.t("settings.general.row.densityModes.description")}
+        >
+          <div class="flex items-center gap-2">
+            <Switch
+              checked={settings.flags.get("ui.density_modes")}
+              onChange={(checked) => settings.flags.set("ui.density_modes", checked)}
+            />
+            <Show when={settings.flags.get("ui.density_modes")}>
+              <div class="min-h-[44px] flex items-center">
+                <Select
+                  size="small"
+                  variant="secondary"
+                  options={[
+                    {
+                      value: "comfortable",
+                      label: (language.t as any)("settings.general.row.densityModes.option.comfortable"),
+                    },
+                    {
+                      value: "compact",
+                      label: (language.t as any)("settings.general.row.densityModes.option.compact"),
+                    },
+                    {
+                      value: "spacious",
+                      label: (language.t as any)("settings.general.row.densityModes.option.spacious"),
+                    },
+                  ]}
+                  current={{
+                    value: settings.general.density(),
+                    label: (language.t as any)(
+                      "settings.general.row.densityModes.option." + settings.general.density(),
+                    ),
+                  }}
+                  value={(o: any) => o.value}
+                  label={(o: any) => o.label}
+                  onSelect={(option: any) => option && settings.general.setDensity(option.value)}
+                  triggerVariant="settings"
+                />
+              </div>
+            </Show>
+          </div>
+        </SettingsRow>
       </div>
     </div>
   )
@@ -434,6 +580,8 @@ export const SettingsGeneral: Component = () => {
 
       <div class="flex flex-col gap-8 w-full">
         <AppearanceSection />
+
+        <ExperimentalSection />
 
         <NotificationsSection />
 

@@ -31,6 +31,8 @@ export function SessionSidePanel(props: {
   reviewPanel: () => JSX.Element
   activeDiff?: string
   focusReviewDiff: (path: string) => void
+  mobileTab?: "session" | "changes"
+  isDesktop?: boolean
 }) {
   const params = useParams()
   const layout = useLayout()
@@ -40,14 +42,14 @@ export function SessionSidePanel(props: {
   const command = useCommand()
   const dialog = useDialog()
 
-  const isDesktop = createMediaQuery("(min-width: 768px)")
+  const isDesktop = createMemo(() => props.isDesktop ?? true)
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
   const tabs = createMemo(() => layout.tabs(sessionKey))
   const view = createMemo(() => layout.view(sessionKey))
 
-  const reviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const open = createMemo(() => isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened()))
-  const reviewTab = createMemo(() => isDesktop() && !layout.fileTree.opened())
+  const reviewOpen = createMemo(() => (isDesktop() && view().reviewPanel.opened()) || (!isDesktop() && props.mobileTab === "changes"))
+  const open = createMemo(() => (isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened())) || (!isDesktop() && props.mobileTab === "changes"))
+  const reviewTab = createMemo(() => (isDesktop() && !layout.fileTree.opened()) || (!isDesktop() && props.mobileTab === "changes"))
 
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
   const diffs = createMemo(() => (params.id ? (sync.data.session_diff[params.id] ?? []) : []))
@@ -197,13 +199,15 @@ export function SessionSidePanel(props: {
         classList={{
           "flex-1": reviewOpen(),
           "shrink-0": !reviewOpen(),
+          "w-full absolute inset-0 z-10 bg-background-base": !isDesktop(),
+          "hidden": !isDesktop() && props.mobileTab !== "changes",
         }}
-        style={{ width: reviewOpen() ? undefined : `${layout.fileTree.width()}px` }}
+        style={{ width: !isDesktop() ? undefined : reviewOpen() ? undefined : `${layout.fileTree.width()}px` }}
       >
         <Show when={reviewOpen()}>
           <div class="flex-1 min-w-0 h-full">
             <Show
-              when={layout.fileTree.opened() && fileTreeTab() === "changes"}
+              when={isDesktop() && layout.fileTree.opened() && fileTreeTab() === "changes"}
               fallback={
                 <DragDropProvider
                   onDragStart={handleDragStart}
@@ -332,7 +336,7 @@ export function SessionSidePanel(props: {
           </div>
         </Show>
 
-        <Show when={layout.fileTree.opened()}>
+        <Show when={isDesktop() && layout.fileTree.opened()}>
           <div id="file-tree-panel" class="relative shrink-0 h-full" style={{ width: `${layout.fileTree.width()}px` }}>
             <div
               class="h-full flex flex-col overflow-hidden group/filetree"

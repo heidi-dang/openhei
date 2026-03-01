@@ -19,7 +19,7 @@ function createPool(lineDiffType: "none" | "word-alt") {
       poolSize: 2,
     },
     {
-      theme: "OpenHei",
+      theme: "github-dark",
       lineDiffType,
       preferredHighlighter: "shiki-wasm",
     },

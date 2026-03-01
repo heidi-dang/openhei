@@ -29,6 +29,7 @@ import { FileRoutes } from "./routes/file"
 import { ConfigRoutes } from "./routes/config"
 import { ExperimentalRoutes } from "./routes/experimental"
 import { ProviderRoutes } from "./routes/provider"
+import { QLoRARoutes } from "./routes/qlora"
 import { lazy } from "../util/lazy"
 import { InstanceBootstrap } from "../project/bootstrap"
 import { NotFoundError } from "../storage/db"
@@ -49,6 +50,11 @@ export namespace Server {
 
   let _url: URL | undefined
   let _corsWhitelist: string[] = []
+  let _server: ReturnType<typeof Bun.serve> | undefined
+
+  export function handle() {
+    return _server
+  }
 
   export function url(): URL {
     return _url ?? new URL("http://localhost:4096")
@@ -118,7 +124,10 @@ export namespace Server {
                 return input
 
               // *.openhei.ai or original dashboard
-              if (/^https:\/\/([a-z0-9-]+\.)*openhei\.ai$/.test(input) || /^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)) {
+              if (
+                /^https:\/\/([a-z0-9-]+\.)*openhei\.ai$/.test(input) ||
+                /^https:\/\/([a-z0-9-]+\.)*opencode\.ai$/.test(input)
+              ) {
                 return input
               }
               if (_corsWhitelist.includes(input)) {
@@ -262,6 +271,7 @@ export namespace Server {
         .route("/permission", PermissionRoutes())
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
+        .route("/api/v1/qlora", QLoRARoutes())
         .route("/", FileRoutes())
         .route("/mcp", McpRoutes())
         .route("/tui", TuiRoutes())
@@ -572,12 +582,16 @@ export namespace Server {
         )
         .all("/*", async (c, next) => {
           if (!Flag.OPENHEI_DASHBOARD_DIR) {
-            return c.json({
-              name: "ConfigurationError",
-              data: {
-                message: "Dashboard directory not configured. Set OPENHEI_DASHBOARD_DIR to serve the frontend locally.",
-              }
-            }, 404)
+            return c.json(
+              {
+                name: "ConfigurationError",
+                data: {
+                  message:
+                    "Dashboard directory not configured. Set OPENHEI_DASHBOARD_DIR to serve the frontend locally.",
+                },
+              },
+              404,
+            )
           }
 
           const getResponse = async () => {
@@ -634,9 +648,23 @@ export namespace Server {
         return undefined
       }
     }
-    const server = opts.port === 0 ? (tryServe(4096) ?? tryServe(0)) : tryServe(opts.port)
+    const server = (() => {
+      if (opts.port === 0) return tryServe(4096) ?? tryServe(0)
+      const direct = tryServe(opts.port)
+      if (direct) return direct
+
+      if (process.env.OPENHEI_RESTART_WAIT !== "1") return
+      for (let i = 0; i < 80; i++) {
+        // ~8s max wait for a restart handoff.
+        const retry = tryServe(opts.port)
+        if (retry) return retry
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+      }
+      return
+    })()
     if (!server) throw new Error(`Failed to start server on port ${opts.port}`)
 
+    _server = server
     _url = server.url
 
     const shouldPublishMDNS =

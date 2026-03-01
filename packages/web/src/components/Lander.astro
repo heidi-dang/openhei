@@ -28,10 +28,10 @@ const docsCliHref = getRelativeLocaleUrl(locale, "cli")
 const docsIdeHref = getRelativeLocaleUrl(locale, "ide")
 const docsGithubHref = getRelativeLocaleUrl(locale, "github")
 
-const command = "curl -fsSL"
+const command = 'bash -c "$(curl -fsSL'
 const protocol = "https://"
-const url = "openhei.ai/install"
-const bash = "| bash"
+const url = "raw.githubusercontent.com/heidi-dang/openhei/main/install.sh"
+const bash = ')"'
 
 let darkImage: ImageMetadata | undefined;
 let lightImage: ImageMetadata | undefined;

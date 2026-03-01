@@ -6,7 +6,8 @@ on:
 
 jobs:
   check-duplicates:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
     permissions:
       contents: read
       pull-requests: write
@@ -58,6 +59,7 @@ jobs:
 
       - name: Check for duplicate PRs
         if: steps.team-check.outputs.is_team != 'true'
+        continue-on-error: true
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

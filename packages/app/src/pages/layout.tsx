@@ -12,7 +12,7 @@ import {
   untrack,
   type JSX,
 } from "solid-js"
-import { A, useNavigate, useParams } from "@solidjs/router"
+import { A, useLocation, useNavigate, useParams } from "@solidjs/router"
 import { useLayout, LocalProject } from "@/context/layout"
 import { useGlobalSync } from "@/context/global-sync"
 import { Persist, persisted } from "@/utils/persist"
@@ -48,12 +48,16 @@ import { useDialog } from "@openhei-ai/ui/context/dialog"
 import { useTheme, type ColorScheme } from "@openhei-ai/ui/theme"
 import { DialogSelectProvider } from "@/components/dialog-select-provider"
 import { DialogSelectServer } from "@/components/dialog-select-server"
+import { StatusPopover } from "@/components/status-popover"
+import { DebugFooter } from "@/components/debug-footer"
 import { DialogSettings } from "@/components/dialog-settings"
+import { DialogHealthCheck } from "@/components/dialog-health-check"
 import { useCommand, type CommandOption } from "@/context/command"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { DialogSelectDirectory } from "@/components/dialog-select-directory"
 import { DialogEditProject } from "@/components/dialog-edit-project"
 import { Titlebar } from "@/components/titlebar"
+import { Pwa } from "@/components/pwa"
 import { useServer } from "@/context/server"
 import { useLanguage, type Locale } from "@/context/language"
 import {
@@ -106,6 +110,7 @@ export default function Layout(props: ParentProps) {
   const notification = useNotification()
   const permission = usePermission()
   const navigate = useNavigate()
+  const location = useLocation()
   const providers = useProviders()
   const dialog = useDialog()
   const command = useCommand()
@@ -298,8 +303,8 @@ export default function Layout(props: ParentProps) {
               {
                 label: language.t("toast.update.action.installRestart"),
                 onClick: async () => {
-                  await platform.update!()
-                  await platform.restart!()
+                  const ret = `${location.pathname}${location.search}${location.hash}`
+                  navigate(`/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(version ?? "")}`)
                 },
               },
               {
@@ -1072,6 +1077,10 @@ export default function Layout(props: ParentProps) {
 
   function openSettings() {
     dialog.show(() => <DialogSettings />)
+  }
+
+  function openHealthCheck() {
+    dialog.show(() => <DialogHealthCheck />)
   }
 
   function projectRoot(directory: string) {
@@ -1926,6 +1935,7 @@ export default function Layout(props: ParentProps) {
   return (
     <div class="relative bg-background-base flex-1 min-h-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
       <Titlebar />
+      <Pwa />
       <div class="flex-1 min-h-0 flex">
         <nav
           aria-label={language.t("sidebar.nav.projectsAndSessions")}
@@ -1972,9 +1982,24 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
+              tools={
+                settings.ml.qloraEnabled() ? (
+                  <Tooltip placement="right" value="QLoRA">
+                    <IconButton
+                      icon="brain"
+                      variant="ghost"
+                      size="large"
+                      onClick={() => navigateWithSidebarReset("/qlora")}
+                      aria-label="QLoRA"
+                    />
+                  </Tooltip>
+                ) : undefined
+              }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
+              healthCheckLabel={() => language.t("sidebar.health.title")}
+              onOpenHealthCheck={openHealthCheck}
               helpLabel={() => language.t("sidebar.help")}
               onOpenHelp={() => platform.openLink("https://openhei.ai/desktop-feedback")}
               renderPanel={() => <SidebarPanel project={currentProject()} />}
@@ -2037,9 +2062,24 @@ export default function Layout(props: ParentProps) {
               renderProjectOverlay={() => (
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
+              tools={
+                settings.ml.qloraEnabled() ? (
+                  <Tooltip placement="bottom" value="QLoRA">
+                    <IconButton
+                      icon="brain"
+                      variant="ghost"
+                      size="large"
+                      onClick={() => navigateWithSidebarReset("/qlora")}
+                      aria-label="QLoRA"
+                    />
+                  </Tooltip>
+                ) : undefined
+              }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
               onOpenSettings={openSettings}
+              healthCheckLabel={() => language.t("sidebar.health.title")}
+              onOpenHealthCheck={openHealthCheck}
               helpLabel={() => language.t("sidebar.help")}
               onOpenHelp={() => platform.openLink("https://openhei.ai/desktop-feedback")}
               renderPanel={() => <SidebarPanel project={currentProject()} mobile />}
@@ -2049,13 +2089,14 @@ export default function Layout(props: ParentProps) {
 
         <main
           classList={{
-            "size-full overflow-x-hidden flex flex-col items-start contain-strict border-t border-border-weak-base": true,
+            "size-full overflow-x-hidden flex flex-col contain-strict border-t border-border-weak-base": true,
             "xl:border-l xl:rounded-tl-[12px]": !layout.sidebar.opened(),
           }}
         >
           <Show when={!autoselecting()} fallback={<div class="size-full" />}>
             {props.children}
           </Show>
+          <DebugFooter />
         </main>
       </div>
       <Toast.Region />

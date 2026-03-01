@@ -15,6 +15,13 @@ import { Dialog as Kobalte } from "@kobalte/core/dialog"
 
 type DialogElement = () => JSX.Element
 
+// Module-level trigger ref so the Dialog component can restore focus
+// deterministically in its onCloseAutoFocus handler.
+let _dialogTriggerRef: HTMLElement | null = null
+export function getDialogTriggerRef() {
+  return _dialogTriggerRef
+}
+
 type Active = {
   id: string
   node: JSX.Element
@@ -22,6 +29,7 @@ type Active = {
   owner: Owner
   onClose?: () => void
   setClosing: (closing: boolean) => void
+  triggerRef: HTMLElement | null
 }
 
 const Context = createContext<ReturnType<typeof init>>()
@@ -45,6 +53,7 @@ function init() {
     current.setClosing(true)
 
     const id = current.id
+    const triggerRef = current.triggerRef
     if (timer.current !== undefined) {
       clearTimeout(timer.current)
       timer.current = undefined
@@ -55,6 +64,8 @@ function init() {
       current.dispose()
       if (active()?.id === id) setActive(undefined)
       lock.value = false
+      // Focus restoration is handled by the Dialog component's
+      // onCloseAutoFocus handler via getDialogTriggerRef().
     }, 100)
   }
 
@@ -90,6 +101,17 @@ function init() {
     let dispose: (() => void) | undefined
     let setClosing: ((closing: boolean) => void) | undefined
 
+    // Capture the element that triggered the dialog so we can restore
+    // focus when the dialog closes.  We also blur it immediately so
+    // that when Kobalte sets aria-hidden on #root, the browser does not
+    // warn about a focused descendant inside the hidden subtree.
+    const triggerRef =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    _dialogTriggerRef = triggerRef
+    if (triggerRef) {
+      triggerRef.blur()
+    }
+
     const node = runWithOwner(owner, () =>
       createRoot((d: () => void) => {
         dispose = d
@@ -115,7 +137,7 @@ function init() {
 
     if (!dispose || !setClosing) return
 
-    setActive({ id, node, dispose, owner, onClose, setClosing })
+    setActive({ id, node, dispose, owner, onClose, setClosing, triggerRef })
   }
 
   return {

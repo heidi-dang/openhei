@@ -25,19 +25,24 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "dev": "vite",
+    "test": "vitest run",
     "generate:tailwind": "bun run script/tailwind.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "^8.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
     "@tsconfig/node22": "catalog:",
     "@types/bun": "catalog:",
     "@types/katex": "0.16.7",
     "@types/luxon": "catalog:",
+    "jsdom": "28.1.0",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-icons-spritesheet": "3.0.1",
-    "vite-plugin-solid": "catalog:"
+    "vite-plugin-solid": "catalog:",
+    "vitest": "^4.0.0"
   },
   "dependencies": {
     "@kobalte/core": "catalog:",

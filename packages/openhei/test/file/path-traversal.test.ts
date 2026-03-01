@@ -7,27 +7,46 @@ import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 
 describe("Filesystem.contains", () => {
-  test("allows paths within project", () => {
-    expect(Filesystem.contains("/project", "/project/src")).toBe(true)
-    expect(Filesystem.contains("/project", "/project/src/file.ts")).toBe(true)
-    expect(Filesystem.contains("/project", "/project")).toBe(true)
+  test("allows paths within project", async () => {
+    await using tmp = await tmpdir()
+    const project = tmp.path
+    await fs.mkdir(path.join(project, "src"), { recursive: true })
+
+    expect(Filesystem.contains(project, path.join(project, "src"))).toBe(true)
+    // Non-existent file in existing directory
+    expect(Filesystem.contains(project, path.join(project, "src/file.ts"))).toBe(true)
+    expect(Filesystem.contains(project, project)).toBe(true)
   })
 
-  test("blocks ../ traversal", () => {
-    expect(Filesystem.contains("/project", "/project/../etc")).toBe(false)
-    expect(Filesystem.contains("/project", "/project/src/../../etc")).toBe(false)
-    expect(Filesystem.contains("/project", "/etc/passwd")).toBe(false)
+  test("blocks ../ traversal", async () => {
+    await using tmp = await tmpdir()
+    const project = tmp.path
+    await fs.mkdir(path.join(project, "src"), { recursive: true })
+
+    expect(Filesystem.contains(project, path.join(project, "../outside"))).toBe(false)
+    expect(Filesystem.contains(project, path.join(project, "src/../../outside"))).toBe(false)
   })
 
-  test("blocks absolute paths outside project", () => {
-    expect(Filesystem.contains("/project", "/etc/passwd")).toBe(false)
-    expect(Filesystem.contains("/project", "/tmp/file")).toBe(false)
-    expect(Filesystem.contains("/home/user/project", "/home/user/other")).toBe(false)
+  test("blocks absolute paths outside project", async () => {
+    await using tmp = await tmpdir()
+    const project = tmp.path
+    const outside = path.dirname(project)
+
+    expect(Filesystem.contains(project, outside)).toBe(false)
+    expect(Filesystem.contains(project, path.join(outside, "other"))).toBe(false)
   })
 
-  test("handles prefix collision edge cases", () => {
-    expect(Filesystem.contains("/project", "/project-other/file")).toBe(false)
-    expect(Filesystem.contains("/project", "/projectfile")).toBe(false)
+  test("handles prefix collision edge cases", async () => {
+    await using tmp = await tmpdir()
+    const root = tmp.path
+    const project = path.join(root, "project")
+    await fs.mkdir(project, { recursive: true })
+
+    const other = path.join(root, "project-other")
+    await fs.mkdir(other, { recursive: true })
+
+    expect(Filesystem.contains(project, path.join(other, "file"))).toBe(false)
+    expect(Filesystem.contains(project, project + "file")).toBe(false)
   })
 })
 

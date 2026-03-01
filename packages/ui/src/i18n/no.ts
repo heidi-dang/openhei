@@ -44,6 +44,7 @@ export const dict: Record<Keys, string> = {
   "ui.sessionTurn.status.runningCommands": "Kjører kommandoer",
   "ui.sessionTurn.status.thinking": "Tenker",
   "ui.sessionTurn.status.thinkingWithTopic": "Tenker - {{topic}}",
+  "ui.thinking.no_summary": "Ingen oppsummering",
   "ui.sessionTurn.status.gatheringThoughts": "Samler tanker",
   "ui.sessionTurn.status.consideringNextSteps": "Vurderer neste trinn",
 
@@ -118,4 +119,9 @@ export const dict: Record<Keys, string> = {
   "ui.question.multiHint": "Velg alle som gjelder",
   "ui.question.singleHint": "Velg ett svar",
   "ui.question.custom.placeholder": "Skriv svaret ditt...",
+  "settings.general.row.thinkingDrawer.title": "Tenketrekke",
+  "settings.general.row.thinkingDrawer.description": "Vis en kort, sikker oppsummering av assistentens tenkning.",
+  "settings.general.row.thinkingDrawer.option.auto": "Auto",
+  "settings.general.row.thinkingDrawer.option.always": "Alltid",
+  "settings.general.row.thinkingDrawer.option.never": "Aldri",
 }

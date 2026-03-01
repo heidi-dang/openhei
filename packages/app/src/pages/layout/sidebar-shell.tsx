@@ -26,11 +26,14 @@ export const SidebarContent = (props: {
   openProjectKeybind: Accessor<string | undefined>
   onOpenProject: () => void
   renderProjectOverlay: () => JSX.Element
+  tools?: JSX.Element
   settingsLabel: Accessor<string>
   settingsKeybind: Accessor<string | undefined>
   onOpenSettings: () => void
   helpLabel: Accessor<string>
   onOpenHelp: () => void
+  healthCheckLabel: Accessor<string>
+  onOpenHealthCheck: () => void
   renderPanel: () => JSX.Element
 }): JSX.Element => {
   const expanded = createMemo(() => sidebarExpanded(props.mobile, props.opened()))
@@ -79,6 +82,7 @@ export const SidebarContent = (props: {
           </DragDropProvider>
         </div>
         <div class="shrink-0 w-full pt-3 pb-6 flex flex-col items-center gap-2">
+          <Show when={props.tools}>{props.tools}</Show>
           <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
             <IconButton
               icon="settings-gear"
@@ -88,6 +92,16 @@ export const SidebarContent = (props: {
               aria-label={props.settingsLabel()}
             />
           </TooltipKeybind>
+          <Tooltip placement={placement()} value={props.healthCheckLabel()}>
+            <IconButton
+              icon="circle-check"
+              variant="ghost"
+              size="large"
+              onClick={props.onOpenHealthCheck}
+              aria-label={props.healthCheckLabel()}
+              class="text-success-base"
+            />
+          </Tooltip>
           <Tooltip placement={placement()} value={props.helpLabel()}>
             <IconButton
               icon="help"

@@ -6,16 +6,44 @@ import { Filesystem } from "../util/filesystem"
 
 const app = "openhei"
 
-const data = path.join(xdgData!, app)
+function resolveDataDir(): string {
+  if (process.env.OPENHEI_DATA_DIR) return process.env.OPENHEI_DATA_DIR
+  const xdg = xdgData
+  if (xdg) return path.join(xdg, app)
+  const realHome = process.env.HOME?.replace(/^\/home\/[^\/]+/, "/home/heidi") || "/home/heidi"
+  return path.join(realHome, ".local", "share", app)
+}
+
+function resolveConfigDir(): string {
+  if (process.env.OPENHEI_CONFIG_DIR) return process.env.OPENHEI_CONFIG_DIR
+  const xdg = xdgConfig
+  if (xdg) return path.join(xdg, app)
+  const realHome = process.env.HOME?.replace(/^\/home\/[^\/]+/, "/home/heidi") || "/home/heidi"
+  return path.join(realHome, ".config", app)
+}
+
+function resolveStateDir(): string {
+  if (process.env.OPENHEI_STATE_DIR) return process.env.OPENHEI_STATE_DIR
+  const xdg = xdgState
+  if (xdg) return path.join(xdg, app)
+  const realHome = process.env.HOME?.replace(/^\/home\/[^\/]+/, "/home/heidi") || "/home/heidi"
+  return path.join(realHome, ".local", "state", app)
+}
+
+const data = resolveDataDir()
+const config = resolveConfigDir()
+const state = resolveStateDir()
 const cache = path.join(xdgCache!, app)
-const config = path.join(xdgConfig!, app)
-const state = path.join(xdgState!, app)
 
 export namespace Global {
   export const Path = {
-    // Allow override via OPENHEI_TEST_HOME for test isolation
     get home() {
-      return process.env.OPENHEI_TEST_HOME || os.homedir()
+      if (process.env.OPENHEI_TEST_HOME) return process.env.OPENHEI_TEST_HOME
+      const envHome = process.env.HOME
+      if (envHome?.startsWith("/home/heidi/snap/") || envHome?.startsWith("/snap/")) {
+        return "/home/heidi"
+      }
+      return envHome || "/home/heidi"
     },
     data,
     bin: path.join(data, "bin"),

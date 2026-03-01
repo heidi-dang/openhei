@@ -72,10 +72,12 @@ export const PLATFORM_OPENERS = {
 /** OAuth authorization labels */
 export const AUTH_LABELS = {
 	OAUTH: "ChatGPT Plus/Pro (Codex Subscription)",
+	OAUTH_DEVICE: "ChatGPT Plus/Pro (Device Code)",
 	OAUTH_MANUAL: "ChatGPT Plus/Pro (Manual URL Paste)",
 	API_KEY: "Manually enter API Key",
 	INSTRUCTIONS:
 		"A browser window should open. If it doesn't, copy the URL and open it manually.",
+	INSTRUCTIONS_DEVICE: "Open the link and enter this code:",
 	INSTRUCTIONS_MANUAL:
 		"After logging in, copy the full redirect URL and paste it here.",
 } as const;

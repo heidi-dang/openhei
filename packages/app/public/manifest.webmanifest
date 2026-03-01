@@ -1,0 +1,29 @@
+{
+  "name": "OpenHei",
+  "short_name": "OpenHei",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#131010",
+  "theme_color": "#131010",
+  "icons": [
+    {
+      "src": "/icons/openhei-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/openhei-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/openhei-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

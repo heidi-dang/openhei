@@ -41,7 +41,7 @@
 
 ```bash
 # One-line install
-curl -fsSL https://openhei.ai/install | bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 
 # Package managers
 npm i -g openhei-ai@latest  # or bun/pnpm/yarn
@@ -75,6 +75,8 @@ bun run --cwd packages/app dev -- --port 4444
 ```
 
 Open `http://localhost:4444`.
+
+PWA install prompts require HTTPS (or `localhost`); see `docs/pwa.md`.
 
 ## Themes
 

@@ -45,7 +45,7 @@
 
 ```bash
 # YOLO
-curl -fsSL https://openhei.ai/install | bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 
 # Package managers
 npm i -g openhei-ai@latest        # or bun/pnpm/yarn
@@ -91,8 +91,8 @@ scoop bucket add extras; scoop install extras/openhei-desktop
 
 ```bash
 # উদাহরণ
-OPENHEI_INSTALL_DIR=/usr/local/bin curl -fsSL https://openhei.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://openhei.ai/install | bash
+OPENHEI_INSTALL_DIR=/usr/local/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
+XDG_BIN_DIR=$HOME/.local/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"
 ```
 
 ### এজেন্টস (Agents)

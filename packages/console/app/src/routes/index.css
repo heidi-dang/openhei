@@ -189,9 +189,10 @@ body {
   }
 
   [data-component="top"] {
-    padding: 24px var(--padding);
-    height: 80px;
-    min-height: 80px;
+    /* Respect iOS safe-area insets so top UI isn't under the status bar */
+    padding: calc(24px + var(--sat)) var(--padding) 24px var(--padding);
+    height: calc(80px + var(--sat));
+    min-height: calc(80px + var(--sat));
     position: sticky;
     top: 0;
     display: flex;
@@ -272,10 +273,17 @@ body {
       border: none;
       background: none;
       outline: none;
-      height: 40px;
-      width: 40px;
+      /* Ensure tappable hit target for iOS (44x44 recommended) */
+      min-height: 44px;
+      min-width: 44px;
+      height: auto;
+      width: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       margin-right: -8px;
+      z-index: 60; /* sit above overlays */
     }
 
     [data-component="nav-mobile-toggle"]:hover {
@@ -300,7 +308,8 @@ body {
         [data-component="nav-mobile-menu-list"] {
           position: fixed;
           background: var(--color-background);
-          top: 80px;
+          /* Keep mobile menu anchored below the header including safe-area inset */
+          top: calc(80px + var(--sat));
           left: 0;
           right: 0;
           height: 100vh;

@@ -306,9 +306,9 @@ export function MessageTimeline(props: {
   return (
     <Show
       when={!props.mobileChanges}
-      fallback={<div class="relative h-full overflow-hidden">{props.mobileFallback}</div>}
+      fallback={<div class="relative w-full flex-1 min-h-0 overflow-hidden flex flex-col">{props.mobileFallback}</div>}
     >
-      <div class="relative w-full h-full min-w-0">
+      <div class="relative w-full flex-1 min-h-0 min-w-0 flex flex-col">
         <div
           class="absolute left-1/2 -translate-x-1/2 bottom-6 z-[60] pointer-events-none transition-all duration-200 ease-out"
           classList={{
@@ -317,6 +317,7 @@ export function MessageTimeline(props: {
           }}
         >
           <button
+            data-component="jump-to-bottom"
             class="pointer-events-auto size-8 flex items-center justify-center rounded-full bg-background-base border border-border-base shadow-sm text-text-base hover:bg-background-stronger transition-colors"
             onClick={props.onResumeScroll}
           >
@@ -400,6 +401,7 @@ export function MessageTimeline(props: {
                       when={title.editing}
                       fallback={
                         <h1
+                          data-component="session-title"
                           class="text-14-medium text-text-strong truncate grow-1 min-w-0 pl-2"
                           onDblClick={openTitleEditor}
                         >
@@ -521,32 +523,48 @@ export function MessageTimeline(props: {
               </div>
             </Show>
             <For each={props.renderedUserMessages}>
-              {(message) => (
-                <div
-                  id={props.anchor(message.id)}
-                  data-message-id={message.id}
-                  ref={(el) => {
-                    props.onRegisterMessage(el, message.id)
-                    onCleanup(() => props.onUnregisterMessage(message.id))
-                  }}
-                  classList={{
-                    "min-w-0 w-full max-w-full": true,
-                    "md:max-w-200 2xl:max-w-[1000px]": props.centered,
-                  }}
-                >
-                  <SessionTurn
-                    sessionID={sessionID() ?? ""}
-                    messageID={message.id}
-                    lastUserMessageID={props.lastUserMessageID}
-                    showReasoningSummaries={settings.general.showReasoningSummaries()}
-                    classes={{
-                      root: "min-w-0 w-full relative",
-                      content: "flex flex-col justify-between !overflow-visible",
-                      container: "w-full px-4 md:px-5",
+              {(message) => {
+                performance.mark(`message-render-start-${message.id}`)
+                onCleanup(() => performance.clearMarks(`message-render-start-${message.id}`))
+
+                createEffect(() => {
+                  performance.mark(`message-render-end-${message.id}`)
+                  performance.measure(
+                    `message-render-${message.id}`,
+                    `message-render-start-${message.id}`,
+                    `message-render-end-${message.id}`,
+                  )
+                })
+
+                return (
+                  <div
+                    id={props.anchor(message.id)}
+                    data-message-id={message.id}
+                    ref={(el) => {
+                      props.onRegisterMessage(el, message.id)
+                      onCleanup(() => props.onUnregisterMessage(message.id))
                     }}
-                  />
-                </div>
-              )}
+                    classList={{
+                      "min-w-0 w-full max-w-full": true,
+                      "md:max-w-200 2xl:max-w-[1000px]": props.centered,
+                    }}
+                  >
+                    <SessionTurn
+                      sessionID={sessionID() ?? ""}
+                      messageID={message.id}
+                      lastUserMessageID={props.lastUserMessageID}
+                      showReasoningSummaries={settings.general.showReasoningSummaries()}
+                      thinkingDrawerEnabled={settings.flags.get("ui.thinking_drawer")}
+                      thinkingDrawerMode={settings.general.thinkingDrawerMode()}
+                      classes={{
+                        root: "min-w-0 w-full relative",
+                        content: "flex flex-col justify-between !overflow-visible",
+                        container: "w-full px-4 md:px-5",
+                      }}
+                    />
+                  </div>
+                )
+              }}
             </For>
           </div>
         </ScrollView>
