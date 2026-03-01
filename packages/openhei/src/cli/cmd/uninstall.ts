@@ -318,26 +318,27 @@ async function cleanShellConfig(file: string) {
 }
 
 async function getDirectorySize(dir: string): Promise<number> {
-  let total = 0
-
-  const walk = async (current: string) => {
+  const walk = async (current: string): Promise<number> => {
     const entries = await fs.readdir(current, { withFileTypes: true }).catch(() => [])
 
-    for (const entry of entries) {
-      const full = path.join(current, entry.name)
-      if (entry.isDirectory()) {
-        await walk(full)
-        continue
-      }
-      if (entry.isFile()) {
-        const stat = await fs.stat(full).catch(() => null)
-        if (stat) total += stat.size
-      }
-    }
+    const sizes = await Promise.all(
+      entries.map(async (entry) => {
+        const full = path.join(current, entry.name)
+        if (entry.isDirectory()) {
+          return await walk(full)
+        }
+        if (entry.isFile()) {
+          const stat = await fs.stat(full).catch(() => null)
+          return stat ? stat.size : 0
+        }
+        return 0
+      }),
+    )
+
+    return sizes.reduce((acc, size) => acc + size, 0)
   }
 
-  await walk(dir)
-  return total
+  return await walk(dir)
 }
 
 function formatSize(bytes: number): string {
