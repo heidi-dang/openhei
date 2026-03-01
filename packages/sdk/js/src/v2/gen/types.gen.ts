@@ -599,6 +599,14 @@ export type SessionStatus =
       type: "resync_required"
       message?: string
     }
+  | {
+      type: "replay"
+      message?: string
+    }
+  | {
+      type: "resync_required"
+      message?: string
+    }
 
 export type EventSessionStatus = {
   type: "session.status"
