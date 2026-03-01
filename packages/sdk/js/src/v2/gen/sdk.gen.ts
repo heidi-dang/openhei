@@ -38,12 +38,14 @@ import type {
   GlobalConfigGetResponses,
   GlobalConfigUpdateErrors,
   GlobalConfigUpdateResponses,
+  GlobalDebugResponses,
   GlobalDisposeResponses,
   GlobalEventResponses,
   GlobalHealthResponses,
   GlobalUpdateCheckResponses,
   GlobalUpdateInstallErrors,
   GlobalUpdateInstallResponses,
+  GlobalUpdateStatusResponses,
   InstanceDisposeResponses,
   LspStatusResponses,
   McpAddErrors,
@@ -95,12 +97,26 @@ import type {
   PtyRemoveResponses,
   PtyUpdateErrors,
   PtyUpdateResponses,
+  QloraBaseModelsResponses,
+  QloraDoctorResponses,
+  QloraGetConfigResponses,
+  QloraGetStacksResponses,
+  QloraInstallResponses,
+  QloraLogsResponses,
+  QloraPutConfigErrors,
+  QloraPutConfigResponses,
+  QloraStartResponses,
+  QloraStatusResponses,
+  QloraStopResponses,
+  QloraTeacherModelsResponses,
   QuestionAnswer,
   QuestionListResponses,
   QuestionRejectErrors,
   QuestionRejectResponses,
   QuestionReplyErrors,
   QuestionReplyResponses,
+  RunsEventsErrors,
+  RunsEventsResponses,
   SessionAbortErrors,
   SessionAbortResponses,
   SessionChildrenErrors,
@@ -110,6 +126,8 @@ import type {
   SessionCreateErrors,
   SessionCreateResponses,
   SessionDeleteErrors,
+  SessionDeleteMessageErrors,
+  SessionDeleteMessageResponses,
   SessionDeleteResponses,
   SessionDiffResponses,
   SessionForkResponses,
@@ -284,6 +302,18 @@ export class Update extends HeyApiClient {
       { url: "/global/update", ...options },
     )
   }
+
+  /**
+   * Update status
+   *
+   * Get realtime update progress, if an update is running.
+   */
+  public status<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalUpdateStatusResponses, unknown, ThrowOnError>({
+      url: "/global/update/status",
+      ...options,
+    })
+  }
 }
 
 export class Global extends HeyApiClient {
@@ -319,6 +349,18 @@ export class Global extends HeyApiClient {
   public dispose<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
     return (options?.client ?? this.client).post<GlobalDisposeResponses, unknown, ThrowOnError>({
       url: "/global/dispose",
+      ...options,
+    })
+  }
+
+  /**
+   * Get debug information
+   *
+   * Get build debug information including build ID, git SHA, build time, and served dist SHA.
+   */
+  public debug<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalDebugResponses, unknown, ThrowOnError>({
+      url: "/global/debug",
       ...options,
     })
   }
@@ -1595,6 +1637,42 @@ export class Session2 extends HeyApiClient {
   }
 
   /**
+   * Delete message
+   *
+   * Permanently delete a specific message (and all of its parts) from a session. This does not revert any file changes that may have been made while processing the message.
+   */
+  public deleteMessage<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      messageID: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "messageID" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      SessionDeleteMessageResponses,
+      SessionDeleteMessageErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/message/{messageID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * Get message
    *
    * Retrieve a specific message from a session by its message ID.
@@ -2116,6 +2194,42 @@ export class Question extends HeyApiClient {
   }
 }
 
+export class Runs extends HeyApiClient {
+  /**
+   * Get run activity events
+   *
+   * Subscribe to activity events for a specific run using server-sent events.
+   */
+  public events<ThrowOnError extends boolean = false>(
+    parameters: {
+      runId: string
+      directory?: string
+      replay?: boolean
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "runId" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "replay" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).sse.get<RunsEventsResponses, RunsEventsErrors, ThrowOnError>({
+      url: "/runs/{runId}/events",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Oauth extends HeyApiClient {
   /**
    * OAuth authorize
@@ -2244,6 +2358,357 @@ export class Provider extends HeyApiClient {
   private _oauth?: Oauth
   get oauth(): Oauth {
     return (this._oauth ??= new Oauth({ client: this.client }))
+  }
+}
+
+export class Qlora extends HeyApiClient {
+  /**
+   * Get available execution stacks
+   */
+  public getStacks<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraGetStacksResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/stacks",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get QLoRA config
+   */
+  public getConfig<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraGetConfigResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/config",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Save QLoRA config
+   */
+  public putConfig<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      run_id?: string
+      preset?: string
+      stack?: "python" | "cpp" | "github-ci" | "mixed"
+      max_repos?: number
+      rounds?: number
+      samples_per_run?: number
+      max_requests?: number
+      base_model?: string
+      train_steps?: number
+      save_steps?: number
+      eval_steps?: number
+      seq_len?: number
+      batch_size?: number
+      grad_accum?: number
+      lora_r?: number
+      val_ratio?: number
+      heidi_engine_python?: string
+      heidi_engine_path?: string
+      teacher?: {
+        teacher_backend?: "legacy" | "openhei"
+        teacher_model: string
+        teacher_workers?: number
+        teacher_batch_size?: number
+        teacher_max_tokens?: number
+        openhei_attach?: string
+        openhei_agent?: string
+        openhei_start?: boolean
+        openhei_attach_strict?: boolean
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "run_id" },
+            { in: "body", key: "preset" },
+            { in: "body", key: "stack" },
+            { in: "body", key: "max_repos" },
+            { in: "body", key: "rounds" },
+            { in: "body", key: "samples_per_run" },
+            { in: "body", key: "max_requests" },
+            { in: "body", key: "base_model" },
+            { in: "body", key: "train_steps" },
+            { in: "body", key: "save_steps" },
+            { in: "body", key: "eval_steps" },
+            { in: "body", key: "seq_len" },
+            { in: "body", key: "batch_size" },
+            { in: "body", key: "grad_accum" },
+            { in: "body", key: "lora_r" },
+            { in: "body", key: "val_ratio" },
+            { in: "body", key: "heidi_engine_python" },
+            { in: "body", key: "heidi_engine_path" },
+            { in: "body", key: "teacher" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<QloraPutConfigResponses, QloraPutConfigErrors, ThrowOnError>({
+      url: "/api/v1/qlora/config",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * QLoRA doctor
+   */
+  public doctor<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraDoctorResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/doctor",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Install heidi-engine pump
+   */
+  public install<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).post<QloraInstallResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/install",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Teacher models
+   */
+  public teacherModels<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraTeacherModelsResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/teacher-models",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Base models
+   */
+  public baseModels<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraBaseModelsResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/base-models",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Start pump
+   */
+  public start<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      run_id?: string
+      preset?: string
+      stack?: "python" | "cpp" | "github-ci" | "mixed"
+      max_repos?: number
+      rounds?: number
+      samples_per_run?: number
+      max_requests?: number
+      base_model?: string
+      train_steps?: number
+      save_steps?: number
+      eval_steps?: number
+      seq_len?: number
+      batch_size?: number
+      grad_accum?: number
+      lora_r?: number
+      val_ratio?: number
+      heidi_engine_python?: string
+      heidi_engine_path?: string
+      teacher?: {
+        teacher_backend?: "legacy" | "openhei"
+        teacher_model: string
+        teacher_workers?: number
+        teacher_batch_size?: number
+        teacher_max_tokens?: number
+        openhei_attach?: string
+        openhei_agent?: string
+        openhei_start?: boolean
+        openhei_attach_strict?: boolean
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "run_id" },
+            { in: "body", key: "preset" },
+            { in: "body", key: "stack" },
+            { in: "body", key: "max_repos" },
+            { in: "body", key: "rounds" },
+            { in: "body", key: "samples_per_run" },
+            { in: "body", key: "max_requests" },
+            { in: "body", key: "base_model" },
+            { in: "body", key: "train_steps" },
+            { in: "body", key: "save_steps" },
+            { in: "body", key: "eval_steps" },
+            { in: "body", key: "seq_len" },
+            { in: "body", key: "batch_size" },
+            { in: "body", key: "grad_accum" },
+            { in: "body", key: "lora_r" },
+            { in: "body", key: "val_ratio" },
+            { in: "body", key: "heidi_engine_python" },
+            { in: "body", key: "heidi_engine_path" },
+            { in: "body", key: "teacher" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<QloraStartResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/start",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Stop pump
+   */
+  public stop<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      run_id?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "run_id" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<QloraStopResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/stop",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Pump status
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      run_id?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "run_id" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<QloraStatusResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/status",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Stream logs
+   */
+  public logs<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      run_id: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "run_id" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).sse.get<QloraLogsResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/logs",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -3332,9 +3797,19 @@ export class OpencodeClient extends HeyApiClient {
     return (this._question ??= new Question({ client: this.client }))
   }
 
+  private _runs?: Runs
+  get runs(): Runs {
+    return (this._runs ??= new Runs({ client: this.client }))
+  }
+
   private _provider?: Provider
   get provider(): Provider {
     return (this._provider ??= new Provider({ client: this.client }))
+  }
+
+  private _qlora?: Qlora
+  get qlora(): Qlora {
+    return (this._qlora ??= new Qlora({ client: this.client }))
   }
 
   private _find?: Find

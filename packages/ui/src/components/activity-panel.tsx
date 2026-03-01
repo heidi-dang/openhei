@@ -29,12 +29,12 @@ export function ActivityPanel(props: ActivityPanelProps) {
   const [expanded, setExpanded] = createSignal(props.defaultExpanded ?? false)
   const [autoScroll, setAutoScroll] = createSignal(true)
 
-  const terminalRef: { current: HTMLDivElement | null } = { current: null }
+  let terminalEl: HTMLDivElement | null = null
 
   // Auto-scroll to bottom when new lines are added
   createMemo(() => {
-    if (autoScroll() && terminalRef.current && expanded()) {
-      const container = terminalRef.current
+    if (autoScroll() && terminalEl && expanded()) {
+      const container = terminalEl
       container.scrollTop = container.scrollHeight
     }
   })
@@ -141,7 +141,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
         <div class="border-t border-gray-200 dark:border-gray-700">
           {/* Terminal */}
           <div
-            ref={terminalRef}
+            ref={(el: HTMLDivElement | null) => (terminalEl = el)}
             class="overflow-y-auto bg-gray-900 text-gray-100 font-mono text-sm"
             style={{
               "max-height": props.maxHeight || "220px",

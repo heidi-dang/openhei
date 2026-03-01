@@ -568,10 +568,20 @@ export namespace File {
       }
       ignored = ig.ignores.bind(ig)
     }
+    // Security: validate the raw `dir` argument before any normalization.
+    // - Reject absolute paths outright.
+    // - Reject any path containing a parent-segment (`..`) to avoid traversal.
+    if (dir && dir !== "" && dir !== ".") {
+      if (path.isAbsolute(dir)) throw new Error(`Access denied: path escapes project directory`)
+      const segments = dir.split(/[/\\]+/).filter(Boolean)
+      if (segments.includes("..")) throw new Error(`Access denied: path escapes project directory`)
+    }
+
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
+    // Canonical containment check as defense-in-depth.
     if (!Instance.containsPath(resolved)) {
-      return []
+      throw new Error(`Access denied: path escapes project directory`)
     }
 
     if (!(await Filesystem.exists(resolved))) {
