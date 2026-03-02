@@ -1,4 +1,4 @@
-import { Component, For, createMemo, Show } from "solid-js"
+import { Component, For, createMemo } from "solid-js"
 import "./ghost-code.css"
 
 export interface GhostCodeProps {
