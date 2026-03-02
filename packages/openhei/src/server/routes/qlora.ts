@@ -249,7 +249,26 @@ const findInstallPidByPs = async () => {
 
 const sleep = (ms: number) => Bun.sleep(ms)
 
-const killchildren = async (pid: number) => {
+const getBootTime = async (): Promise<number> => {
+  try {
+    const uptimeText = await fs.readFile("/proc/uptime", "utf-8")
+    const uptimeSeconds = parseFloat(uptimeText.trim().split(" ")[0])
+    return Date.now() - uptimeSeconds * 1000
+  } catch {
+    return Date.now()
+  }
+}
+
+let bootTime: number | undefined
+
+const getBootTimeCached = async (): Promise<number> => {
+  if (!bootTime) bootTime = await getBootTime()
+  return bootTime
+}
+
+const STUCK_THRESHOLD_MS = 120_000
+
+const killchildren = async (pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") => {
   if (process.platform === "win32") return
   try {
     const out = await run(["pgrep", "-P", String(pid)])
@@ -261,11 +280,29 @@ const killchildren = async (pid: number) => {
     for (const child of pids) {
       if (child) {
         try {
-          process.kill(child, "SIGKILL")
+          process.kill(child, signal)
+          await killchildren(child, signal)
         } catch {
           // ignore
         }
       }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+const killProcessGroup = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
+  if (process.platform === "win32") return
+  try {
+    const out = await run(["ps", "-o", "pgid=", "-p", String(pid)])
+    if (out.code !== 0 || !out.out.trim()) return
+    const pgid = parseInt(out.out.trim(), 10)
+    if (!Number.isFinite(pgid)) return
+    try {
+      process.kill(-pgid, signal)
+    } catch {
+      // ignore
     }
   } catch {
     // ignore
@@ -295,9 +332,11 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
       // ignore
     }
   }
+
+  await killProcessGroup(pid, signal)
   send(pid)
   send(-pid)
-  killchildren(pid)
+  await killchildren(pid, signal)
 }
 
 const waitdead = async (pid: number, timeout_ms: number) => {
@@ -351,6 +390,93 @@ const writeactive = async (data: { run_id: string; pid: number; started_at: stri
     return
   }
   await fs.writeFile(active, JSON.stringify(data, null, 2) + "\n")
+}
+
+type RunWatchdog = {
+  run_id: string
+  pid: number
+  started_at: string
+  last_stdout_ts: number
+  last_stderr_ts: number
+  last_progress_ts: number
+  status: "running" | "stuck" | "stopped"
+  stuck_reason?: string
+}
+
+const watchdogPath = path.join(Global.Path.state, "qlora.watchdog.json")
+
+const readWatchdog = async (): Promise<RunWatchdog | undefined> => {
+  const txt = await fs.readFile(watchdogPath, "utf-8").catch(() => "")
+  if (!txt) return undefined
+  try {
+    const data = JSON.parse(txt)
+    return data as RunWatchdog
+  } catch {
+    return undefined
+  }
+}
+
+const writeWatchdog = async (data: RunWatchdog | undefined) => {
+  await fs.mkdir(path.dirname(watchdogPath), { recursive: true })
+  if (!data) {
+    await fs.rm(watchdogPath, { force: true })
+    return
+  }
+  await fs.writeFile(watchdogPath, JSON.stringify(data, null, 2) + "\n")
+}
+
+const updateWatchdog = async (
+  run_id: string,
+  pid: number,
+  started_at: string,
+  event: "stdout" | "stderr" | "progress",
+) => {
+  const existing = await readWatchdog()
+  const now = Date.now()
+  if (existing && existing.run_id === run_id) {
+    if (event === "stdout") existing.last_stdout_ts = now
+    else if (event === "stderr") existing.last_stderr_ts = now
+    else if (event === "progress") existing.last_progress_ts = now
+    existing.status = "running"
+    await writeWatchdog(existing)
+  } else {
+    await writeWatchdog({
+      run_id,
+      pid,
+      started_at,
+      last_stdout_ts: now,
+      last_stderr_ts: now,
+      last_progress_ts: now,
+      status: "running",
+    })
+  }
+}
+
+const checkWatchdog = async (): Promise<RunWatchdog | undefined> => {
+  const w = await readWatchdog()
+  if (!w) return undefined
+  if (w.status === "stopped") return w
+
+  // Check if PID is still alive
+  if (!pidok(w.pid)) {
+    w.status = "stopped"
+    await writeWatchdog(w)
+    return w
+  }
+
+  const now = Date.now()
+  const noOutputTime = Math.max(now - w.last_stdout_ts, now - w.last_stderr_ts)
+  const noProgressTime = now - w.last_progress_ts
+
+  // If no output for STUCK_THRESHOLD_MS, mark as stuck
+  if (noOutputTime > STUCK_THRESHOLD_MS && noProgressTime > STUCK_THRESHOLD_MS) {
+    w.status = "stuck"
+    w.stuck_reason = "no_output_timeout"
+    await writeWatchdog(w)
+    return w
+  }
+
+  return w
 }
 
 const attachok = async (url: string) => {
@@ -1195,6 +1321,18 @@ export const QLoRARoutes = lazy(() =>
                       stage: z.string().optional(),
                       status: z.record(z.string(), z.any()).optional(),
                       ready: z.record(z.string(), z.any()).optional(),
+                      watchdog: z
+                        .object({
+                          run_id: z.string(),
+                          pid: z.number().int(),
+                          started_at: z.string(),
+                          last_stdout_ts: z.number().int(),
+                          last_stderr_ts: z.number().int(),
+                          last_progress_ts: z.number().int(),
+                          status: z.enum(["running", "stuck", "stopped"]),
+                          stuck_reason: z.string().optional(),
+                        })
+                        .optional(),
                     })
                     .strict(),
                 ),
@@ -1221,7 +1359,8 @@ export const QLoRARoutes = lazy(() =>
           .catch(() => undefined)
         const running = a ? pidok(a.pid) : false
         const stage = typeof status?.stage === "string" ? (status.stage as string) : undefined
-        return c.json({ ok: true, run_id: rid, running, stage, status, ready })
+        const watchdog = await checkWatchdog()
+        return c.json({ ok: true, run_id: rid, running, stage, status, ready, watchdog })
       },
     )
     .get(
@@ -1280,6 +1419,21 @@ export const QLoRARoutes = lazy(() =>
           for (const line of lines) {
             const trimmed = line.trimEnd()
             if (!trimmed) continue
+
+            // Track watchdog events
+            const a = await readactive()
+            if (a?.run_id === run_id) {
+              const isStderr = trimmed.includes("stderr")
+              const isProgress = /\[INFO\] Generated \d+/.test(trimmed)
+              if (isProgress) {
+                await updateWatchdog(run_id, a.pid, a.started_at, "progress")
+              } else if (isStderr) {
+                await updateWatchdog(run_id, a.pid, a.started_at, "stderr")
+              } else {
+                await updateWatchdog(run_id, a.pid, a.started_at, "stdout")
+              }
+            }
+
             const m = trimmed.match(/\[INFO\] Generated (\d+)\/(\d+) \((\d+)%\) \| ([0-9.]+) it\/s \| ETA (\d+)s/)
             if (m) {
               await stream.writeSSE({
@@ -1577,13 +1731,20 @@ const listQLoRAProcesses = async (): Promise<
       // Determine if this is a root QLoRA process or a child
       const isRoot = cmd.includes("pump") || cmd.includes("heidi_engine.pump")
 
+      // Calculate accurate started_at from /proc/<pid>/stat starttime (clock ticks)
+      const ticksPerSec = 100 // usually 100 on Linux (CLK_TCK)
+      const boot = await getBootTimeCached()
+      const startedAt = stat?.starttime
+        ? new Date(boot + stat.starttime * (1000 / ticksPerSec)).toISOString()
+        : new Date().toISOString()
+
       results.push({
         pid,
         ppid: stat?.ppid ?? 0,
         cmd,
         cwd,
         user,
-        started_at: new Date(Date.now() - (stat?.starttime ?? 0) * 10).toISOString(), // Approximate from starttime
+        started_at: startedAt,
         tag: isRoot ? "qlora" : "child",
       })
     }
