@@ -309,15 +309,10 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     return
   }
 
-  // First try to kill the process group (negative PID kills entire group)
-  try {
-    process.kill(-pid, signal)
-    console.log(`[qlora] Sent ${signal} to process group -${pid}`)
-  } catch (e) {
-    console.log(`[qlora] Could not kill process group -${pid}: ${e}`)
-  }
+  // Kill the process group using proper PGID resolution
+  await killProcessGroup(pid, signal)
 
-  // Also try to kill the main process
+  // Also try to kill the main process directly
   try {
     process.kill(pid, signal)
     console.log(`[qlora] Sent ${signal} to pid=${pid}`)
