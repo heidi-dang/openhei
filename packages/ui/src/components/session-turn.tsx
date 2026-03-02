@@ -366,6 +366,46 @@ export function SessionTurn(
   const [morphPhase, setMorphPhase] = createSignal<"terminal" | "skeleton">("terminal")
 
   createEffect(() => {
+    // Determine morph phase based on working state & terminal logs
+    const hasLogs = !!props.activityPanel?.terminalLines?.length
+    if (working() && !hasLogs && morphPhase() !== "skeleton") {
+      // Working but no logs -> default to skeleton (thinking)
+      setMorphPhase("skeleton")
+    } else if (hasLogs) {
+      // Determine if we should be in skeleton or terminal based on log content
+      const lastLines = untrack(() =>
+        props.activityPanel!.terminalLines.slice(-3).map((l: any) => (l?.text || "").toLowerCase()),
+      )
+
+      const triggersSkeleton = lastLines.some(
+        (t: string) =>
+          t.includes("applying to file") ||
+          t.includes("writing") ||
+          t.includes("patching") ||
+          t.includes("diff") ||
+          t.includes("applying diff"),
+      )
+
+      const triggersTerminal = lastLines.some(
+        (t: string) =>
+          t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
+      )
+
+      const currentPhase = untrack(() => morphPhase())
+      if (triggersSkeleton && currentPhase === "terminal") {
+        setMorphPhase("skeleton")
+      } else if (triggersTerminal && !triggersSkeleton && currentPhase === "skeleton") {
+        setMorphPhase("terminal")
+      } else if (currentPhase === "skeleton" && !working()) {
+        // If not working, return to terminal
+        setMorphPhase("terminal")
+      }
+    } else if (!working() && morphPhase() === "skeleton") {
+      setMorphPhase("terminal")
+    }
+  })
+
+  createEffect(() => {
     const activityPanel = props.activityPanel
     const terminalLines = activityPanel?.terminalLines
     if (!terminalLines || terminalLines.length === 0) return
@@ -381,34 +421,6 @@ export function SessionTurn(
       setActivitySpeed(speed)
     } else {
       setActivitySpeed(0)
-    }
-
-    // Hybrid Morph Sequence Parsing
-    // Trigger phase changes based on the actual tool terminal lines content
-    const lastLines = untrack(() => props.activityPanel!.terminalLines.slice(-3).map((l: any) => l.text.toLowerCase()))
-    const triggersSkeleton = lastLines.some(
-      (t: string) =>
-        t.includes("applying to file") ||
-        t.includes("writing") ||
-        t.includes("patching") ||
-        t.includes("diff") ||
-        t.includes("applying diff"),
-    )
-
-    const currentPhase = untrack(() => morphPhase())
-
-    // Switch to skeleton phase if we detect diff/file applying keywords
-    if (triggersSkeleton && currentPhase === "terminal") {
-      setMorphPhase("skeleton")
-    }
-
-    // Reset back to terminal if a new high level plan/search starts
-    const triggersTerminal = lastLines.some(
-      (t: string) =>
-        t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
-    )
-    if (triggersTerminal && !triggersSkeleton && currentPhase === "skeleton") {
-      setMorphPhase("terminal")
     }
   })
 
