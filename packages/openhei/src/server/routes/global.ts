@@ -86,22 +86,34 @@ export const GlobalRoutes = lazy(() =>
             }),
           })
           async function handler(event: any) {
-            await stream.writeSSE({
-              data: JSON.stringify(event),
-            })
+            try {
+              await stream.writeSSE({
+                data: JSON.stringify(event),
+              })
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err)
+              if (msg.includes("abort") || msg.includes("ECONNRESET") || msg.includes("stream closed")) {
+                return
+              }
+              throw err
+            }
           }
           GlobalBus.on("event", handler)
 
           // Send heartbeat every 10s to prevent stalled proxy streams.
           const heartbeat = setInterval(() => {
-            stream.writeSSE({
-              data: JSON.stringify({
-                payload: {
-                  type: "server.heartbeat",
-                  properties: {},
-                },
-              }),
-            })
+            try {
+              stream.writeSSE({
+                data: JSON.stringify({
+                  payload: {
+                    type: "server.heartbeat",
+                    properties: {},
+                  },
+                }),
+              })
+            } catch {
+              // Heartbeat write failed, client likely disconnected
+            }
           }, 10_000)
 
           await new Promise<void>((resolve) => {
@@ -528,7 +540,7 @@ New config:`
           const result = await generateText({
             model: openai("gpt-4o-mini"),
             prompt,
-            maxTokens: 4096,
+            maxOutputTokens: 4096,
           })
 
           let proposedText = result.text.trim()

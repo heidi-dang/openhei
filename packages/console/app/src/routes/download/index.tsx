@@ -77,11 +77,31 @@ export default function Download() {
 
   const handleCopyClick = (command: string) => (event: Event) => {
     const button = event.currentTarget as HTMLButtonElement
-    navigator.clipboard.writeText(command)
-    button.setAttribute("data-copied", "")
-    setTimeout(() => {
-      button.removeAttribute("data-copied")
-    }, 1500)
+    const doCopy = async () => {
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(command)
+          button.setAttribute("data-copied", "")
+          setTimeout(() => {
+            button.removeAttribute("data-copied")
+          }, 1500)
+          return
+        } catch {}
+      }
+      const textarea = window.document.createElement("textarea")
+      textarea.value = command
+      textarea.style.position = "fixed"
+      textarea.style.left = "-9999px"
+      window.document.body.appendChild(textarea)
+      textarea.select()
+      window.document.execCommand("copy")
+      window.document.body.removeChild(textarea)
+      button.setAttribute("data-copied", "")
+      setTimeout(() => {
+        button.removeAttribute("data-copied")
+      }, 1500)
+    }
+    doCopy()
   }
   return (
     <main data-page="download">
@@ -118,10 +138,13 @@ export default function Download() {
             <div data-component="section-content">
               <button
                 data-component="cli-row"
-                onClick={handleCopyClick('bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"')}
+                onClick={handleCopyClick(
+                  'bash -c "$(curl -fsSL https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh)"',
+                )}
               >
                 <code>
-                  bash -c "$(curl -fsSL <strong>https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh</strong>)"
+                  bash -c "$(curl -fsSL{" "}
+                  <strong>https://raw.githubusercontent.com/heidi-dang/openhei/main/install.sh</strong>)"
                 </code>
                 <CopyStatus />
               </button>

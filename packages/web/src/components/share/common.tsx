@@ -52,16 +52,28 @@ export function AnchorIcon(props: AnchorProps) {
     <div {...rest} data-element-anchor title={messages.link_to_message} data-status={copied() ? "copied" : ""}>
       <a
         href={`#${local.id}`}
-        onClick={(e) => {
+        onClick={async (e) => {
           e.preventDefault()
 
           const anchor = e.currentTarget
           const hash = anchor.getAttribute("href") || ""
           const { origin, pathname, search } = window.location
 
-          navigator.clipboard
-            .writeText(`${origin}${pathname}${search}${hash}`)
-            .catch((err) => console.error("Copy failed", err))
+          const url = `${origin}${pathname}${search}${hash}`
+          if (navigator.clipboard) {
+            try {
+              await navigator.clipboard.writeText(url)
+            } catch {
+              const textarea = window.document.createElement("textarea")
+              textarea.value = url
+              textarea.style.position = "fixed"
+              textarea.style.left = "-9999px"
+              window.document.body.appendChild(textarea)
+              textarea.select()
+              window.document.execCommand("copy")
+              window.document.body.removeChild(textarea)
+            }
+          }
 
           setCopied(true)
           setTimeout(() => setCopied(false), 3000)
