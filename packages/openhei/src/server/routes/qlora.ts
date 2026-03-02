@@ -249,7 +249,7 @@ const findInstallPidByPs = async () => {
 
 const sleep = (ms: number) => Bun.sleep(ms)
 
-const killchildren = async (pid: number) => {
+const killDescendants = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (process.platform === "win32") return
   try {
     const out = await run(["pgrep", "-P", String(pid)])
@@ -260,8 +260,9 @@ const killchildren = async (pid: number) => {
       .map((x) => Number(x.trim()))
     for (const child of pids) {
       if (child) {
+        await killDescendants(child, signal)
         try {
-          process.kill(child, "SIGKILL")
+          process.kill(child, signal)
         } catch {
           // ignore
         }
@@ -272,8 +273,34 @@ const killchildren = async (pid: number) => {
   }
 }
 
+const killProcessGroup = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
+  if (process.platform === "win32") return
+  try {
+    const out = await run(["ps", "-o", "pgid=", "-p", String(pid)])
+    if (out.code !== 0) {
+      console.log(`[qlora] Could not get PGID for pid=${pid}: ps returned ${out.code}`)
+      return
+    }
+    const pgid = Number(out.out.trim())
+    if (pgid > 0) {
+      try {
+        process.kill(-pgid, signal)
+        console.log(`[qlora] Sent ${signal} to process group -${pgid} (PGID of pid=${pid})`)
+      } catch (e) {
+        console.log(`[qlora] Could not kill PGID -${pgid}: ${e}`)
+      }
+    } else {
+      console.log(`[qlora] No PGID found for pid=${pid}`)
+    }
+  } catch (e) {
+    console.log(`[qlora] Error resolving PGID for pid=${pid}: ${e}`)
+  }
+}
+
 const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (!pid) return
+  console.log(`[qlora] Killing pid=${pid} with signal=${signal}`)
+
   if (process.platform === "win32") {
     if (signal === "SIGKILL") {
       const p = Bun.spawn(["taskkill", "/PID", String(pid), "/T", "/F"], { stdout: "ignore", stderr: "ignore" })
@@ -288,16 +315,19 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     return
   }
 
-  const send = (target: number) => {
-    try {
-      process.kill(target, signal)
-    } catch {
-      // ignore
-    }
+  // Kill the process group using proper PGID resolution
+  await killProcessGroup(pid, signal)
+
+  // Also try to kill the main process directly
+  try {
+    process.kill(pid, signal)
+    console.log(`[qlora] Sent ${signal} to pid=${pid}`)
+  } catch (e) {
+    console.log(`[qlora] Could not kill pid=${pid}: ${e}`)
   }
-  send(pid)
-  send(-pid)
-  killchildren(pid)
+
+  // Recursively kill all descendants
+  await killDescendants(pid, signal)
 }
 
 const waitdead = async (pid: number, timeout_ms: number) => {
