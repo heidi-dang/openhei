@@ -10,6 +10,9 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config/config"
 import { errors } from "../error"
+import { Global } from "../../global"
+import { existsSync, readFileSync, writeFileSync, statSync, mkdirSync } from "fs"
+import path from "path"
 
 declare global {
   const OPENHEI_GIT_SHA: string
@@ -314,6 +317,144 @@ export const GlobalRoutes = lazy(() =>
           channel: Installation.CHANNEL,
           distSha,
         })
+      },
+    )
+    .get(
+      "/config-file",
+      describeRoute({
+        summary: "Get openhei.conf content",
+        description: "Get the global openhei.conf file content with metadata.",
+        operationId: "global.config-file",
+        responses: {
+          200: {
+            description: "Config file content and metadata",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    path: z.string(),
+                    text: z.string(),
+                    mtime: z.number(),
+                    exists: z.boolean(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const configDir = Global.Path.config
+        const candidates = ["openhei.jsonc", "openhei.json", "config.json"].map((file) => path.join(configDir, file))
+        let configPath = candidates[0]
+        for (const file of candidates) {
+          if (existsSync(file)) {
+            configPath = file
+            break
+          }
+        }
+
+        if (!existsSync(configPath)) {
+          mkdirSync(configDir, { recursive: true })
+          const defaultContent = JSON.stringify({ $schema: "https://openhei.ai/config.json" }, null, 2)
+          writeFileSync(configPath, defaultContent, "utf-8")
+        }
+
+        const stats = statSync(configPath)
+        const text = readFileSync(configPath, "utf-8")
+
+        return c.json({
+          path: configPath,
+          text,
+          mtime: Math.floor(stats.mtimeMs),
+          exists: true,
+        })
+      },
+    )
+    .put(
+      "/config-file",
+      describeRoute({
+        summary: "Update openhei.conf",
+        description: "Write the global openhei.conf file atomically.",
+        operationId: "global.config-file.put",
+        responses: {
+          200: {
+            description: "Config file updated",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    success: z.boolean(),
+                    mtime: z.number(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          text: z.string().max(64 * 1024),
+          expectedMtime: z.number().optional(),
+        }),
+      ),
+      async (c) => {
+        const { text, expectedMtime } = c.req.valid("json")
+
+        if (/[\x00-\x08\x0E-\x1F]/.test(text)) {
+          return c.json({ error: "Binary content not allowed" }, 400)
+        }
+
+        const configDir = Global.Path.config
+        const candidates = ["openhei.jsonc", "openhei.json", "config.json"].map((file) => path.join(configDir, file))
+        let configPath = candidates[0]
+        for (const file of candidates) {
+          if (existsSync(file)) {
+            configPath = file
+            break
+          }
+        }
+
+        if (!existsSync(configPath)) {
+          mkdirSync(configDir, { recursive: true })
+        }
+
+        if (expectedMtime !== undefined) {
+          const stats = statSync(configPath)
+          const currentMtime = Math.floor(stats.mtimeMs)
+          if (currentMtime !== expectedMtime) {
+            return c.json(
+              {
+                error: "mtime mismatch",
+                currentMtime,
+                expectedMtime,
+              },
+              409,
+            )
+          }
+        }
+
+        const tempPath = configPath + ".tmp." + Date.now()
+        writeFileSync(tempPath, text, "utf-8")
+
+        const stats = statSync(tempPath)
+        const mtime = Math.floor(stats.mtimeMs)
+
+        const { renameSync, unlinkSync } = require("fs")
+        try {
+          renameSync(tempPath, configPath)
+        } catch (err) {
+          try {
+            unlinkSync(tempPath)
+          } catch {}
+          throw err
+        }
+
+        log.info("config saved", { path: configPath, bytes: text.length })
+
+        return c.json({ success: true, mtime })
       },
     ),
 )

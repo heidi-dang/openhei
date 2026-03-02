@@ -9,6 +9,7 @@ import { SettingsKeybinds } from "./settings-keybinds"
 import { SettingsProviders } from "./settings-providers"
 import { SettingsModels } from "./settings-models"
 import { SettingsQLoRA } from "./settings-qlora"
+import { SettingsConfig } from "./settings-config"
 
 export const DialogSettings: Component = () => {
   const language = useLanguage()
@@ -50,6 +51,10 @@ export const DialogSettings: Component = () => {
                       <Icon name="models" />
                       QLoRA
                     </Tabs.Trigger>
+                    <Tabs.Trigger value="config">
+                      <Icon name="settings-gear" />
+                      Config
+                    </Tabs.Trigger>
                   </div>
                 </div>
               </div>
@@ -74,6 +79,9 @@ export const DialogSettings: Component = () => {
         </Tabs.Content>
         <Tabs.Content value="qlora" class="no-scrollbar">
           <SettingsQLoRA />
+        </Tabs.Content>
+        <Tabs.Content value="config" class="no-scrollbar">
+          <SettingsConfig />
         </Tabs.Content>
       </Tabs>
     </Dialog>
