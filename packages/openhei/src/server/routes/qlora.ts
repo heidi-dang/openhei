@@ -277,24 +277,30 @@ const killProcessGroup = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (process.platform === "win32") return
   try {
     const out = await run(["ps", "-o", "pgid=", "-p", String(pid)])
-    if (out.code !== 0) return
+    if (out.code !== 0) {
+      console.log(`[qlora] Could not get PGID for pid=${pid}: ps returned ${out.code}`)
+      return
+    }
     const pgid = Number(out.out.trim())
     if (pgid > 0) {
       try {
         process.kill(-pgid, signal)
-      } catch {
-        // ignore
+        console.log(`[qlora] Sent ${signal} to process group -${pgid} (PGID of pid=${pid})`)
+      } catch (e) {
+        console.log(`[qlora] Could not kill PGID -${pgid}: ${e}`)
       }
+    } else {
+      console.log(`[qlora] No PGID found for pid=${pid}`)
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    console.log(`[qlora] Error resolving PGID for pid=${pid}: ${e}`)
   }
 }
 
 const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
   if (!pid) return
   console.log(`[qlora] Killing pid=${pid} with signal=${signal}`)
-  
+
   if (process.platform === "win32") {
     if (signal === "SIGKILL") {
       const p = Bun.spawn(["taskkill", "/PID", String(pid), "/T", "/F"], { stdout: "ignore", stderr: "ignore" })
@@ -309,15 +315,10 @@ const killpid = async (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     return
   }
 
-  // First try to kill the process group (negative PID kills entire group)
-  try {
-    process.kill(-pid, signal)
-    console.log(`[qlora] Sent ${signal} to process group -${pid}`)
-  } catch (e) {
-    console.log(`[qlora] Could not kill process group -${pid}: ${e}`)
-  }
+  // Kill the process group using proper PGID resolution
+  await killProcessGroup(pid, signal)
 
-  // Also try to kill the main process
+  // Also try to kill the main process directly
   try {
     process.kill(pid, signal)
     console.log(`[qlora] Sent ${signal} to pid=${pid}`)
