@@ -235,6 +235,20 @@ export function StatusPopover() {
     return serverHealthy && !anyMcpIssue
   })
   const { debug, loading: debugLoading } = useDebugInfo(fetcher)
+  const [tooltipOpen, setTooltipOpen] = createSignal(false)
+
+  const toggleTooltip = (next?: boolean) => setTooltipOpen((v) => (typeof next === "boolean" ? next : !v))
+
+  const overallIssueReason = () => {
+    if (overallHealthy()) return undefined
+    if (server.healthy() === false) return "server unreachable"
+    const bad = mcpNames().find((n) => {
+      const s = mcpStatus(n)
+      return s !== "connected" && s !== "disabled"
+    })
+    if (bad) return `${bad}: ${mcpStatus(bad)}`
+    return "degraded"
+  }
 
   return (
     <Popover
@@ -247,16 +261,47 @@ export function StatusPopover() {
       }}
       trigger={
         <div class="flex items-center gap-0.5">
-          <div class="size-4 flex items-center justify-center">
-            <div
-              classList={{
-                "size-1.5 rounded-full": true,
-                "bg-icon-success-base": overallHealthy(),
-                "bg-icon-critical-base": !overallHealthy() && server.healthy() !== undefined,
-                "bg-border-weak-base": server.healthy() === undefined,
+          {/* health dot with pulsing + tooltip */}
+          <div
+            class="relative"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label={language.t("status.popover.trigger")}
+              class="inline-flex items-center justify-center"
+              style={{ padding: "0" }}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleTooltip()
               }}
-            />
+            >
+              <div
+                classList={{
+                  "size-1.5 rounded-full": true,
+                  "bg-icon-success-base": overallHealthy(),
+                  "bg-icon-critical-base pulse": !overallHealthy() && server.healthy() !== undefined,
+                  "bg-border-weak-base": server.healthy() === undefined,
+                }}
+                // ensure touch target meets 44px
+                style={{ "min-width": "44px", "min-height": "44px", display: "grid", "place-items": "center" }}
+              />
+            </button>
+
+            <Show when={tooltipOpen()}>
+              <div
+                role="dialog"
+                aria-hidden={!tooltipOpen()}
+                class="health-tooltip z-50 text-12-regular text-text-base bg-surface-raised-base px-2 py-1 rounded-md shadow-md max-w-[200px] text-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {overallIssueReason() ?? language.t("status.popover.trigger")}
+              </div>
+            </Show>
           </div>
+
           <span class="text-12-regular text-text-strong">{language.t("status.popover.trigger")}</span>
         </div>
       }
