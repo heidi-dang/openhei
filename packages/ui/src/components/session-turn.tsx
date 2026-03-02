@@ -414,35 +414,63 @@ export function SessionTurn(
   const isDiffPhase = createMemo(() => edited() > 0)
 
   const [isStuck, setIsStuck] = createSignal(false)
+  const [hasHeartbeat, setHasHeartbeat] = createSignal(false)
 
   let intervalID: ReturnType<typeof setInterval> | undefined
+  let debugIntervalCount = 0
+
+  if (typeof window !== "undefined") {
+    ;(window as any).__thinkingIntervals = debugIntervalCount
+  }
 
   createEffect(() => {
     onCleanup(() => {
       if (intervalID) {
         clearInterval(intervalID)
         intervalID = undefined
+        debugIntervalCount--
+        if (typeof window !== "undefined") {
+          ;(window as any).__thinkingIntervals = debugIntervalCount
+        }
       }
     })
 
     if (!working()) {
       setIsStuck(false)
       setActivitySpeed(0)
+      setHasHeartbeat(false)
       return
     }
 
     intervalID = setInterval(() => {
+      debugIntervalCount++
+      if (typeof window !== "undefined") {
+        ;(window as any).__thinkingIntervals = debugIntervalCount
+      }
+
       const elapsed = Date.now() - lastActivityAt()
       if (elapsed > 1000) {
         setActivitySpeed((s) => Math.max(0, s - 0.1))
       }
 
-      if (elapsed > 3000) {
-        setIsStuck(true)
-      } else {
-        setIsStuck(false)
+      if (hasHeartbeat()) {
+        if (elapsed > 3000) {
+          setIsStuck(true)
+        } else {
+          setIsStuck(false)
+        }
       }
     }, 500)
+  })
+
+  createEffect(() => {
+    const activityPanel = props.activityPanel
+    if (!activityPanel) return
+
+    const terminalLines = activityPanel.terminalLines
+    if (terminalLines && terminalLines.length > 0) {
+      setHasHeartbeat(true)
+    }
   })
 
   const autoScroll = createAutoScroll({
