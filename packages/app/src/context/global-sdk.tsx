@@ -98,6 +98,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
     const aborted = (error: unknown) => abortError.safeParse(error).success
     let reconnectDelay = RECONNECT_DELAY_MS
+    const jitter = () => Math.random() * 0.5 * reconnectDelay
 
     let attempt: AbortController | undefined
     const HEARTBEAT_TIMEOUT_MS = 15_000
@@ -196,7 +197,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         }
 
         if (abort.signal.aborted) return
-        await wait(reconnectDelay)
+        await wait(reconnectDelay + jitter())
       }
     })().finally(flush)
 

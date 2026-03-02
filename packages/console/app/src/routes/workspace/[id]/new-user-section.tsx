@@ -66,9 +66,25 @@ export function NewUserSection() {
                   data-color="primary"
                   disabled={copiedKey()}
                   onClick={async () => {
-                    await navigator.clipboard.writeText(defaultKey()?.actual ?? "")
-                    setCopiedKey(true)
-                    setTimeout(() => setCopiedKey(false), 2000)
+                    const key = defaultKey()?.actual ?? ""
+                    if (navigator.clipboard) {
+                      try {
+                        await navigator.clipboard.writeText(key)
+                        setCopiedKey(true)
+                        setTimeout(() => setCopiedKey(false), 2000)
+                      } catch {
+                        const textarea = window.document.createElement("textarea")
+                        textarea.value = key
+                        textarea.style.position = "fixed"
+                        textarea.style.left = "-9999px"
+                        window.document.body.appendChild(textarea)
+                        textarea.select()
+                        window.document.execCommand("copy")
+                        window.document.body.removeChild(textarea)
+                        setCopiedKey(true)
+                        setTimeout(() => setCopiedKey(false), 2000)
+                      }
+                    }
                   }}
                   title={i18n.t("workspace.newUser.copyApiKey")}
                 >

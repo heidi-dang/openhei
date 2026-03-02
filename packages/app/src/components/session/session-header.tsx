@@ -163,9 +163,29 @@ function useSessionShare(args: {
   const copyLink = (onError: (error: unknown) => void) => {
     const url = shareUrl()
     if (!url) return
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
+    const doCopy = async () => {
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(url)
+          if (state.timer) window.clearTimeout(state.timer)
+          setState("copied", true)
+          const timer = window.setTimeout(() => {
+            setState("copied", false)
+            setState("timer", undefined)
+          }, 3000)
+          setState("timer", timer)
+          return
+        } catch {}
+      }
+      const textarea = window.document.createElement("textarea")
+      textarea.value = url
+      textarea.style.position = "fixed"
+      textarea.style.left = "-9999px"
+      window.document.body.appendChild(textarea)
+      textarea.select()
+      const success = window.document.execCommand("copy")
+      window.document.body.removeChild(textarea)
+      if (success) {
         if (state.timer) window.clearTimeout(state.timer)
         setState("copied", true)
         const timer = window.setTimeout(() => {
@@ -173,8 +193,11 @@ function useSessionShare(args: {
           setState("timer", undefined)
         }, 3000)
         setState("timer", timer)
-      })
-      .catch(onError)
+      } else {
+        onError(new Error("Copy failed"))
+      }
+    }
+    doCopy()
   }
 
   const viewShare = () => {

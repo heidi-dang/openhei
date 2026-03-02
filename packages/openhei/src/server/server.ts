@@ -88,6 +88,8 @@ export namespace Server {
           // Allow CORS preflight requests to succeed without auth.
           // Browser clients sending Authorization headers will preflight with OPTIONS.
           if (c.req.method === "OPTIONS") return next()
+          // Skip auth for PWA manifest - must be accessible without auth
+          if (c.req.path === "/manifest.webmanifest") return next()
           const password = Flag.OPENHEI_SERVER_PASSWORD
           if (!password) return next()
           const username = Flag.OPENHEI_SERVER_USERNAME ?? "openhei"
@@ -553,22 +555,34 @@ export namespace Server {
                 }),
               })
               const unsub = Bus.subscribeAll(async (event) => {
-                await stream.writeSSE({
-                  data: JSON.stringify(event),
-                })
-                if (event.type === Bus.InstanceDisposed.type) {
-                  stream.close()
+                try {
+                  await stream.writeSSE({
+                    data: JSON.stringify(event),
+                  })
+                  if (event.type === Bus.InstanceDisposed.type) {
+                    stream.close()
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err)
+                  if (msg.includes("abort") || msg.includes("ECONNRESET") || msg.includes("stream closed")) {
+                    return
+                  }
+                  throw err
                 }
               })
 
               // Send heartbeat every 10s to prevent stalled proxy streams.
               const heartbeat = setInterval(() => {
-                stream.writeSSE({
-                  data: JSON.stringify({
-                    type: "server.heartbeat",
-                    properties: {},
-                  }),
-                })
+                try {
+                  stream.writeSSE({
+                    data: JSON.stringify({
+                      type: "server.heartbeat",
+                      properties: {},
+                    }),
+                  })
+                } catch {
+                  // Heartbeat write failed, client likely disconnected
+                }
               }, 10_000)
 
               await new Promise<void>((resolve) => {
