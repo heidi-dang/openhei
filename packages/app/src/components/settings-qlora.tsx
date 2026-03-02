@@ -281,11 +281,18 @@ export const SettingsQLoRA: Component = () => {
   })
 
   let es: EventSource | undefined
+  let esReconnectTimeout: ReturnType<typeof setTimeout> | undefined
   const close = () => {
     es?.close()
     es = undefined
+    if (esReconnectTimeout) {
+      clearTimeout(esReconnectTimeout)
+      esReconnectTimeout = undefined
+    }
   }
   onCleanup(close)
+
+  let esReconnectBackoff = 10000
 
   const connect = (run_id: string) => {
     close()
@@ -293,19 +300,21 @@ export const SettingsQLoRA: Component = () => {
     setStore("progress", undefined)
     setStore("connected", false)
     setStore("lastEventTime", 0)
+    esReconnectBackoff = 10000
     es = new EventSource(`/api/v1/qlora/logs?run_id=${encodeURIComponent(run_id)}`)
-    let reconnectTimeout: ReturnType<typeof setTimeout> | undefined
     const updateEventTime = () => {
       setStore("lastEventTime", Date.now())
       setStore("connected", true)
+      esReconnectBackoff = 10000
     }
     const scheduleReconnect = () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout)
-      reconnectTimeout = setTimeout(() => {
+      if (esReconnectTimeout) clearTimeout(esReconnectTimeout)
+      esReconnectTimeout = setTimeout(() => {
         if (store.run_id && store.running && !store.connected) {
+          esReconnectBackoff = Math.min(esReconnectBackoff * 1.5, 60000)
           connect(store.run_id)
         }
-      }, 10000)
+      }, esReconnectBackoff)
     }
     es.onmessage = (e) => {
       updateEventTime()
@@ -336,28 +345,65 @@ export const SettingsQLoRA: Component = () => {
 
   const poll = async (run_id: string) => {
     const s = await get<Status>(`/api/v1/qlora/status?run_id=${encodeURIComponent(run_id)}`).catch(() => undefined)
-    if (!s) return
+    if (!s) {
+      setStore("connected", false)
+      return
+    }
     setStore("running", s.running)
+    setStore("connected", true)
     setStore("stage", s.stage ?? "")
     if (s.ready && !s.running) {
       showToast({ variant: "success", icon: "circle-check", title: "READY", description: `Run ${run_id} complete` })
     }
   }
 
+  let pollInterval: ReturnType<typeof setInterval> | undefined
+  let pollBackoff = 1500
+
   createEffect(() => {
     const run_id = store.run_id
     if (!run_id) return
-    let alive = true
-    const tick = () => {
-      if (!alive) return
-      void poll(run_id)
-    }
-    tick()
-    const t = setInterval(tick, 1500)
+
     onCleanup(() => {
-      alive = false
-      clearInterval(t)
+      if (pollInterval) {
+        clearInterval(pollInterval)
+        pollInterval = undefined
+      }
+      pollBackoff = 1500
     })
+
+    let alive = true
+    const tick = async () => {
+      if (!alive) return
+      if (!store.running) return
+
+      const s = await get<Status>(`/api/v1/qlora/status?run_id=${encodeURIComponent(run_id)}`).catch(() => undefined)
+      if (!s) {
+        pollBackoff = Math.min(pollBackoff * 1.5, 10000)
+        if (pollInterval) {
+          clearInterval(pollInterval)
+          pollInterval = setInterval(tick, pollBackoff)
+        }
+        setStore("connected", false)
+        return
+      }
+
+      pollBackoff = 1500
+      if (pollInterval) {
+        clearInterval(pollInterval)
+        pollInterval = setInterval(tick, pollBackoff)
+      }
+
+      setStore("running", s.running)
+      setStore("connected", true)
+      setStore("stage", s.stage ?? "")
+      if (s.ready && !s.running) {
+        showToast({ variant: "success", icon: "circle-check", title: "READY", description: `Run ${run_id} complete` })
+      }
+    }
+
+    tick()
+    pollInterval = setInterval(tick, pollBackoff)
   })
 
   const install = async () => {
@@ -393,9 +439,17 @@ export const SettingsQLoRA: Component = () => {
 
   const stop = async () => {
     const run_id = store.run_id
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = undefined
+    }
+    pollBackoff = 1500
+
     const out = await post<{ ok: boolean; message: string }>("/api/v1/qlora/stop", run_id ? { run_id } : {})
     showToast({ title: out.ok ? "Stopped" : "Stop failed", description: out.message })
     setStore("running", false)
+    setStore("run_id", "")
     close()
     await docActions.refetch()
   }

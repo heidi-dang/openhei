@@ -45,6 +45,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const FLUSH_FRAME_MS = 16
     const STREAM_YIELD_MS = 8
     const RECONNECT_DELAY_MS = 250
+    const MAX_RECONNECT_DELAY_MS = 30_000
 
     let queue: Queued[] = []
     let buffer: Queued[] = []
@@ -96,6 +97,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     let streamErrorLogged = false
     const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
     const aborted = (error: unknown) => abortError.safeParse(error).success
+    let reconnectDelay = RECONNECT_DELAY_MS
 
     let attempt: AbortController | undefined
     const HEARTBEAT_TIMEOUT_MS = 15_000
@@ -139,6 +141,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           })
           let yielded = Date.now()
           resetHeartbeat()
+          reconnectDelay = RECONNECT_DELAY_MS
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
@@ -177,11 +180,13 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         } catch (error) {
           if (!aborted(error) && !streamErrorLogged) {
             streamErrorLogged = true
+            reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS)
             const normalizedError = error ?? new Error("Unknown stream error (null)")
             console.error("[global-sdk] event stream failed", {
               url: currentServer.http.url,
               fetch: eventFetch ? "platform" : "webview",
               error: normalizedError,
+              reconnectDelay,
             })
           }
         } finally {
@@ -191,7 +196,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         }
 
         if (abort.signal.aborted) return
-        await wait(RECONNECT_DELAY_MS)
+        await wait(reconnectDelay)
       }
     })().finally(flush)
 
