@@ -7,22 +7,22 @@ export interface GhostCodeProps {
 }
 
 export const GhostCode: Component<GhostCodeProps> = (props) => {
-  // Generate random lengths and indents for skeleton lines to make it look like real code
+  const count = () => props.lines ?? 5
+  if (count() <= 0) return null
+
   const generatedLines = createMemo(() => {
-    const count = props.lines ?? 5
     const lines = []
     let currentIndent = 0
 
-    for (let i = 0; i < count; i++) {
-      // Logic to roughly simulate code indentation blocks
+    for (let i = 0; i < count(); i++) {
       if (i > 0 && Math.random() > 0.6) currentIndent = Math.min(currentIndent + 1, 3)
       else if (i > 0 && Math.random() > 0.8) currentIndent = Math.max(currentIndent - 1, 0)
 
-      if (i === count - 1) currentIndent = 0
+      if (i === count() - 1) currentIndent = 0
 
       lines.push({
         indent: currentIndent,
-        width: 30 + Math.random() * 50, // width percentage between 30% and 80%
+        width: 30 + Math.random() * 50,
       })
     }
     return lines
