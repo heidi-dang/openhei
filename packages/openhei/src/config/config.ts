@@ -6,7 +6,7 @@ import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
-import { mergeDeep, pipe, unique } from "remeda"
+import { pipe, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy } from "../util/lazy"
@@ -31,7 +31,6 @@ import { GlobalBus } from "@/bus/global"
 import { Event } from "../server/event"
 import { Glob } from "../util/glob"
 import { PackageRegistry } from "@/bun/registry"
-import { proxied } from "@/util/proxied"
 import { iife } from "@/util/iife"
 import { Control } from "@/control"
 
@@ -57,14 +56,43 @@ export namespace Config {
 
   // Custom merge function that concatenates array fields instead of replacing them
   function merge(target: Info, source: Info): Info {
-    const merged = mergeDeep(target, source)
-    if (target.plugin && source.plugin) {
+    const merged = mergeDeep(target, source) as Info
+
+    // Handle array field merging with proper type safety
+    if (Array.isArray(target.plugin) && Array.isArray(source.plugin)) {
       merged.plugin = Array.from(new Set([...target.plugin, ...source.plugin]))
     }
-    if (target.instructions && source.instructions) {
+    if (Array.isArray(target.instructions) && Array.isArray(source.instructions)) {
       merged.instructions = Array.from(new Set([...target.instructions, ...source.instructions]))
     }
+
     return merged
+  }
+
+  // Custom mergeDeep function that provides default values for commonly accessed fields
+  // to prevent errors when accessing nested properties that may not exist.
+  function mergeDeep(target: unknown, source: unknown): unknown {
+    if (!isRecord(source)) return source
+    if (!isRecord(target)) return source
+
+    const merged = { ...target }
+    for (const [key, value] of Object.entries(source)) {
+      if (value === undefined) continue
+      merged[key] = mergeDeep((target as any)[key], value)
+    }
+
+    // Add default values for commonly accessed fields
+    if (source && (source as any).plugin && !(merged as any).plugin) (merged as any).plugin = []
+    if (source && (source as any).instructions && !(merged as any).instructions) (merged as any).instructions = []
+    if (source && (source as any).permission && !(merged as any).permission) (merged as any).permission = {}
+    if (source && (source as any).compaction && !(merged as any).compaction) (merged as any).compaction = {}
+    if (source && (source as any).tools && !(merged as any).tools) (merged as any).tools = {}
+
+    return merged
+  }
+
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === "object" && !Array.isArray(value)
   }
 
   export const state = Instance.state(async () => {
@@ -78,7 +106,7 @@ export namespace Config {
     // 5) .openhei directories (.openhei/agents/, .openhei/commands/, .openhei/plugins/, .openhei/openhei.json{,c})
     // 6) Inline config (OPENHEI_CONFIG_CONTENT)
     // Managed config directory is enterprise-only and always overrides everything above.
-    let result: Info = {}
+    let result: Info = {} as Info
     for (const [key, value] of Object.entries(auth)) {
       if (value.type === "wellknown") {
         process.env[value.key] = value.token
@@ -179,9 +207,9 @@ export namespace Config {
         }),
       )
 
-      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
-      result.agent = mergeDeep(result.agent, await loadAgent(dir))
-      result.agent = mergeDeep(result.agent, await loadMode(dir))
+      result.command = mergeDeep(result.command ?? {}, await loadCommand(dir)) as any
+      result.agent = mergeDeep(result.agent, await loadAgent(dir)) as any
+      result.agent = mergeDeep(result.agent, await loadMode(dir)) as any
       result.plugin.push(...(await loadPlugin(dir)))
     }
 
@@ -214,7 +242,7 @@ export namespace Config {
           ...mode,
           mode: "primary" as const,
         },
-      })
+      }) as any
     }
 
     // Migrate deprecated mode field to chat_mode
@@ -237,7 +265,7 @@ export namespace Config {
         }
         perms[tool] = action
       }
-      result.permission = mergeDeep(perms, result.permission ?? {})
+      result.permission = mergeDeep(perms, result.permission ?? {}) as any
     }
 
     if (!result.username) result.username = os.userInfo().username
@@ -295,8 +323,6 @@ export namespace Config {
     await BunProc.run(
       [
         "install",
-        // TODO: get rid of this case (see: https://github.com/oven-sh/bun/issues/19936)
-        ...(proxied() ? ["--no-cache"] : []),
       ],
       { cwd: dir },
     ).catch((err) => {
@@ -1096,6 +1122,10 @@ export namespace Config {
         })
         .optional(),
       plugin: z.string().array().optional(),
+      instructions: z.string().array().optional(),
+      permission: Permission.optional(),
+      compaction: z.record(z.string(), z.any()).optional(),
+      tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
       snapshot: z.boolean().optional(),
       share: z
         .enum(["manual", "auto", "disabled"])
@@ -1162,118 +1192,9 @@ export namespace Config {
         .catchall(Agent)
         .optional()
         .describe("Agent configuration, see https://openhei.ai/docs/agents"),
-      provider: z
-        .record(z.string(), Provider)
-        .optional()
-        .describe("Custom provider configurations and model overrides"),
-      mcp: z
-        .record(
-          z.string(),
-          z.union([
-            Mcp,
-            z
-              .object({
-                enabled: z.boolean(),
-              })
-              .strict(),
-          ]),
-        )
-        .optional()
-        .describe("MCP (Model Context Protocol) server configurations"),
-      formatter: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.object({
-              disabled: z.boolean().optional(),
-              command: z.array(z.string()).optional(),
-              environment: z.record(z.string(), z.string()).optional(),
-              extensions: z.array(z.string()).optional(),
-            }),
-          ),
-        ])
-        .optional(),
-      lsp: z
-        .union([
-          z.literal(false),
-          z.record(
-            z.string(),
-            z.union([
-              z.object({
-                disabled: z.literal(true),
-              }),
-              z.object({
-                command: z.array(z.string()),
-                extensions: z.array(z.string()).optional(),
-                disabled: z.boolean().optional(),
-                env: z.record(z.string(), z.string()).optional(),
-                initialization: z.record(z.string(), z.any()).optional(),
-              }),
-            ]),
-          ),
-        ])
-        .optional()
-        .refine(
-          (data) => {
-            if (!data) return true
-            if (typeof data === "boolean") return true
-            const serverIds = new Set(Object.values(LSPServer).map((s) => s.id))
-
-            return Object.entries(data).every(([id, config]) => {
-              if (config.disabled) return true
-              if (serverIds.has(id)) return true
-              return Boolean(config.extensions)
-            })
-          },
-          {
-            error: "For custom LSP servers, 'extensions' array is required.",
-          },
-        ),
-      instructions: z.array(z.string()).optional().describe("Additional instruction files or patterns to include"),
-      layout: Layout.optional().describe("@deprecated Always uses stretch layout."),
-      permission: Permission.optional(),
-      tools: z.record(z.string(), z.boolean()).optional(),
-      enterprise: z
-        .object({
-          url: z.string().optional().describe("Enterprise URL"),
-        })
-        .optional(),
-      compaction: z
-        .object({
-          auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
-          prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
-          reserved: z
-            .number()
-            .int()
-            .min(0)
-            .optional()
-            .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
-        })
-        .optional(),
-      experimental: z
-        .object({
-          disable_paste_summary: z.boolean().optional(),
-          batch_tool: z.boolean().optional().describe("Enable the batch tool"),
-          openTelemetry: z
-            .boolean()
-            .optional()
-            .describe("Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)"),
-          primary_tools: z
-            .array(z.string())
-            .optional()
-            .describe("Tools that should only be available to primary agents."),
-          continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
-          mcp_timeout: z
-            .number()
-            .int()
-            .positive()
-            .optional()
-            .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
-        })
-        .optional(),
+      provider: z.record(z.string(), Provider).optional().describe("Provider configuration"),
+      mcp: z.record(z.string(), Mcp).optional().describe("MCP configuration"),
     })
-    .strict()
     .meta({
       ref: "Config",
     })
@@ -1281,12 +1202,10 @@ export namespace Config {
   export type Info = z.output<typeof Info>
 
   export const global = lazy(async () => {
-    let result: Info = pipe(
-      {},
-      mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "openhei.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "openhei.jsonc"))),
-    )
+    let result: Info = {} as Info
+    result = mergeDeep(result, await loadFile(path.join(Global.Path.config, "config.json"))) as Info
+    result = mergeDeep(result, await loadFile(path.join(Global.Path.config, "openhei.json"))) as Info
+    result = mergeDeep(result, await loadFile(path.join(Global.Path.config, "openhei.jsonc"))) as Info
 
     const legacy = path.join(Global.Path.config, "config")
     if (existsSync(legacy)) {
@@ -1299,7 +1218,7 @@ export namespace Config {
           const { provider, model, ...rest } = mod.default
           if (provider && model) result.model = `${provider}/${model}`
           result["$schema"] = "https://openhei.ai/config.json"
-          result = mergeDeep(result, rest)
+          result = mergeDeep(result, rest) as Info
           await Filesystem.writeJson(path.join(Global.Path.config, "config.json"), result)
           await fs.unlink(legacy)
         })
@@ -1315,7 +1234,7 @@ export namespace Config {
       if (err.code === "ENOENT") return
       throw new JsonError({ path: filepath }, { cause: err })
     })
-    if (!text) return {}
+    if (!text) return {} as Info
     return load(text, { path: filepath })
   }
 
@@ -1448,11 +1367,11 @@ export namespace Config {
   )
 
   export async function get() {
-    return state().then((x) => x.config)
+    return (await state()).config
   }
 
   export async function getGlobal() {
-    return global()
+    return await global()
   }
 
   export async function update(config: Info) {
@@ -1470,10 +1389,6 @@ export namespace Config {
       if (existsSync(file)) return file
     }
     return candidates[0]
-  }
-
-  function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === "object" && !Array.isArray(value)
   }
 
   function patchJsonc(input: string, patch: unknown, path: string[] = []): string {

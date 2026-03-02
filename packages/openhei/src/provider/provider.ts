@@ -44,6 +44,8 @@ import { fromNodeProviderChain } from "@aws-sdk/credential-providers"
 import { GoogleAuth } from "google-auth-library"
 import { ProviderTransform } from "./transform"
 import { Installation } from "../installation"
+import { createChatbox } from "./sdk/chatbox/chatbox-provider"
+import { ChatboxModels } from "./sdk/chatbox/models"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -117,6 +119,67 @@ export namespace Provider {
   }>
 
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
+    async chatbox(input) {
+      const auth = await Auth.get("chatbox")
+      const refreshCookie = auth?.type === "oauth" ? auth.refresh : Env.get("CHATBOX_REFRESH_COOKIE")
+      const accessToken = auth?.type === "oauth" ? auth.access : Env.get("CHATBOX_ACCESS_TOKEN")
+
+      if (!refreshCookie && !accessToken) {
+        return { autoload: false }
+      }
+
+      // Dynamically fetch models from Chatbox definition
+      const chatboxModels = await ChatboxModels.fetchModels()
+
+      input.source = "custom"
+      input.options = {}
+
+      for (const model of chatboxModels) {
+        input.models[model.id] = {
+          id: model.id,
+          providerID: "chatbox",
+          name: model.title || model.modelName,
+          family: model.modelName || "",
+          release_date: "",
+          capabilities: {
+            attachment: false,
+            reasoning: false,
+            temperature: true,
+            toolcall: false,
+            interleaved: false,
+            input: {},
+            output: {},
+          },
+          api: { npm: "custom", url: "https://api.florate.io/v2", id: "chatbox" },
+          status: "active",
+          price: {
+            currency: "USD",
+            type: "exact",
+          },
+          cost: {
+            input: 0,
+            output: 0,
+            cache: {
+              read: 0,
+              write: 0,
+            },
+          },
+          limit: { context: 128000, output: 4096 },
+          headers: {},
+          options: {},
+        } as any
+      }
+
+      const chatbox = createChatbox({ refreshCookie, accessToken })
+
+      return {
+        autoload: true,
+        options: {},
+        async getModel(_sdk: any, modelID: string) {
+          return chatbox(modelID)
+        }
+      }
+    },
     async anthropic() {
       return {
         autoload: false,
