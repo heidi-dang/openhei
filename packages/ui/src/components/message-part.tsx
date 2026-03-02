@@ -169,37 +169,38 @@ export type ToolInfo = {
   subtitle?: string
 }
 
-export function getToolInfo(tool: string, input: any = {}): ToolInfo {
+export function getToolInfo(tool: string | undefined, input: any = {}): ToolInfo {
   const i18n = useI18n()
-  switch (tool) {
+  const safeTool = tool ?? "unknown"
+  switch (safeTool) {
     case "read":
       return {
         icon: "glasses",
-        title: i18n.t("ui.tool.read"),
+        title: i18n.t("ui.tool.read") || "Read",
         subtitle: input.filePath ? getFilename(input.filePath) : undefined,
       }
     case "list":
       return {
         icon: "bullet-list",
-        title: i18n.t("ui.tool.list"),
+        title: i18n.t("ui.tool.list") || "List",
         subtitle: input.path ? getFilename(input.path) : undefined,
       }
     case "glob":
       return {
         icon: "magnifying-glass-menu",
-        title: i18n.t("ui.tool.glob"),
+        title: i18n.t("ui.tool.glob") || "Glob",
         subtitle: input.pattern,
       }
     case "grep":
       return {
         icon: "magnifying-glass-menu",
-        title: i18n.t("ui.tool.grep"),
+        title: i18n.t("ui.tool.grep") || "Grep",
         subtitle: input.pattern,
       }
     case "webfetch":
       return {
         icon: "window-cursor",
-        title: i18n.t("ui.tool.webfetch"),
+        title: i18n.t("ui.tool.webfetch") || "Web Fetch",
         subtitle: input.url,
       }
     case "task":
@@ -211,25 +212,25 @@ export function getToolInfo(tool: string, input: any = {}): ToolInfo {
     case "bash":
       return {
         icon: "console",
-        title: i18n.t("ui.tool.shell"),
+        title: i18n.t("ui.tool.shell") || "Shell",
         subtitle: input.description,
       }
     case "edit":
       return {
         icon: "code-lines",
-        title: i18n.t("ui.messagePart.title.edit"),
+        title: i18n.t("ui.messagePart.title.edit") || "Edit",
         subtitle: input.filePath ? getFilename(input.filePath) : undefined,
       }
     case "write":
       return {
         icon: "code-lines",
-        title: i18n.t("ui.messagePart.title.write"),
+        title: i18n.t("ui.messagePart.title.write") || "Write",
         subtitle: input.filePath ? getFilename(input.filePath) : undefined,
       }
     case "apply_patch":
       return {
         icon: "code-lines",
-        title: i18n.t("ui.tool.patch"),
+        title: i18n.t("ui.tool.patch") || "Patch",
         subtitle: input.files?.length
           ? `${input.files.length} ${i18n.t(input.files.length > 1 ? "ui.common.file.other" : "ui.common.file.one")}`
           : undefined,
@@ -237,22 +238,22 @@ export function getToolInfo(tool: string, input: any = {}): ToolInfo {
     case "todowrite":
       return {
         icon: "checklist",
-        title: i18n.t("ui.tool.todos"),
+        title: i18n.t("ui.tool.todos") || "Todos",
       }
     case "todoread":
       return {
         icon: "checklist",
-        title: i18n.t("ui.tool.todos.read"),
+        title: i18n.t("ui.tool.todos.read") || "Read Todos",
       }
     case "question":
       return {
         icon: "bubble-5",
-        title: i18n.t("ui.tool.questions"),
+        title: i18n.t("ui.tool.questions") || "Question",
       }
     default:
       return {
         icon: "mcp",
-        title: tool,
+        title: safeTool,
       }
   }
 }
@@ -412,19 +413,19 @@ function contextToolTrigger(part: ToolPart, i18n: ReturnType<typeof useI18n>) {
       if (offset !== undefined) args.push("offset=" + offset)
       if (limit !== undefined) args.push("limit=" + limit)
       return {
-        title: i18n.t("ui.tool.read"),
+        title: i18n.t("ui.tool.read") || "Read",
         subtitle: filePath ? getFilename(filePath) : "",
         args,
       }
     }
     case "list":
       return {
-        title: i18n.t("ui.tool.list"),
+        title: i18n.t("ui.tool.list") || "List",
         subtitle: getDirectory(path),
       }
     case "glob":
       return {
-        title: i18n.t("ui.tool.glob"),
+        title: i18n.t("ui.tool.glob") || "Glob",
         subtitle: getDirectory(path),
         args: pattern ? ["pattern=" + pattern] : [],
       }
@@ -433,16 +434,16 @@ function contextToolTrigger(part: ToolPart, i18n: ReturnType<typeof useI18n>) {
       if (pattern) args.push("pattern=" + pattern)
       if (include) args.push("include=" + include)
       return {
-        title: i18n.t("ui.tool.grep"),
+        title: i18n.t("ui.tool.grep") || "Grep",
         subtitle: getDirectory(path),
         args,
       }
     }
     default: {
-      const info = getToolInfo(part.tool, input)
+      const info = getToolInfo(part.tool ?? "unknown", input)
       return {
-        title: info.title,
-        subtitle: info.subtitle || contextToolDetail(part),
+        title: info?.title ?? part.tool ?? "Tool",
+        subtitle: info?.subtitle || contextToolDetail(part),
         args: [],
       }
     }

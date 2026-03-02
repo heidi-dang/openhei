@@ -140,6 +140,7 @@ export const SettingsQLoRA: Component = () => {
     logs: [] as string[],
     connected: false,
     lastEventTime: 0,
+    autoScroll: true,
   })
 
   const [doc, docActions] = createResource(() =>
@@ -293,6 +294,7 @@ export const SettingsQLoRA: Component = () => {
     setStore("progress", undefined)
     setStore("connected", false)
     setStore("lastEventTime", 0)
+    setStore("autoScroll", true)
     es = new EventSource(`/api/v1/qlora/logs?run_id=${encodeURIComponent(run_id)}`)
     let reconnectTimeout: ReturnType<typeof setTimeout> | undefined
     const updateEventTime = () => {
@@ -327,6 +329,13 @@ export const SettingsQLoRA: Component = () => {
         const next = [...prev, line]
         return next.length > 2000 ? next.slice(-2000) : next
       })
+      // Auto-scroll to bottom if enabled
+      if (store.autoScroll) {
+        setTimeout(() => {
+          const el = document.getElementById("qlora-logs-container")
+          if (el) el.scrollTop = el.scrollHeight
+        }, 10)
+      }
     }
     es.onerror = () => {
       setStore("connected", false)
@@ -871,7 +880,20 @@ export const SettingsQLoRA: Component = () => {
                   <Show when={store.progress}>
                     {(p) => (
                       <div>
-                        progress: {p().done}/{p().total} ({p().pct}%) | {p().rate.toFixed(2)} it/s | ETA {p().eta}s
+                        <div class="flex items-center gap-2 mt-2">
+                          <div class="flex-1 h-2 bg-surface-base rounded-full overflow-hidden border border-border-weak-base">
+                            <div
+                              class="h-full bg-text-success transition-all duration-300"
+                              style={{ width: `${Math.min(100, p().pct)}%` }}
+                            />
+                          </div>
+                          <span class="text-12-medium text-text-success min-w-[50px] text-right">
+                            {p().pct}%
+                          </span>
+                        </div>
+                        <div class="mt-1">
+                          {p().done}/{p().total} | {p().rate.toFixed(2)} it/s | ETA {p().eta}s
+                        </div>
                       </div>
                     )}
                   </Show>
@@ -879,11 +901,69 @@ export const SettingsQLoRA: Component = () => {
               </Show>
 
               <div class="pb-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <div class="text-12-regular text-text-weak">
+                      <Show when={store.logs.length > 0}>
+                        {store.logs.length} lines
+                      </Show>
+                    </div>
+                    <Show when={!store.autoScroll}>
+                      <span class="text-12-regular text-text-warning">• Paused</span>
+                    </Show>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <Show when={!store.autoScroll}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => {
+                          setStore("autoScroll", true)
+                          const el = document.getElementById("qlora-logs-container")
+                          if (el) el.scrollTop = el.scrollHeight
+                        }}
+                      >
+                        ↓ Resume
+                      </button>
+                    </Show>
+                    <Show when={store.autoScroll}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => {
+                          const el = document.getElementById("qlora-logs-container")
+                          if (el) el.scrollTop = el.scrollHeight
+                        }}
+                      >
+                        ↓ Jump to latest
+                      </button>
+                    </Show>
+                  </div>
+                </div>
                 <div class="bg-surface-base rounded-lg border border-border-weak-base p-3">
-                  <pre class="text-11-regular text-text-base whitespace-pre-wrap break-words max-h-[360px] overflow-auto">
+                  <pre
+                    id="qlora-logs-container"
+                    class="text-11-regular text-text-base whitespace-pre-wrap break-words max-h-[360px] overflow-auto"
+                    onScroll={(e) => {
+                      const el = e.currentTarget
+                      const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 50
+                      if (!atBottom && store.autoScroll) {
+                        setStore("autoScroll", false)
+                      }
+                    }}
+                  >
                     <For each={store.logs}>
                       {(line) => (
-                        <span classList={{ "text-text-diff-delete-base": /\b(ERROR|FATAL)\b/.test(line) }}>
+                        <span
+                          style={{
+                            color: /\b(ERROR|FATAL)\b/i.test(line)
+                              ? "var(--text-error)"
+                              : /\bWARN(ING)?\b/i.test(line)
+                                ? "var(--text-warning)"
+                                : line.includes("stderr") || line.includes("STDERR")
+                                  ? "var(--text-success)"
+                                  : "inherit",
+                            "font-weight": /\b(ERROR|FATAL)\b/i.test(line) ? "500" : "normal",
+                          }}
+                        >
                           {line + "\n"}
                         </span>
                       )}
