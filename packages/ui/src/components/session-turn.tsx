@@ -360,22 +360,23 @@ export function SessionTurn(
     return true
   })
 
-  // Track terminal log activity for heuristic speed calculation & latency checks
   const [lastActivityAt, setLastActivityAt] = createSignal(Date.now())
-  const [activitySpeed, setActivitySpeed] = createSignal(0) // normalized speed 0 to 1
+  const [activitySpeed, setActivitySpeed] = createSignal(0)
   const [morphPhase, setMorphPhase] = createSignal<"terminal" | "skeleton">("terminal")
 
   createEffect(() => {
     const activityPanel = props.activityPanel
-    const terminalLines = activityPanel?.terminalLines
+    if (!activityPanel) {
+      setMorphPhase("terminal")
+      return
+    }
+    const terminalLines = activityPanel.terminalLines
     if (!terminalLines || terminalLines.length === 0) return
 
     const now = Date.now()
     const elapsed = now - untrack(() => lastActivityAt())
     setLastActivityAt(now)
 
-    // Heuristic: target is ~3 updates per second (333ms elapsed) for max speed (1)
-    // Very slow: >2000ms elapsed = min speed (0)
     if (elapsed < 2000) {
       const speed = Math.max(0, 1 - Math.min(elapsed, 2000) / 2000)
       setActivitySpeed(speed)
@@ -383,9 +384,7 @@ export function SessionTurn(
       setActivitySpeed(0)
     }
 
-    // Hybrid Morph Sequence Parsing
-    // Trigger phase changes based on the actual tool terminal lines content
-    const lastLines = untrack(() => props.activityPanel!.terminalLines.slice(-3).map((l: any) => l.text.toLowerCase()))
+    const lastLines = untrack(() => terminalLines.slice(-3).map((l: { text: string }) => (l?.text ?? "").toLowerCase()))
     const triggersSkeleton = lastLines.some(
       (t: string) =>
         t.includes("applying to file") ||
@@ -397,12 +396,10 @@ export function SessionTurn(
 
     const currentPhase = untrack(() => morphPhase())
 
-    // Switch to skeleton phase if we detect diff/file applying keywords
     if (triggersSkeleton && currentPhase === "terminal") {
       setMorphPhase("skeleton")
     }
 
-    // Reset back to terminal if a new high level plan/search starts
     const triggersTerminal = lastLines.some(
       (t: string) =>
         t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
@@ -418,27 +415,34 @@ export function SessionTurn(
 
   const [isStuck, setIsStuck] = createSignal(false)
 
-  // Decay speed over time if no new updates come in & Trigger stuck state
+  let intervalID: ReturnType<typeof setInterval> | undefined
+
   createEffect(() => {
+    onCleanup(() => {
+      if (intervalID) {
+        clearInterval(intervalID)
+        intervalID = undefined
+      }
+    })
+
     if (!working()) {
       setIsStuck(false)
       setActivitySpeed(0)
       return
     }
-    const interval = setInterval(() => {
+
+    intervalID = setInterval(() => {
       const elapsed = Date.now() - lastActivityAt()
       if (elapsed > 1000) {
         setActivitySpeed((s) => Math.max(0, s - 0.1))
       }
 
-      // If no updates for 3000ms and we are working, show stuck warning
       if (elapsed > 3000) {
         setIsStuck(true)
       } else {
         setIsStuck(false)
       }
     }, 500)
-    onCleanup(() => clearInterval(interval))
   })
 
   const autoScroll = createAutoScroll({
@@ -500,16 +504,13 @@ export function SessionTurn(
                       {(text) => <span data-slot="session-turn-thinking-heading">{text()}</span>}
                     </Show>
 
-                    {/* Hybrid Morph Container */}
                     <div class="mt-4 relative transition-all duration-700 ease-in-out">
-                      {/* GhostCode / Skeleton Phase */}
-                      <Show when={morphPhase() === "skeleton" && !isDiffPhase() && props.activityPanel}>
+                      <Show when={!props.activityPanel}>
                         <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                           <GhostCode lines={6} />
                         </div>
                       </Show>
 
-                      {/* Terminal Phase */}
                       <Show when={props.activityPanel}>
                         {(panel) => (
                           <div
@@ -519,6 +520,11 @@ export function SessionTurn(
                                 : "opacity-100 scale-100"
                             }`}
                           >
+                            <Show when={morphPhase() === "skeleton" && !isDiffPhase()}>
+                              <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <GhostCode lines={6} />
+                              </div>
+                            </Show>
                             <ActivityPanel
                               phaseTitle={panel().phaseTitle}
                               terminalLines={panel().terminalLines}
