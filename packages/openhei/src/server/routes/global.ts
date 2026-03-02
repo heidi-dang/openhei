@@ -558,5 +558,43 @@ New config:`
           return c.json({ error: "Translation failed: " + msg }, 500)
         }
       },
+    )
+    .get(
+      "/changelog.json",
+      describeRoute({
+        summary: "Get changelog",
+        description: "Retrieve the OpenHei changelog/releases. Returns empty if not available.",
+        operationId: "global.changelog",
+        responses: {
+          200: {
+            description: "Changelog data",
+            content: {
+              "application/json": {
+                schema: resolver(z.any()),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const changelogPaths = [
+          path.join(Global.Path.data, "changelog.json"),
+          path.join(Global.Path.home, "changelog.json"),
+          "./changelog.json",
+        ]
+        for (const changelogPath of changelogPaths) {
+          try {
+            if (existsSync(changelogPath)) {
+              const content = readFileSync(changelogPath, "utf-8")
+              const json = JSON.parse(content)
+              return c.json(json)
+            }
+          } catch {
+            // continue to next path
+          }
+        }
+        log.warn("changelog not found, returning empty")
+        return c.json({ items: [] })
+      },
     ),
 )
