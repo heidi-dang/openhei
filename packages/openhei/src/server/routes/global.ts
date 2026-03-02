@@ -456,5 +456,107 @@ export const GlobalRoutes = lazy(() =>
 
         return c.json({ success: true, mtime })
       },
+    )
+    .post(
+      "/config-translate",
+      describeRoute({
+        summary: "Translate human language to JSON config",
+        description: "Generate JSON config changes from plain language requests.",
+        operationId: "global.config-translate",
+        responses: {
+          200: {
+            description: "Proposed config text",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    proposedText: z.string(),
+                    warnings: z.array(z.string()).optional(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          currentText: z.string().max(64 * 1024),
+          requestText: z.string().max(4096),
+        }),
+      ),
+      async (c) => {
+        const { currentText, requestText } = c.req.valid("json")
+
+        const schema = `
+Allowed top-level keys for openhei.conf:
+- $schema (string)
+- model (object)
+  - provider (string)
+  - model (string)
+- chat_mode (string: "agent" | "chat_only")
+- theme (string)
+- keybinds (object)
+- display_thinking (boolean)
+- ui (object)
+- provider (object with provider names as keys)
+`
+
+        const prompt = `You are a config translator. Given the current openhei.conf JSON and a human request, generate the new JSON config.
+
+Current config:
+${currentText}
+
+Human request: ${requestText}
+
+${schema}
+
+Rules:
+1. Output ONLY valid JSON
+2. preserve all existing keys unless the request modifies them
+3. Add new keys as needed based on the request
+4. Use 2-space indentation
+5. Do not add any explanation or markdown - just the JSON
+
+New config:`
+
+        try {
+          const { generateText } = await import("ai")
+          const { openai } = await import("@ai-sdk/openai")
+
+          const result = await generateText({
+            model: openai("gpt-4o-mini"),
+            prompt,
+            maxTokens: 4096,
+          })
+
+          let proposedText = result.text.trim()
+
+          // Extract JSON from response if there's any markdown wrapper
+          const jsonMatch = proposedText.match(/```json\n([\s\S]*?)\n```/) || proposedText.match(/```\n([\s\S]*?)\n```/)
+          if (jsonMatch) {
+            proposedText = jsonMatch[1]
+          }
+
+          // Validate the proposed JSON
+          try {
+            JSON.parse(proposedText)
+          } catch (parseErr) {
+            return c.json(
+              { error: "Generated invalid JSON: " + (parseErr instanceof Error ? parseErr.message : "parse error") },
+              400,
+            )
+          }
+
+          log.info("config translated", { requestLength: requestText.length, outputLength: proposedText.length })
+
+          return c.json({ proposedText })
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          log.error("config translate failed", { error: msg })
+          return c.json({ error: "Translation failed: " + msg }, 500)
+        }
+      },
     ),
 )
