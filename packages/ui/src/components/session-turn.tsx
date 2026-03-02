@@ -18,6 +18,7 @@ import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
 import ThinkingDrawer from "./thinking-drawer"
 import { ActivityPanel } from "./activity-panel"
+import { GhostCode } from "./ghost-code"
 // imported helper used below
 import shouldRenderThinkingDrawer from "./session-turn.helpers"
 
@@ -429,6 +430,11 @@ export function SessionTurn(
                           defaultExpanded={props.activityPanel!.status === "error"}
                           maxHeight="220px"
                         />
+                      </div>
+                    </Show>
+                    <Show when={!props.activityPanel}>
+                      <div class="mt-4">
+                        <GhostCode lines={6} />
                       </div>
                     </Show>
                   </div>
