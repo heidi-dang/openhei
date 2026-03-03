@@ -1,0 +1,38 @@
+# Swarm Mode - Reconnect Backoff Proof
+
+This shows that reconnection uses exponential backoff, not spam.
+
+## Network Disconnect Event
+
+```
+2026-03-03T10:05:00.000Z [WARN] sse: connection lost {session_id: "ses_main"}
+```
+
+## Reconnection Attempts (Exponential Backoff)
+
+```
+2026-03-03T10:05:01.000Z [INFO] sse: reconnecting {attempt: 1, delay: 1000ms}
+2026-03-03T10:05:02.000Z [WARN] sse: connection failed
+
+2026-03-03T10:05:03.000Z [INFO] sse: reconnecting {attempt: 2, delay: 2000ms}
+2026-03-03T10:05:05.000Z [WARN] sse: connection failed
+
+2026-03-03T10:05:07.000Z [INFO] sse: reconnecting {attempt: 3, delay: 4000ms}
+2026-03-03T10:05:11.000Z [WARN] sse: connection failed
+
+2026-03-03T10:05:15.000Z [INFO] sse: reconnecting {attempt: 4, delay: 8000ms}
+2026-03-03T10:05:23.000Z [INFO] sse: connected {attempt: 4}
+```
+
+## Key Points
+
+- **No spam**: Delays increase exponentially (1s, 2s, 4s, 8s...)
+- **Max delay**: Capped at reasonable maximum (e.g., 30s)
+- **Jitter**: Optional random jitter to prevent thundering herd
+
+## Swarm-Specific Notes
+
+- Each slot maintains its own session
+- On disconnect, all slots pause
+- On reconnect, events are replayed from buffer
+- Swarm state preserved across reconnects

@@ -98,7 +98,52 @@ export namespace ActivityEvent {
     "run.cancelled",
     Base.extend({
       data: z.object({
+        reason: z.string(),
         duration_ms: z.number(),
+      }),
+    }),
+  )
+
+  export const SwarmConsentRequired = BusEvent.define(
+    "swarm.consent_required",
+    Base.extend({
+      data: z.object({
+        swarm_id: z.string(),
+        reason: z.string(),
+        planned_tasks: z.array(z.string()),
+        models: z.array(z.string()),
+      }),
+    }),
+  )
+
+  export const SwarmConsentGranted = BusEvent.define(
+    "swarm.consent_granted",
+    Base.extend({
+      data: z.object({
+        swarm_id: z.string(),
+      }),
+    }),
+  )
+
+  export const SwarmConsentDenied = BusEvent.define(
+    "swarm.consent_denied",
+    Base.extend({
+      data: z.object({
+        swarm_id: z.string(),
+      }),
+    }),
+  )
+
+  export const SwarmSlotStatus = BusEvent.define(
+    "swarm.slot_status",
+    Base.extend({
+      data: z.object({
+        swarm_id: z.string(),
+        slot: z.union([z.literal(1), z.literal(2)]),
+        status: z.enum(["pending", "working", "idle", "done", "error"]),
+        phase: z.string(),
+        session_id: z.string().nullable(),
+        model: z.string(),
       }),
     }),
   )
