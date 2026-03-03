@@ -1,1 +1,75 @@
 @import "@openhei-ai/ui/styles/tailwind";
+
+/* Health dot styles - fixed size for mobile */
+.health-dot-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.health-dot-button::before {
+	content: "";
+	position: absolute;
+	inset: -12px;
+	border-radius: 50%;
+}
+
+.health-dot {
+	display: block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.health-dot--success {
+	background-color: var(--icon-success-base, #22c55e);
+}
+
+.health-dot--error {
+	background-color: var(--icon-critical-base, #ef4444);
+}
+
+.health-dot--neutral {
+	background-color: var(--border-weak-base, #6b7280);
+}
+
+/* Pulse animation for error state */
+@keyframes pulse-dot {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+.health-dot--error.pulse {
+	animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Health tooltip positioning */
+.health-tooltip {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	white-space: nowrap;
+	z-index: 50;
+	font-size: 12px;
+	color: var(--text-base);
+	background-color: var(--surface-raised-base);
+	padding: 4px 8px;
+	border-radius: 6px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	max-width: 200px;
+	text-align: center;
+}
