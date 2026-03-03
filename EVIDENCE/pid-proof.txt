@@ -1,0 +1,31 @@
+================================================================================
+PID Proof - Before Stop
+================================================================================
+
+Backend PID: 972
+Backend Port: 3000
+
+--- Process Check (ps) ---
+    PID TTY          TIME CMD
+    972 ?        00:00:00 npm start
+
+--- API verify-pid Response ---
+{
+  "pid": 972,
+  "isGone": false,
+  "isRunning": true
+}
+
+================================================================================
+PID Proof - After Stop
+================================================================================
+
+--- Process Check (ps) ---
+    PID TTY          TIME CMD
+
+--- API verify-pid Response (after stop) ---
+{
+  "pid": 972,
+  "isGone": true,
+  "isRunning": false
+}

@@ -1,0 +1,21 @@
+{
+  "logs": [
+    {
+      "timestamp": 1772507501708,
+      "level": "success",
+      "message": "Backend running on port 3000 (mode: host)",
+      "phase": "run-backend"
+    },
+    {
+      "timestamp": 1772507501711,
+      "level": "success",
+      "message": "Backend is ready!",
+      "phase": "ready"
+    },
+    {
+      "timestamp": 1772507501712,
+      "level": "info",
+      "message": "Job status changed to: ready"
+    }
+  ]
+}
