@@ -94,6 +94,15 @@ export namespace ActivityEvent {
     }),
   )
 
+  export const RunCancelled = BusEvent.define(
+    "run.cancelled",
+    Base.extend({
+      data: z.object({
+        duration_ms: z.number(),
+      }),
+    }),
+  )
+
   export type RunStarted = z.infer<typeof RunStarted.properties>
   export type RunHeartbeat = z.infer<typeof RunHeartbeat.properties>
   export type PhaseChanged = z.infer<typeof PhaseChanged.properties>
@@ -102,6 +111,7 @@ export namespace ActivityEvent {
   export type TermExit = z.infer<typeof TermExit.properties>
   export type RunError = z.infer<typeof RunError.properties>
   export type RunCompleted = z.infer<typeof RunCompleted.properties>
+  export type RunCancelled = z.infer<typeof RunCancelled.properties>
 
   export type Any =
     | RunStarted
@@ -112,4 +122,5 @@ export namespace ActivityEvent {
     | TermExit
     | RunError
     | RunCompleted
+    | RunCancelled
 }

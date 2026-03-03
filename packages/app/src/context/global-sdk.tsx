@@ -99,8 +99,23 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const aborted = (error: unknown) => abortError.safeParse(error).success
     let reconnectDelay = RECONNECT_DELAY_MS
 
+    const MAX_RECOVERY_TIME_MS = 60_000
+    let recoveryStartTime: number | undefined
+    const clearRecoveryTimeout = () => {
+      recoveryStartTime = undefined
+    }
+    const checkRecoveryTimeout = () => {
+      if (!recoveryStartTime) return false
+      return Date.now() - recoveryStartTime > MAX_RECOVERY_TIME_MS
+    }
+    const startRecovery = () => {
+      if (recoveryStartTime === undefined) {
+        recoveryStartTime = Date.now()
+      }
+    }
+
     let attempt: AbortController | undefined
-    const HEARTBEAT_TIMEOUT_MS = 15_000
+    const HEARTBEAT_TIMEOUT_MS = 20_000
     let lastEventAt = Date.now()
     let heartbeat: ReturnType<typeof setTimeout> | undefined
     const resetHeartbeat = () => {
@@ -142,6 +157,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           let yielded = Date.now()
           resetHeartbeat()
           reconnectDelay = RECONNECT_DELAY_MS
+          clearRecoveryTimeout()
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
@@ -178,6 +194,16 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
             await wait(0)
           }
         } catch (error) {
+          startRecovery()
+          if (checkRecoveryTimeout()) {
+            console.error("[global-sdk] event stream recovery timeout after 60s, triggering reconnect", {
+              url: currentServer.http.url,
+              fetch: eventFetch ? "platform" : "webview",
+              recoveryTimeMs: MAX_RECOVERY_TIME_MS,
+            })
+            clearRecoveryTimeout()
+            reconnectDelay = RECONNECT_DELAY_MS
+          }
           if (!aborted(error) && !streamErrorLogged) {
             streamErrorLogged = true
             reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS)

@@ -39,13 +39,14 @@ export const RunsEventsRoutes = lazy(() =>
       z.object({
         replay: z.coerce.boolean().optional().default(true),
         limit: z.coerce.number().optional().default(50),
+        cursor: z.coerce.number().optional(),
       }),
     ),
     async (c) => {
       const runId = c.req.param("runId")
-      const { replay, limit } = c.req.valid("query")
+      const { replay, limit, cursor } = c.req.valid("query")
 
-      log.info("run events connected", { runId })
+      log.info("run events connected", { runId, cursor })
 
       c.header("Content-Type", "text/event-stream")
       c.header("Cache-Control", "no-cache")
@@ -58,6 +59,7 @@ export const RunsEventsRoutes = lazy(() =>
           properties: {
             run_id: runId,
             ts: Date.now(),
+            cursor: cursor ?? 0,
           },
         }
         await stream.writeSSE({
@@ -67,7 +69,9 @@ export const RunsEventsRoutes = lazy(() =>
 
         if (replay) {
           const recent = RunEventBus.getRecent(runId, limit)
-          for (const event of recent) {
+          const startIdx = cursor ? recent.findIndex((e) => (e.properties?.seq ?? 0) > cursor) : 0
+          const eventsToReplay = startIdx >= 0 ? recent.slice(startIdx) : []
+          for (const event of eventsToReplay) {
             await stream.writeSSE({
               event: "activity",
               data: JSON.stringify(event),
