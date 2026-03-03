@@ -383,7 +383,10 @@ describe("prompt submit stale session recovery", () => {
 
   test("default selection omits metadata", async () => {
     params = { id: "ses_ok", dir: "/repo/main" }
-    const submit = createPromptSubmit({
+    // re-import to ensure mocks are applied and tests are isolated
+    const mod = await import("./submit")
+    const createPromptSubmitLocal = mod.createPromptSubmit
+    const submit = createPromptSubmitLocal({
       info: () => undefined,
       imageAttachments: () => [],
       commentCount: () => 0,
@@ -412,7 +415,10 @@ describe("prompt submit stale session recovery", () => {
 
   test("selectedSendOption accessor is used when provided", async () => {
     params = { id: "ses_ok", dir: "/repo/main" }
-    const submit = createPromptSubmit({
+    // re-import to ensure mocks are applied and tests are isolated
+    const mod = await import("./submit")
+    const createPromptSubmitLocal = mod.createPromptSubmit
+    const submit = createPromptSubmitLocal({
       info: () => undefined,
       imageAttachments: () => [],
       commentCount: () => 0,

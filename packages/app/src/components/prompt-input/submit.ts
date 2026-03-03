@@ -518,14 +518,20 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       try {
         // If chat-only is enabled, write a single diagnostic log entry (no secrets)
         if (chatOnly) {
-          // Write a single diagnostic log entry (no secrets)
-          void client.app
-            .log({
+          // Write a single diagnostic log entry (no secrets). Be defensive
+          // because test mocks or some client implementations may not
+          // provide `app.log`. Avoid throwing synchronously so tests and
+          // callers still reach the promptAsync call.
+          try {
+            const p = client.app?.log?.({
               service: "mode",
               level: "info",
               message: "[mode] chat_only — tools disabled by user",
             })
-            .catch(() => {})
+            if (p && typeof (p as any).catch === "function") (p as any).catch(() => {})
+          } catch (e) {
+            // swallow synchronous errors from optional client hooks
+          }
         }
 
         // When chat-only mode is enabled, strip any agent/tool parts from the
@@ -558,6 +564,9 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           // Expose last prompt body for test harnesses that inspect global state
           ;(globalThis as any).__prompt_async_calls = (globalThis as any).__prompt_async_calls || []
           ;(globalThis as any).__prompt_async_calls.push({ directory: sessionDirectory, body })
+          // If a test hook is present, call it so tests can observe calls
+          const hook = (globalThis as any).__push_prompt_async_call
+          if (typeof hook === "function") hook({ directory: sessionDirectory, body })
         } catch (e) {}
         await client.session.promptAsync(body)
         // Ensure messages are synced after sending prompt
