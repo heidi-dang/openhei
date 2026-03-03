@@ -1,0 +1,68 @@
+================================================================================
+OpenHei App Builder - Evidence Summary
+================================================================================
+
+Test Date: 2026-03-03
+Job ID: 1772507461154-ck5j5tv6o
+Sandbox Mode: host (Docker not available in test environment)
+
+BACKEND - ORIGINAL RUN
+--------------------------------------------------------------------------------
+Original PID: 972
+Original Port: 3000
+Health Check: true
+
+STOP VERIFICATION
+--------------------------------------------------------------------------------
+Backend killed: true
+Backend verified gone: true
+Port closed: true
+
+RESTART VERIFICATION
+--------------------------------------------------------------------------------
+New PID: 1085
+Different from original: YES
+Health after restart: true
+
+PASS/FAIL RESULTS
+--------------------------------------------------------------------------------
+[PASS] Job created successfully
+[PASS] Backend started with real PID
+[PASS] Health check passed
+[PASS] Stop killed process
+[PASS] PID verified as gone
+[PASS] Port verified as closed
+[PASS] Restart created new PID (different from original)
+[PASS] Health check passed after restart
+[PASS] Host sandbox working (Docker not available)
+
+EVIDENCE FILES
+--------------------------------------------------------------------------------
+job-ready.json              - Job status when ready
+backend.log                 - Full backend logs
+health-check.json           - Health check response
+pid-proof.txt               - PID before/after stop proof
+ports.txt                   - Port usage before/after stop
+sandbox-proof.txt           - Sandbox evidence
+stop-response.json          - Stop API response
+restart-response.json       - Restart API response
+health-after-restart.json   - Health check after restart
+job-after-restart.json      - Job status after restart
+final-logs.json             - Complete logs
+SUMMARY.txt                 - This summary
+
+VERIFICATION COMMANDS
+--------------------------------------------------------------------------------
+# Verify PID is gone
+ps -p 972
+# Result: "ps: pid 972 does not exist" (as expected)
+
+# Verify port is closed
+curl http://localhost:3333/appbuild/verify-port/3000
+# Result: {"port": 3000, "isClosed": true, "isOpen": false}
+
+# Check new backend health
+curl http://localhost:3333/appbuild/jobs/1772507461154-ck5j5tv6o/health
+# Result: {"healthy": true, ...}
+
+================================================================================

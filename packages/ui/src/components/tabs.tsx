@@ -34,7 +34,7 @@ function TabsRoot(props: TabsProps) {
   )
 }
 
-function TabsList(props: TabsListProps) {
+function TabsListInternal(props: TabsListProps) {
   const [split, rest] = splitProps(props, ["class", "classList"])
   return (
     <Kobalte.List
@@ -48,7 +48,7 @@ function TabsList(props: TabsListProps) {
   )
 }
 
-function TabsTrigger(props: ParentProps<TabsTriggerProps>) {
+function TabsTriggerInternal(props: ParentProps<TabsTriggerProps>) {
   const [split, rest] = splitProps(props, [
     "class",
     "classList",
@@ -90,7 +90,7 @@ function TabsTrigger(props: ParentProps<TabsTriggerProps>) {
   )
 }
 
-function TabsContent(props: ParentProps<TabsContentProps>) {
+function TabsContentInternal(props: ParentProps<TabsContentProps>) {
   const [split, rest] = splitProps(props, ["class", "classList", "children"])
   return (
     <Kobalte.Content
@@ -110,9 +110,13 @@ const TabsSectionTitle: Component<ParentProps> = (props) => {
   return <div data-slot="tabs-section-title">{props.children}</div>
 }
 
+export const TabsContent = TabsContentInternal
+export const TabsList = TabsListInternal
+export const TabsTrigger = TabsTriggerInternal
+
 export const Tabs = Object.assign(TabsRoot, {
-  List: TabsList,
-  Trigger: TabsTrigger,
-  Content: TabsContent,
+  List: TabsListInternal,
+  Trigger: TabsTriggerInternal,
+  Content: TabsContentInternal,
   SectionTitle: TabsSectionTitle,
 })

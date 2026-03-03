@@ -1983,17 +1983,28 @@ export default function Layout(props: ParentProps) {
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
               tools={
-                settings.ml.qloraEnabled() ? (
-                  <Tooltip placement="right" value="QLoRA">
+                <>
+                  <Tooltip placement="right" value="App Builder">
                     <IconButton
-                      icon="brain"
+                      icon="layout-left"
                       variant="ghost"
                       size="large"
-                      onClick={() => navigateWithSidebarReset("/qlora")}
-                      aria-label="QLoRA"
+                      onClick={() => navigateWithSidebarReset("/app-builder")}
+                      aria-label="App Builder"
                     />
                   </Tooltip>
-                ) : undefined
+                  {settings.ml.qloraEnabled() ? (
+                    <Tooltip placement="right" value="QLoRA">
+                      <IconButton
+                        icon="brain"
+                        variant="ghost"
+                        size="large"
+                        onClick={() => navigateWithSidebarReset("/qlora")}
+                        aria-label="QLoRA"
+                      />
+                    </Tooltip>
+                  ) : undefined}
+                </>
               }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
@@ -2063,17 +2074,28 @@ export default function Layout(props: ParentProps) {
                 <ProjectDragOverlay projects={() => layout.projects.list()} activeProject={() => store.activeProject} />
               )}
               tools={
-                settings.ml.qloraEnabled() ? (
-                  <Tooltip placement="bottom" value="QLoRA">
+                <>
+                  <Tooltip placement="bottom" value="App Builder">
                     <IconButton
-                      icon="brain"
+                      icon="layout-left"
                       variant="ghost"
                       size="large"
-                      onClick={() => navigateWithSidebarReset("/qlora")}
-                      aria-label="QLoRA"
+                      onClick={() => navigateWithSidebarReset("/app-builder")}
+                      aria-label="App Builder"
                     />
                   </Tooltip>
-                ) : undefined
+                  {settings.ml.qloraEnabled() ? (
+                    <Tooltip placement="bottom" value="QLoRA">
+                      <IconButton
+                        icon="brain"
+                        variant="ghost"
+                        size="large"
+                        onClick={() => navigateWithSidebarReset("/qlora")}
+                        aria-label="QLoRA"
+                      />
+                    </Tooltip>
+                  ) : undefined}
+                </>
               }
               settingsLabel={() => language.t("sidebar.settings")}
               settingsKeybind={() => command.keybind("settings.open")}
