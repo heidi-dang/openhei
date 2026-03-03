@@ -508,6 +508,11 @@ export function createPromptSubmit(input: PromptSubmitInput) {
     }
 
     const send = async () => {
+      // debug tracing for tests
+      try {
+        // eslint-disable-next-line no-console
+        console.log("[submit] send starting", { sessionDirectory, chatOnly, messageID })
+      } catch (e) {}
       const ok = await waitForWorktree()
       if (!ok) return
       try {
@@ -545,6 +550,15 @@ export function createPromptSubmit(input: PromptSubmitInput) {
         // any tool/tool_choice aliases here.
         if (agent) body.agent = agent
 
+        try {
+          // eslint-disable-next-line no-console
+          console.log("[submit] calling promptAsync", { directory: sessionDirectory, parts: filteredParts.length })
+        } catch (e) {}
+        try {
+          // Expose last prompt body for test harnesses that inspect global state
+          ;(globalThis as any).__prompt_async_calls = (globalThis as any).__prompt_async_calls || []
+          ;(globalThis as any).__prompt_async_calls.push({ directory: sessionDirectory, body })
+        } catch (e) {}
         await client.session.promptAsync(body)
         // Ensure messages are synced after sending prompt
         // This provides a fallback in case SSE events are delayed/not received
@@ -557,19 +571,21 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       }
     }
 
-    void send().catch((err) => {
+    try {
+      await send()
+    } catch (err) {
       pending.delete(session.id)
       if (sessionDirectory === projectDirectory) {
         sync.set("session_status", session.id, { type: "idle" })
       }
       showToast({
         title: language.t("prompt.toast.promptSendFailed.title"),
-        description: errorMessage(err),
+        description: errorMessage(err as any),
       })
       removeOptimisticMessage()
       restoreCommentItems(commentItems)
       restoreInput()
-    })
+    }
   }
 
   return {
