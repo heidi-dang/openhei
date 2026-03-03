@@ -251,7 +251,9 @@ export namespace Server {
 
             if (!isStaticFile && !isApiDoc) {
               if (Flag.OPENHEI_DASHBOARD_DIR) {
-                const res = await serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+                const res = await serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, () =>
+                  Promise.resolve(),
+                )
                 if (res) {
                   res.headers.set(
                     "Content-Security-Policy",
@@ -597,9 +599,9 @@ export namespace Server {
           }
 
           const getResponse = async () => {
-            const res = await serveStatic({ root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+            const res = await serveStatic({ root: Flag.OPENHEI_DASHBOARD_DIR })(c, () => Promise.resolve())
             if (res && res.status !== 404) return res
-            return serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, next)
+            return serveStatic({ path: "./index.html", root: Flag.OPENHEI_DASHBOARD_DIR })(c, () => Promise.resolve())
           }
 
           const response = await getResponse()
