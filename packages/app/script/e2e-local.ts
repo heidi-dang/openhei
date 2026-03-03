@@ -131,6 +131,19 @@ process.once("unhandledRejection", (error) => {
 let code = 1
 
 try {
+  const init = Bun.spawn(["bun", "run", "./src/index.ts", "init"], {
+    cwd: openheiDir,
+    env: serverEnv,
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  const initExit = await init.exited
+  if (initExit !== 0) {
+    code = initExit
+    throw new Error(`openhei init failed with exit code ${initExit}`)
+  }
+
   seed = Bun.spawn(["bun", "script/seed-e2e.ts"], {
     cwd: openheiDir,
     env: serverEnv,

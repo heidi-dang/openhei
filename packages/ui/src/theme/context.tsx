@@ -1,7 +1,7 @@
 import { onMount, onCleanup, createEffect } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { DesktopTheme } from "./types"
-import { resolveThemeVariant, themeToCss } from "./resolve"
+import { resolveThemeVariant, themeToCss, buildThemeEffectsCss } from "./resolve"
 import { DEFAULT_THEMES } from "./default-themes"
 import { createSimpleContext } from "../context/helper"
 
@@ -34,6 +34,7 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
   const variant = isDark ? theme.dark : theme.light
   const tokens = resolveThemeVariant(variant, isDark)
   const css = themeToCss(tokens)
+  const fx = buildThemeEffectsCss(themeId, mode)
 
   if (themeId !== "hei-1") {
     try {
@@ -45,7 +46,9 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
   color-scheme: ${mode};
   --text-mix-blend-mode: ${isDark ? "plus-lighter" : "multiply"};
   ${css}
-}`
+}
+${fx}
+`
 
   document.getElementById("oc-theme-preload")?.remove()
   ensureThemeStyleElement().textContent = fullCss

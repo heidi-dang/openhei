@@ -4,7 +4,7 @@ import { useDiffComponent } from "../context/diff"
 
 import { Binary } from "@openhei-ai/util/binary"
 import { getDirectory, getFilename } from "@openhei-ai/util/path"
-import { createEffect, createMemo, createSignal, For, on, ParentProps, Show } from "solid-js"
+import { createEffect, createMemo, createSignal, For, on, onCleanup, ParentProps, Show, untrack } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import { AssistantParts, Message, PART_MAPPING } from "./message-part"
 import { Card } from "./card"
@@ -18,6 +18,7 @@ import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
 import ThinkingDrawer from "./thinking-drawer"
 import { ActivityPanel } from "./activity-panel"
+import { GhostCode } from "./ghost-code"
 // imported helper used below
 import shouldRenderThinkingDrawer from "./session-turn.helpers"
 
@@ -359,6 +360,119 @@ export function SessionTurn(
     return true
   })
 
+  const [lastActivityAt, setLastActivityAt] = createSignal(Date.now())
+  const [activitySpeed, setActivitySpeed] = createSignal(0)
+  const [morphPhase, setMorphPhase] = createSignal<"terminal" | "skeleton">("terminal")
+
+  createEffect(() => {
+    const activityPanel = props.activityPanel
+    if (!activityPanel) {
+      setMorphPhase("terminal")
+      return
+    }
+    const terminalLines = activityPanel.terminalLines
+    if (!terminalLines || terminalLines.length === 0) return
+
+    const now = Date.now()
+    const elapsed = now - untrack(() => lastActivityAt())
+    setLastActivityAt(now)
+
+    if (elapsed < 2000) {
+      const speed = Math.max(0, 1 - Math.min(elapsed, 2000) / 2000)
+      setActivitySpeed(speed)
+    } else {
+      setActivitySpeed(0)
+    }
+
+    const lastLines = untrack(() => terminalLines.slice(-3).map((l: { text: string }) => (l?.text ?? "").toLowerCase()))
+    const triggersSkeleton = lastLines.some(
+      (t: string) =>
+        t.includes("applying to file") ||
+        t.includes("writing") ||
+        t.includes("patching") ||
+        t.includes("diff") ||
+        t.includes("applying diff"),
+    )
+
+    const currentPhase = untrack(() => morphPhase())
+
+    if (triggersSkeleton && currentPhase === "terminal") {
+      setMorphPhase("skeleton")
+    }
+
+    const triggersTerminal = lastLines.some(
+      (t: string) =>
+        t.includes("reasoning") || t.includes("plan:") || t.includes("searching") || t.includes("evaluating"),
+    )
+    if (triggersTerminal && !triggersSkeleton && currentPhase === "skeleton") {
+      setMorphPhase("terminal")
+    }
+  })
+
+  // Diff phase tracking
+  // If we actually have a diff file loaded into state, we're in phase 3 (diff) and the skeletons dissolve
+  const isDiffPhase = createMemo(() => edited() > 0)
+
+  const [isStuck, setIsStuck] = createSignal(false)
+  const [hasHeartbeat, setHasHeartbeat] = createSignal(false)
+
+  let intervalID: ReturnType<typeof setInterval> | undefined
+  let debugIntervalCount = 0
+
+  if (typeof window !== "undefined") {
+    ;(window as any).__thinkingIntervals = debugIntervalCount
+  }
+
+  createEffect(() => {
+    onCleanup(() => {
+      if (intervalID) {
+        clearInterval(intervalID)
+        intervalID = undefined
+        debugIntervalCount--
+        if (typeof window !== "undefined") {
+          ;(window as any).__thinkingIntervals = debugIntervalCount
+        }
+      }
+    })
+
+    if (!working()) {
+      setIsStuck(false)
+      setActivitySpeed(0)
+      setHasHeartbeat(false)
+      return
+    }
+
+    intervalID = setInterval(() => {
+      debugIntervalCount++
+      if (typeof window !== "undefined") {
+        ;(window as any).__thinkingIntervals = debugIntervalCount
+      }
+
+      const elapsed = Date.now() - lastActivityAt()
+      if (elapsed > 1000) {
+        setActivitySpeed((s) => Math.max(0, s - 0.1))
+      }
+
+      if (hasHeartbeat()) {
+        if (elapsed > 3000) {
+          setIsStuck(true)
+        } else {
+          setIsStuck(false)
+        }
+      }
+    }, 500)
+  })
+
+  createEffect(() => {
+    const activityPanel = props.activityPanel
+    if (!activityPanel) return
+
+    const terminalLines = activityPanel.terminalLines
+    if (terminalLines && terminalLines.length > 0) {
+      setHasHeartbeat(true)
+    }
+  })
+
   const autoScroll = createAutoScroll({
     working,
     onUserInteracted: props.onUserInteracted,
@@ -417,20 +531,44 @@ export function SessionTurn(
                     <Show when={!showReasoningSummaries() && reasoningHeading()}>
                       {(text) => <span data-slot="session-turn-thinking-heading">{text()}</span>}
                     </Show>
-                    <Show when={props.activityPanel}>
-                      <div class="mt-4">
-                        <ActivityPanel
-                          phaseTitle={props.activityPanel!.phaseTitle}
-                          terminalLines={props.activityPanel!.terminalLines}
-                          status={props.activityPanel!.status}
-                          disconnected={props.activityPanel!.disconnected}
-                          idle={props.activityPanel!.idle}
-                          errorDetails={props.activityPanel!.errorDetails}
-                          defaultExpanded={props.activityPanel!.status === "error"}
-                          maxHeight="220px"
-                        />
-                      </div>
-                    </Show>
+
+                    <div class="mt-4 relative transition-all duration-700 ease-in-out">
+                      <Show when={!props.activityPanel}>
+                        <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                          <GhostCode lines={6} />
+                        </div>
+                      </Show>
+
+                      <Show when={props.activityPanel}>
+                        {(panel) => (
+                          <div
+                            class={`transition-all duration-500 ${
+                              morphPhase() === "skeleton"
+                                ? "opacity-80 scale-95 origin-bottom"
+                                : "opacity-100 scale-100"
+                            }`}
+                          >
+                            <Show when={morphPhase() === "skeleton" && !isDiffPhase()}>
+                              <div class="mb-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <GhostCode lines={6} />
+                              </div>
+                            </Show>
+                            <ActivityPanel
+                              phaseTitle={panel().phaseTitle}
+                              terminalLines={panel().terminalLines}
+                              status={panel().status}
+                              disconnected={panel().disconnected}
+                              idle={panel().idle}
+                              errorDetails={panel().errorDetails}
+                              defaultExpanded={panel().status === "error"}
+                              maxHeight="220px"
+                              speed={activitySpeed()}
+                              stuck={isStuck()}
+                            />
+                          </div>
+                        )}
+                      </Show>
+                    </div>
                   </div>
                 </Show>
                 <Show when={edited() > 0 && !working()}>

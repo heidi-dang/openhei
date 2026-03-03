@@ -968,5 +968,60 @@ export const SessionRoutes = lazy(() =>
         })
         return c.json(true)
       },
+    )
+    .post(
+      "/:sessionID/swarm/consent",
+      describeRoute({
+        summary: "Respond to swarm consent request",
+        description: "Accept or deny a sub-agent spawn request from the main agent.",
+        operationId: "session.swarm.consent",
+        responses: {
+          200: {
+            description: "Consent processed",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+        }),
+      ),
+      validator(
+        "json",
+        z.object({
+          swarm_id: z.string(),
+          accept: z.boolean(),
+        }),
+      ),
+      async (c) => {
+        const params = c.req.valid("param")
+        const body = c.req.valid("json")
+
+        const { getSwarmPool } = await import("@/swarm")
+        const pool = getSwarmPool(body.swarm_id)
+
+        if (!pool) {
+          return c.json({ error: "Swarm not found" }, 404)
+        }
+
+        if (pool.sessionId !== params.sessionID) {
+          return c.json({ error: "Session mismatch" }, 400)
+        }
+
+        if (body.accept) {
+          await pool.grantConsent()
+        } else {
+          await pool.denyConsent()
+        }
+
+        return c.json(true)
+      },
     ),
 )

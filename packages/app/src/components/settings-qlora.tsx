@@ -162,6 +162,7 @@ export const SettingsQLoRA: Component = () => {
           status: "running" | "stuck" | "stopped"
           stuck_reason?: string
         },
+    autoScroll: true,
   })
 
   const [doc, docActions] = createResource(() =>
@@ -303,11 +304,18 @@ export const SettingsQLoRA: Component = () => {
   })
 
   let es: EventSource | undefined
+  let esReconnectTimeout: ReturnType<typeof setTimeout> | undefined
   const close = () => {
     es?.close()
     es = undefined
+    if (esReconnectTimeout) {
+      clearTimeout(esReconnectTimeout)
+      esReconnectTimeout = undefined
+    }
   }
   onCleanup(close)
+
+  let esReconnectBackoff = 10000
 
   const connect = (run_id: string) => {
     close()
@@ -315,19 +323,22 @@ export const SettingsQLoRA: Component = () => {
     setStore("progress", undefined)
     setStore("connected", false)
     setStore("lastEventTime", 0)
+    setStore("autoScroll", true)
+    esReconnectBackoff = 10000
     es = new EventSource(`/api/v1/qlora/logs?run_id=${encodeURIComponent(run_id)}`)
-    let reconnectTimeout: ReturnType<typeof setTimeout> | undefined
     const updateEventTime = () => {
       setStore("lastEventTime", Date.now())
       setStore("connected", true)
+      esReconnectBackoff = 10000
     }
     const scheduleReconnect = () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout)
-      reconnectTimeout = setTimeout(() => {
+      if (esReconnectTimeout) clearTimeout(esReconnectTimeout)
+      esReconnectTimeout = setTimeout(() => {
         if (store.run_id && store.running && !store.connected) {
+          esReconnectBackoff = Math.min(esReconnectBackoff * 1.5, 60000)
           connect(store.run_id)
         }
-      }, 10000)
+      }, esReconnectBackoff)
     }
     es.onmessage = (e) => {
       updateEventTime()
@@ -349,6 +360,13 @@ export const SettingsQLoRA: Component = () => {
         const next = [...prev, line]
         return next.length > 2000 ? next.slice(-2000) : next
       })
+      // Auto-scroll to bottom if enabled
+      if (store.autoScroll) {
+        setTimeout(() => {
+          const el = document.getElementById("qlora-logs-container")
+          if (el) el.scrollTop = el.scrollHeight
+        }, 10)
+      }
     }
     es.onerror = () => {
       setStore("connected", false)
@@ -358,8 +376,12 @@ export const SettingsQLoRA: Component = () => {
 
   const poll = async (run_id: string) => {
     const s = await get<Status>(`/api/v1/qlora/status?run_id=${encodeURIComponent(run_id)}`).catch(() => undefined)
-    if (!s) return
+    if (!s) {
+      setStore("connected", false)
+      return
+    }
     setStore("running", s.running)
+    setStore("connected", true)
     setStore("stage", s.stage ?? "")
     setStore("watchdog", s.watchdog)
     if (s.watchdog?.status === "stuck") {
@@ -375,20 +397,53 @@ export const SettingsQLoRA: Component = () => {
     }
   }
 
+  let pollInterval: ReturnType<typeof setInterval> | undefined
+  let pollBackoff = 1500
+
   createEffect(() => {
     const run_id = store.run_id
     if (!run_id) return
-    let alive = true
-    const tick = () => {
-      if (!alive) return
-      void poll(run_id)
-    }
-    tick()
-    const t = setInterval(tick, 1500)
+
     onCleanup(() => {
-      alive = false
-      clearInterval(t)
+      if (pollInterval) {
+        clearInterval(pollInterval)
+        pollInterval = undefined
+      }
+      pollBackoff = 1500
     })
+
+    let alive = true
+    const tick = async () => {
+      if (!alive) return
+      if (!store.running) return
+
+      const s = await get<Status>(`/api/v1/qlora/status?run_id=${encodeURIComponent(run_id)}`).catch(() => undefined)
+      if (!s) {
+        pollBackoff = Math.min(pollBackoff * 1.5, 10000)
+        if (pollInterval) {
+          clearInterval(pollInterval)
+          pollInterval = setInterval(tick, pollBackoff)
+        }
+        setStore("connected", false)
+        return
+      }
+
+      pollBackoff = 1500
+      if (pollInterval) {
+        clearInterval(pollInterval)
+        pollInterval = setInterval(tick, pollBackoff)
+      }
+
+      setStore("running", s.running)
+      setStore("connected", true)
+      setStore("stage", s.stage ?? "")
+      if (s.ready && !s.running) {
+        showToast({ variant: "success", icon: "circle-check", title: "READY", description: `Run ${run_id} complete` })
+      }
+    }
+
+    tick()
+    pollInterval = setInterval(tick, pollBackoff)
   })
 
   const install = async () => {
@@ -424,9 +479,17 @@ export const SettingsQLoRA: Component = () => {
 
   const stop = async () => {
     const run_id = store.run_id
+
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = undefined
+    }
+    pollBackoff = 1500
+
     const out = await post<{ ok: boolean; message: string }>("/api/v1/qlora/stop", run_id ? { run_id } : {})
     showToast({ title: out.ok ? "Stopped" : "Stop failed", description: out.message })
     setStore("running", false)
+    setStore("run_id", "")
     close()
     await docActions.refetch()
   }
@@ -910,7 +973,18 @@ export const SettingsQLoRA: Component = () => {
                   <Show when={store.progress}>
                     {(p) => (
                       <div>
-                        progress: {p().done}/{p().total} ({p().pct}%) | {p().rate.toFixed(2)} it/s | ETA {p().eta}s
+                        <div class="flex items-center gap-2 mt-2">
+                          <div class="flex-1 h-2 bg-surface-base rounded-full overflow-hidden border border-border-weak-base">
+                            <div
+                              class="h-full bg-text-success transition-all duration-300"
+                              style={{ width: `${Math.min(100, p().pct)}%` }}
+                            />
+                          </div>
+                          <span class="text-12-medium text-text-success min-w-[50px] text-right">{p().pct}%</span>
+                        </div>
+                        <div class="mt-1">
+                          {p().done}/{p().total} | {p().rate.toFixed(2)} it/s | ETA {p().eta}s
+                        </div>
                       </div>
                     )}
                   </Show>
@@ -918,11 +992,67 @@ export const SettingsQLoRA: Component = () => {
               </Show>
 
               <div class="pb-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <div class="text-12-regular text-text-weak">
+                      <Show when={store.logs.length > 0}>{store.logs.length} lines</Show>
+                    </div>
+                    <Show when={!store.autoScroll}>
+                      <span class="text-12-regular text-text-warning">• Paused</span>
+                    </Show>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <Show when={!store.autoScroll}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => {
+                          setStore("autoScroll", true)
+                          const el = document.getElementById("qlora-logs-container")
+                          if (el) el.scrollTop = el.scrollHeight
+                        }}
+                      >
+                        ↓ Resume
+                      </button>
+                    </Show>
+                    <Show when={store.autoScroll}>
+                      <button
+                        class="text-12-regular text-text-link hover:underline"
+                        onClick={() => {
+                          const el = document.getElementById("qlora-logs-container")
+                          if (el) el.scrollTop = el.scrollHeight
+                        }}
+                      >
+                        ↓ Jump to latest
+                      </button>
+                    </Show>
+                  </div>
+                </div>
                 <div class="bg-surface-base rounded-lg border border-border-weak-base p-3">
-                  <pre class="text-11-regular text-text-base whitespace-pre-wrap break-words max-h-[360px] overflow-auto">
+                  <pre
+                    id="qlora-logs-container"
+                    class="text-11-regular text-text-base whitespace-pre-wrap break-words max-h-[360px] overflow-auto"
+                    onScroll={(e) => {
+                      const el = e.currentTarget
+                      const atBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 50
+                      if (!atBottom && store.autoScroll) {
+                        setStore("autoScroll", false)
+                      }
+                    }}
+                  >
                     <For each={store.logs}>
                       {(line) => (
-                        <span classList={{ "text-text-diff-delete-base": /\b(ERROR|FATAL)\b/.test(line) }}>
+                        <span
+                          style={{
+                            color: /\b(ERROR|FATAL)\b/i.test(line)
+                              ? "var(--text-error)"
+                              : /\bWARN(ING)?\b/i.test(line)
+                                ? "var(--text-warning)"
+                                : line.includes("stderr") || line.includes("STDERR")
+                                  ? "var(--text-success)"
+                                  : "inherit",
+                            "font-weight": /\b(ERROR|FATAL)\b/i.test(line) ? "500" : "normal",
+                          }}
+                        >
                           {line + "\n"}
                         </span>
                       )}

@@ -324,3 +324,60 @@ export function themeToCss(tokens: ResolvedTheme): string {
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n  ")
 }
+
+export function buildThemeEffectsCss(themeId: string, mode: "light" | "dark"): string {
+  if (themeId !== "grok") return ""
+
+  if (mode === "dark") {
+    return `
+/* === Grok Aurora Effects (dark) === */
+:root{
+  --fx-aurora-a: color-mix(in srgb, var(--surface-brand-base) 45%, transparent);
+  --fx-aurora-b: color-mix(in srgb, var(--surface-info-strong) 38%, transparent);
+  --fx-aurora-c: color-mix(in srgb, var(--surface-success-strong) 28%, transparent);
+  --fx-glow: rgba(167,139,250,.22);
+}
+html[data-theme="grok"] body{
+  background:
+    radial-gradient(900px 650px at 18% 8%, var(--fx-aurora-a), transparent 60%),
+    radial-gradient(900px 650px at 82% 22%, var(--fx-aurora-b), transparent 62%),
+    radial-gradient(900px 650px at 40% 92%, var(--fx-aurora-c), transparent 60%),
+    linear-gradient(180deg, var(--background-base), var(--background-base));
+}
+html[data-theme="grok"] .panel,
+html[data-theme="grok"] .card,
+html[data-theme="grok"] [data-surface]{
+  background-image: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+}
+html[data-theme="grok"] :focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-interactive-base) 50%, transparent);
+}
+html[data-theme="grok"] .btn-primary,
+html[data-theme="grok"] button[data-variant="primary"]{
+  box-shadow: 0 10px 34px var(--fx-glow);
+}
+`
+  }
+
+  return `
+/* === Grok Aurora Effects (light) === */
+:root{
+  --fx-aurora-a: rgba(124,58,237,.10);
+  --fx-aurora-b: rgba(59,130,246,.09);
+  --fx-aurora-c: rgba(16,185,129,.07);
+}
+html[data-theme="grok"] body{
+  background:
+    radial-gradient(900px 650px at 18% 8%, var(--fx-aurora-a), transparent 62%),
+    radial-gradient(900px 650px at 82% 22%, var(--fx-aurora-b), transparent 64%),
+    radial-gradient(900px 650px at 40% 92%, var(--fx-aurora-c), transparent 62%),
+    linear-gradient(180deg, var(--background-base), var(--background-base));
+}
+html[data-theme="grok"] .panel,
+html[data-theme="grok"] .card,
+html[data-theme="grok"] [data-surface]{
+  background-image: linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,0,0,0));
+}
+`
+}

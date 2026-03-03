@@ -1,0 +1,42 @@
+# AFTER: Fixed Message Order (with stickyStart="top")
+
+## Visual Representation
+
+After changing to `stickyStart="top"` (fixed state):
+
+```
++--------------------------------------------------+
+|  Session: New Session                    [header] |
++--------------------------------------------------+
+|                                                  |
+|  [User message - older]                          |
+|  Hello, how are you?                            |
+|                                                  |
+|  [Assistant message - newer, streaming]          |
+|  > I'm thinking about your question...          |
+|                                                  |
+|                                                  |
++--------------------------------------------------+
+| > [User input area]                              |
++--------------------------------------------------+
+```
+
+## Correct Behavior
+
+- User message appears at the TOP (older)
+- Assistant message appears BELOW user message (newer)
+- Messages are in correct chronological order
+- Viewport behavior allows new content to grow at the bottom
+
+## Root Cause Fix
+
+With `stickyStart="top"`:
+1. ScrollBox keeps the TOP content in view (sticky)
+2. When new children are added, they're appended at the END (BOTTOM)
+3. Assistant message inserted after user message appears at BOTTOM
+4. This causes assistant to render BELOW user message - correct!
+
+## Code Location
+
+File: `packages/openhei/src/cli/cmd/tui/routes/session/index.tsx`
+Line 1013: `stickyStart="top"` (changed from "bottom")

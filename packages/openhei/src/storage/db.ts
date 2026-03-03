@@ -8,6 +8,7 @@ import { lazy } from "../util/lazy"
 import { Global } from "../global"
 import { Log } from "../util/log"
 import { NamedError } from "@openhei-ai/util/error"
+import { Init } from "../init"
 import z from "zod"
 import path from "path"
 import { readFileSync, readdirSync, existsSync } from "fs"
@@ -66,6 +67,11 @@ export namespace Database {
   }
 
   export const Client = lazy(() => {
+    if (!existsSync(Init.Path.marker)) {
+      console.error("openhei not initialized. Run 'openhei init' first.")
+      process.exit(1)
+    }
+
     log.info("opening database", { path: path.join(Global.Path.data, "openhei.db") })
 
     const sqlite = new BunDatabase(path.join(Global.Path.data, "openhei.db"), { create: true })

@@ -45,6 +45,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const FLUSH_FRAME_MS = 16
     const STREAM_YIELD_MS = 8
     const RECONNECT_DELAY_MS = 250
+    const MAX_RECONNECT_DELAY_MS = 30_000
 
     let queue: Queued[] = []
     let buffer: Queued[] = []
@@ -96,9 +97,26 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     let streamErrorLogged = false
     const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
     const aborted = (error: unknown) => abortError.safeParse(error).success
+    let reconnectDelay = RECONNECT_DELAY_MS
+    const jitter = () => Math.random() * 0.5 * reconnectDelay
+
+    const MAX_RECOVERY_TIME_MS = 60_000
+    let recoveryStartTime: number | undefined
+    const clearRecoveryTimeout = () => {
+      recoveryStartTime = undefined
+    }
+    const checkRecoveryTimeout = () => {
+      if (!recoveryStartTime) return false
+      return Date.now() - recoveryStartTime > MAX_RECOVERY_TIME_MS
+    }
+    const startRecovery = () => {
+      if (recoveryStartTime === undefined) {
+        recoveryStartTime = Date.now()
+      }
+    }
 
     let attempt: AbortController | undefined
-    const HEARTBEAT_TIMEOUT_MS = 15_000
+    const HEARTBEAT_TIMEOUT_MS = 20_000
     let lastEventAt = Date.now()
     let heartbeat: ReturnType<typeof setTimeout> | undefined
     const resetHeartbeat = () => {
@@ -139,6 +157,8 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           })
           let yielded = Date.now()
           resetHeartbeat()
+          reconnectDelay = RECONNECT_DELAY_MS
+          clearRecoveryTimeout()
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
@@ -175,13 +195,25 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
             await wait(0)
           }
         } catch (error) {
+          startRecovery()
+          if (checkRecoveryTimeout()) {
+            console.error("[global-sdk] event stream recovery timeout after 60s, triggering reconnect", {
+              url: currentServer.http.url,
+              fetch: eventFetch ? "platform" : "webview",
+              recoveryTimeMs: MAX_RECOVERY_TIME_MS,
+            })
+            clearRecoveryTimeout()
+            reconnectDelay = RECONNECT_DELAY_MS
+          }
           if (!aborted(error) && !streamErrorLogged) {
             streamErrorLogged = true
+            reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS)
             const normalizedError = error ?? new Error("Unknown stream error (null)")
             console.error("[global-sdk] event stream failed", {
               url: currentServer.http.url,
               fetch: eventFetch ? "platform" : "webview",
               error: normalizedError,
+              reconnectDelay,
             })
           }
         } finally {
@@ -191,7 +223,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         }
 
         if (abort.signal.aborted) return
-        await wait(RECONNECT_DELAY_MS)
+        await wait(reconnectDelay + jitter())
       }
     })().finally(flush)
 

@@ -37,11 +37,31 @@ export default function Home() {
     const button = event.currentTarget as HTMLButtonElement
     const text = button.textContent
     if (text) {
-      navigator.clipboard.writeText(text)
-      button.setAttribute("data-copied", "")
-      setTimeout(() => {
-        button.removeAttribute("data-copied")
-      }, 1500)
+      const doCopy = async () => {
+        if (navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(text)
+            button.setAttribute("data-copied", "")
+            setTimeout(() => {
+              button.removeAttribute("data-copied")
+            }, 1500)
+            return
+          } catch {}
+        }
+        const textarea = window.document.createElement("textarea")
+        textarea.value = text
+        textarea.style.position = "fixed"
+        textarea.style.left = "-9999px"
+        window.document.body.appendChild(textarea)
+        textarea.select()
+        window.document.execCommand("copy")
+        window.document.body.removeChild(textarea)
+        button.setAttribute("data-copied", "")
+        setTimeout(() => {
+          button.removeAttribute("data-copied")
+        }, 1500)
+      }
+      doCopy()
     }
   }
 

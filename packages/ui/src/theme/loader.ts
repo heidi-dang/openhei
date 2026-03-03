@@ -1,5 +1,5 @@
 import type { DesktopTheme, ResolvedTheme } from "./types"
-import { resolveThemeVariant, themeToCss } from "./resolve"
+import { resolveThemeVariant, themeToCss, buildThemeEffectsCss } from "./resolve"
 
 let activeTheme: DesktopTheme | null = null
 const THEME_STYLE_ID = "openhei-theme"
@@ -30,6 +30,8 @@ function buildThemeCss(light: ResolvedTheme, dark: ResolvedTheme, themeId: strin
   const isDefaultTheme = themeId === "hei-1"
   const lightCss = themeToCss(light)
   const darkCss = themeToCss(dark)
+  const lightFx = buildThemeEffectsCss(themeId, "light")
+  const darkFx = buildThemeEffectsCss(themeId, "dark")
 
   if (isDefaultTheme) {
     return `
@@ -38,13 +40,17 @@ function buildThemeCss(light: ResolvedTheme, dark: ResolvedTheme, themeId: strin
   --text-mix-blend-mode: multiply;
 
   ${lightCss}
+}
+${lightFx}
 
-  @media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  :root {
     color-scheme: dark;
     --text-mix-blend-mode: plus-lighter;
 
     ${darkCss}
   }
+  ${darkFx}
 }
 `
   }
@@ -55,13 +61,17 @@ html[data-theme="${themeId}"] {
   --text-mix-blend-mode: multiply;
 
   ${lightCss}
+}
+${lightFx}
 
-  @media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  html[data-theme="${themeId}"] {
     color-scheme: dark;
     --text-mix-blend-mode: plus-lighter;
 
     ${darkCss}
   }
+  ${darkFx}
 }
 `
 }
