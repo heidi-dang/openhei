@@ -52,6 +52,16 @@ type Status = {
   stage?: string
   status?: Record<string, unknown>
   ready?: Record<string, unknown>
+  watchdog?: {
+    run_id: string
+    pid: number
+    started_at: string
+    last_stdout_ts: number
+    last_stderr_ts: number
+    last_progress_ts: number
+    status: "running" | "stuck" | "stopped"
+    stuck_reason?: string
+  }
 }
 
 const preset = {
@@ -140,6 +150,18 @@ export const SettingsQLoRA: Component = () => {
     logs: [] as string[],
     connected: false,
     lastEventTime: 0,
+    watchdog: undefined as
+      | undefined
+      | {
+          run_id: string
+          pid: number
+          started_at: string
+          last_stdout_ts: number
+          last_stderr_ts: number
+          last_progress_ts: number
+          status: "running" | "stuck" | "stopped"
+          stuck_reason?: string
+        },
     autoScroll: true,
   })
 
@@ -361,6 +383,15 @@ export const SettingsQLoRA: Component = () => {
     setStore("running", s.running)
     setStore("connected", true)
     setStore("stage", s.stage ?? "")
+    setStore("watchdog", s.watchdog)
+    if (s.watchdog?.status === "stuck") {
+      showToast({
+        variant: "error",
+        icon: "circle-x",
+        title: "Run stuck",
+        description: s.watchdog.stuck_reason || "No output for 2+ minutes",
+      })
+    }
     if (s.ready && !s.running) {
       showToast({ variant: "success", icon: "circle-check", title: "READY", description: `Run ${run_id} complete` })
     }
@@ -911,8 +942,16 @@ export const SettingsQLoRA: Component = () => {
 
               <Show when={store.run_id}>
                 <div class="py-3 text-12-regular text-text-weak">
-                  <div>run_id: {store.run_id}</div>
+                  <div class="flex items-center gap-2">
+                    <span>run_id: {store.run_id}</span>
+                    <Show when={store.watchdog?.status === "stuck"}>
+                      <span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-12-medium">STUCK</span>
+                    </Show>
+                  </div>
                   <div>stage: {store.stage || "(unknown)"}</div>
+                  <Show when={store.watchdog?.status === "stuck"}>
+                    <div class="text-red-400">Reason: {store.watchdog?.stuck_reason || "no output for 2+ minutes"}</div>
+                  </Show>
                   <div class="flex items-center gap-2">
                     <span classList={{ "text-text-success": store.connected, "text-text-weak": !store.connected }}>
                       {store.connected ? "●" : "○"}
@@ -941,9 +980,7 @@ export const SettingsQLoRA: Component = () => {
                               style={{ width: `${Math.min(100, p().pct)}%` }}
                             />
                           </div>
-                          <span class="text-12-medium text-text-success min-w-[50px] text-right">
-                            {p().pct}%
-                          </span>
+                          <span class="text-12-medium text-text-success min-w-[50px] text-right">{p().pct}%</span>
                         </div>
                         <div class="mt-1">
                           {p().done}/{p().total} | {p().rate.toFixed(2)} it/s | ETA {p().eta}s
@@ -958,9 +995,7 @@ export const SettingsQLoRA: Component = () => {
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
                     <div class="text-12-regular text-text-weak">
-                      <Show when={store.logs.length > 0}>
-                        {store.logs.length} lines
-                      </Show>
+                      <Show when={store.logs.length > 0}>{store.logs.length} lines</Show>
                     </div>
                     <Show when={!store.autoScroll}>
                       <span class="text-12-regular text-text-warning">• Paused</span>
