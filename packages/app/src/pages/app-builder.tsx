@@ -3,45 +3,45 @@
  * Main page for the OpenHei App Builder feature
  */
 
-import { createSignal, createEffect, For, Show, onMount } from 'solid-js'
-import { useNavigate, useParams } from '@solidjs/router'
-import { Button } from '@openhei-ai/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@openhei-ai/ui/card'
-import { Badge } from '@openhei-ai/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@openhei-ai/ui/tabs'
-import { Icon } from '@openhei-ai/ui/icon'
-import { ScrollArea } from '@openhei-ai/ui/scroll-area'
-import { BackendForm } from '@/components/app-builder/backend-form'
-import { UIForm } from '@/components/app-builder/ui-form'
-import { RepoImportForm } from '@/components/app-builder/repo-import-form'
-import { BuildSessionDetail } from '@/components/app-builder/build-session-detail'
-import { sampleTasksApp } from '@/types/app-builder'
-import type { BackendFormData, UIFormData, RepoImportFormData, CreationMode, BuildSession } from '@/types/app-builder'
+import { createSignal, For, Show, onMount } from "solid-js"
+import { useNavigate, useParams } from "@solidjs/router"
+import { Button } from "@openhei-ai/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@openhei-ai/ui/card"
+import { Tag } from "@openhei-ai/ui/tag"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@openhei-ai/ui/tabs"
+import { Icon } from "@openhei-ai/ui/icon"
+import { ScrollView } from "@openhei-ai/ui/scroll-view"
+import { BackendForm } from "@/components/app-builder/backend-form"
+import { UIForm } from "@/components/app-builder/ui-form"
+import { RepoImportForm } from "@/components/app-builder/repo-import-form"
+import { BuildSessionDetail } from "@/components/app-builder/build-session-detail"
+import { sampleTasksApp } from "@/types/app-builder"
+import type { BackendFormData, UIFormData, RepoImportFormData, CreationMode, BuildSession } from "@/types/app-builder"
 
-const API_BASE = '/appbuild'
+const API_BASE = "/appbuild"
 
 export default function AppBuilder() {
   const navigate = useNavigate()
   const params = useParams()
-  
-  const [activeTab, setActiveTab] = createSignal<CreationMode>('backend')
+
+  const [activeTab, setActiveTab] = createSignal<CreationMode>("backend")
   const [sessions, setSessions] = createSignal<BuildSession[]>([])
   const [activeSessionId, setActiveSessionId] = createSignal<string | null>(null)
   const [isLoading, setIsLoading] = createSignal(true)
-  
+
   // Fetch sessions on mount
   onMount(() => {
     fetchSessions()
-    
+
     if (params.sessionId) {
       setActiveSessionId(params.sessionId)
     }
-    
+
     // Poll for updates
     const interval = setInterval(fetchSessions, 2000)
     return () => clearInterval(interval)
   })
-  
+
   const fetchSessions = async () => {
     try {
       const response = await fetch(`${API_BASE}/jobs`)
@@ -50,20 +50,24 @@ export default function AppBuilder() {
         setSessions(data.jobs)
       }
     } catch (error) {
-      console.error('Failed to fetch sessions:', error)
+      console.error("Failed to fetch sessions:", error)
     } finally {
       setIsLoading(false)
     }
   }
-  
-  const createSession = async (name: string, mode: CreationMode, formData: Record<string, unknown>) => {
+
+  const createSession = async (
+    name: string,
+    mode: CreationMode,
+    formData: BackendFormData | UIFormData | RepoImportFormData,
+  ) => {
     try {
       const response = await fetch(`${API_BASE}/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mode, formData })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, mode, formData: formData as unknown as Record<string, unknown> }),
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setActiveSessionId(data.job.id)
@@ -71,92 +75,97 @@ export default function AppBuilder() {
         await fetchSessions()
       }
     } catch (error) {
-      console.error('Failed to create session:', error)
+      console.error("Failed to create session:", error)
     }
   }
-  
+
   const handleCreateBackend = (data: BackendFormData) => {
-    createSession(data.appName, 'backend', data)
+    createSession(data.appName, "backend", data)
   }
-  
+
   const handleCreateUI = (data: UIFormData) => {
-    createSession(data.appName, 'ui', data)
+    createSession(data.appName, "ui", data)
   }
-  
+
   const handleImportRepo = (data: RepoImportFormData) => {
-    const name = data.repoUrl.split('/').pop()?.replace('.git', '') || 'Imported Repo'
-    createSession(name, 'repo', data)
+    const name = data.repoUrl.split("/").pop()?.replace(".git", "") || "Imported Repo"
+    createSession(name, "repo", data)
   }
-  
+
   const handleUseSample = () => {
     const backendData = sampleTasksApp.backend()
-    createSession('Sample Tasks App', 'backend', backendData)
+    createSession("Sample Tasks App", "backend", backendData)
   }
-  
-  const activeSession = () => sessions().find(s => s.id === activeSessionId())
-  
-  const getStatusColor = (status: string): any => {
+
+  const activeSession = () => sessions().find((s) => s.id === activeSessionId())
+
+  const getStatusColor = (status: string): "success" | "destructive" | "secondary" | "outline" | "warning" => {
     switch (status) {
-      case 'ready': return 'success'
-      case 'failed': return 'destructive'
-      case 'queued': return 'secondary'
-      case 'stopped': return 'outline'
-      default: return 'warning'
+      case "ready":
+        return "success"
+      case "failed":
+        return "destructive"
+      case "queued":
+        return "secondary"
+      case "stopped":
+        return "outline"
+      default:
+        return "warning"
     }
   }
-  
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString()
   }
-  
+
   return (
     <div class="h-full flex">
       {/* Sidebar */}
       <div class="w-72 border-r flex flex-col bg-surface">
         <div class="p-4 border-b">
           <h1 class="text-lg font-semibold flex items-center gap-2">
-            <Icon name="blocks" class="w-5 h-5" />
+            <Icon name="prompt" class="w-5 h-5" />
             App Builder
           </h1>
           <p class="text-sm text-text-weak mt-1">Build apps with AI assistance</p>
         </div>
 
-        <ScrollArea class="flex-1">
+        <ScrollView class="flex-1">
           <div class="p-4 space-y-4">
             {/* New Build Buttons */}
             <div class="space-y-2">
               <h3 class="text-sm font-medium text-text-weak">Create New</h3>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
                   setActiveSessionId(null)
-                  navigate('/app-builder')
-                  setActiveTab('backend')
+                  navigate("/app-builder")
+                  setActiveTab("backend")
                 }}
               >
                 <Icon name="server" class="w-4 h-4 mr-2" />
                 Backend Service
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
                   setActiveSessionId(null)
-                  navigate('/app-builder')
-                  setActiveTab('ui')
+                  navigate("/app-builder")
+                  setActiveTab("ui")
                 }}
               >
-                <Icon name="layout" class="w-4 h-4 mr-2" />
+                <Icon name="layout-right" class="w-4 h-4 mr-2" />
                 Frontend UI
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
                   setActiveSessionId(null)
-                  navigate('/app-builder')
-                  setActiveTab('repo')
+                  navigate("/app-builder")
+                  setActiveTab("repo")
                 }}
               >
                 <Icon name="github" class="w-4 h-4 mr-2" />
@@ -168,11 +177,11 @@ export default function AppBuilder() {
             <Card class="bg-surface-2">
               <CardContent class="pt-4">
                 <div class="flex items-start gap-3">
-                  <Icon name="sparkles" class="w-5 h-5 text-yellow-500 mt-0.5" />
+                  <Icon name="brain" class="w-5 h-5 text-yellow-500 mt-0.5" />
                   <div class="flex-1">
                     <p class="text-sm font-medium">Try Sample App</p>
                     <p class="text-xs text-text-weak mt-1">Quick demo with a Tasks API</p>
-                    <Button size="sm" variant="secondary" class="mt-2" onClick={handleUseSample}>
+                    <Button size="small" variant="secondary" class="mt-2" onClick={handleUseSample}>
                       Create Sample
                     </Button>
                   </div>
@@ -184,9 +193,7 @@ export default function AppBuilder() {
 
             {/* Build Sessions List */}
             <div class="space-y-2">
-              <h3 class="text-sm font-medium text-text-weak">
-                Build Sessions ({sessions().length})
-              </h3>
+              <h3 class="text-sm font-medium text-text-weak">Build Sessions ({sessions().length})</h3>
               <Show when={sessions().length === 0 && !isLoading()}>
                 <p class="text-sm text-text-weak text-center py-4">No build sessions yet</p>
               </Show>
@@ -196,9 +203,7 @@ export default function AppBuilder() {
                     <button
                       class={`
                         w-full text-left p-3 rounded-lg border transition-colors
-                        ${activeSessionId() === session.id 
-                          ? 'border-primary bg-primary/5' 
-                          : 'hover:bg-surface-2'}
+                        ${activeSessionId() === session.id ? "border-primary bg-primary/5" : "hover:bg-surface-2"}
                       `}
                       onClick={() => {
                         setActiveSessionId(session.id)
@@ -207,9 +212,7 @@ export default function AppBuilder() {
                     >
                       <div class="flex items-center justify-between">
                         <span class="font-medium truncate">{session.name}</span>
-                        <Badge variant={getStatusColor(session.status)} class="text-xs">
-                          {session.status}
-                        </Badge>
+                        <Tag class="text-xs">{session.status}</Tag>
                       </div>
                       <div class="flex items-center justify-between mt-1 text-xs text-text-weak">
                         <span class="capitalize">{session.mode}</span>
@@ -221,18 +224,18 @@ export default function AppBuilder() {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </ScrollView>
       </div>
 
       {/* Main Content */}
       <div class="flex-1 overflow-hidden bg-surface">
         <Show when={activeSession()}>
           {(session) => (
-            <BuildSessionDetail 
+            <BuildSessionDetail
               session={session()}
               onBack={() => {
                 setActiveSessionId(null)
-                navigate('/app-builder')
+                navigate("/app-builder")
               }}
               onRefresh={fetchSessions}
             />
@@ -251,14 +254,14 @@ export default function AppBuilder() {
               </div>
 
               {/* Creation Options */}
-              <Tabs value={activeTab()} onValueChange={(v) => setActiveTab(v as CreationMode)}>
+              <Tabs value={activeTab()} onValueChange={(v: string) => setActiveTab(v as CreationMode)}>
                 <TabsList class="grid w-full grid-cols-3">
                   <TabsTrigger value="backend">
                     <Icon name="server" class="w-4 h-4 mr-2" />
                     Backend Form
                   </TabsTrigger>
                   <TabsTrigger value="ui">
-                    <Icon name="layout" class="w-4 h-4 mr-2" />
+                    <Icon name="layout-right" class="w-4 h-4 mr-2" />
                     UI Form
                   </TabsTrigger>
                   <TabsTrigger value="repo">
@@ -272,8 +275,8 @@ export default function AppBuilder() {
                     <CardHeader>
                       <CardTitle>Create Backend Service</CardTitle>
                       <CardDescription>
-                        Define your API endpoints, data models, and requirements. 
-                        We'll generate a working backend service.
+                        Define your API endpoints, data models, and requirements. We'll generate a working backend
+                        service.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -286,9 +289,7 @@ export default function AppBuilder() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Create Frontend UI</CardTitle>
-                      <CardDescription>
-                        Design your user interface with pages, components, and flows.
-                      </CardDescription>
+                      <CardDescription>Design your user interface with pages, components, and flows.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <UIForm onSubmit={handleCreateUI} onCancel={() => {}} />
