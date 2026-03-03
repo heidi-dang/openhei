@@ -70,6 +70,7 @@ export type State = {
   part: {
     [messageID: string]: Part[]
   }
+  appliedDeltas: Set<string>
 }
 
 export type VcsCache = {

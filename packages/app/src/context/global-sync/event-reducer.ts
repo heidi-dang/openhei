@@ -256,7 +256,6 @@ export function applyDirectoryEvent(input: {
     }
     case "message.part.delta": {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
-      performance.mark(`stream-part-delta-${props.messageID}-${props.partID}`)
       const parts = input.store.part[props.messageID]
       if (!parts) {
         console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
@@ -267,6 +266,19 @@ export function applyDirectoryEvent(input: {
         console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
         break
       }
+
+      // Track applied deltas to prevent duplicates and ensure ordering
+      const deltaKey = `${props.messageID}:${props.partID}:${props.field}`
+      if (!input.store.appliedDeltas) {
+        input.store.appliedDeltas = new Set()
+      }
+
+      // Skip if this exact delta was already applied
+      const deltaHash = `${deltaKey}:${props.delta}`
+      if (input.store.appliedDeltas.has(deltaHash)) {
+        break
+      }
+
       input.setStore(
         "part",
         props.messageID,
@@ -279,6 +291,9 @@ export function applyDirectoryEvent(input: {
           ;(part[field] as string) = newValue
         }),
       )
+
+      // Mark this delta as applied
+      input.store.appliedDeltas.add(deltaHash)
       break
     }
     case "vcs.branch.updated": {
