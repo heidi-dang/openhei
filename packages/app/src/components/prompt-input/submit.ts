@@ -20,6 +20,7 @@ import { Persist, removePersisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
 import { isNotFoundError } from "@/utils/api-error"
 import { draftKey, removeDraft } from "./draft-persist"
+import { addTurnLog } from "../../hooks/use-turn-logs"
 
 type PendingPrompt = {
   abort: AbortController
@@ -570,7 +571,76 @@ export function createPromptSubmit(input: PromptSubmitInput) {
           const hook = (globalThis as any).__push_prompt_async_call
           if (typeof hook === "function") hook({ directory: sessionDirectory, body })
         } catch (e) {}
-        await client.session.promptAsync(body)
+        // perform promptAsync with a small client-side retry/backoff for transient 429/5xx
+        const MAX_RETRIES = 3
+        const baseDelayMs = 2000
+
+        const sendWithRetries = async () => {
+          let attempt = 0
+          while (true) {
+            try {
+              attempt++
+              await client.session.promptAsync(body)
+              return
+            } catch (err: any) {
+              const status = err?.status ?? err?.data?.status ?? err?.data?.statusCode ?? err?.statusCode
+              const code = Number(status)
+              const is429 = code === 429
+              const is5xx = code >= 500 && code < 600
+
+              // log the failure so the ActivityPanel will show it
+              try {
+                addTurnLog(
+                  session.id,
+                  messageID,
+                  is429 ? "rate_limit" : is5xx ? "backend_500" : "error",
+                  String(err?.data?.message ?? err?.message ?? err),
+                )
+              } catch (e) {}
+
+              if ((is429 || is5xx) && attempt <= MAX_RETRIES) {
+                const delay = Math.min(baseDelayMs * Math.pow(2, attempt - 1), 60000)
+                try {
+                  addTurnLog(session.id, messageID, "retry_scheduled", `attempt=${attempt} delay_ms=${delay}`)
+                } catch (e) {}
+                // wait and retry
+                await new Promise((res) => setTimeout(res, delay))
+                try {
+                  addTurnLog(session.id, messageID, "retry_fired", `attempt=${attempt}`)
+                } catch (e) {}
+                continue
+              }
+
+              // not retryable or exhausted
+              try {
+                addTurnLog(session.id, messageID, "retry_failed", `attempt=${attempt} exhausted`)
+              } catch (e) {}
+              throw err
+            }
+          }
+        }
+
+        // register a global retry handler so failure-detection hooks can
+        // trigger the same resend logic when scheduling an on-client retry.
+        try {
+          ;(globalThis as any).__retry_handlers = (globalThis as any).__retry_handlers || new Map()
+          const key = `${session.id}:${messageID}`
+          ;(globalThis as any).__retry_handlers.set(key, async () => {
+            try {
+              await sendWithRetries()
+            } finally {
+              try {
+                ;(globalThis as any).__retry_handlers.delete(key)
+              } catch (e) {}
+            }
+          })
+
+          await sendWithRetries()
+        } finally {
+          try {
+            ;(globalThis as any).__retry_handlers?.delete(`${session.id}:${messageID}`)
+          } catch (e) {}
+        }
         // Ensure messages are synced after sending prompt
         // This provides a fallback in case SSE events are delayed/not received
         if (session.id) {

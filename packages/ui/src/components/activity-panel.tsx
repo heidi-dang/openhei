@@ -9,6 +9,12 @@ export interface TerminalLine {
   ts: number
 }
 
+export interface LogEntry {
+  ts: number
+  type: string
+  message: string
+}
+
 export interface ActivityPanelProps {
   phaseTitle: string
   terminalLines: TerminalLine[]
@@ -20,6 +26,11 @@ export interface ActivityPanelProps {
     code?: string
     lastLogs?: string[]
   }
+  // client-side logs emitted by failure-detection (stall, rate-limit, sse)
+  clientLogs?: LogEntry[]
+  retryState?: { state: "idle" | "scheduled" | "running" | "stopped"; attempts: number; nextIn?: number }
+  onRetry?: () => void
+  onStop?: () => void
   defaultExpanded?: boolean
   maxHeight?: string
   onCopyTranscript?: (transcript: string) => void
@@ -158,11 +169,19 @@ export function ActivityPanel(props: ActivityPanelProps) {
           aria-expanded={expanded()}
         >
           <div class="flex items-center gap-2">
-            <div class={`w-2 h-2 rounded-full ${statusColor()} ${props.status === 'running' ? 'animate-pulse' : ''}`} />
+            <div class={`w-2 h-2 rounded-full ${statusColor()} ${props.status === "running" ? "animate-pulse" : ""}`} />
             <span class="font-medium text-gray-100">{statusText()}</span>
             <Show when={props.disconnected}>
               <span class="text-xs px-2 py-1 bg-yellow-900 text-yellow-200 rounded">
                 {i18n.t("activityPanel.disconnected")}
+              </span>
+            </Show>
+            <Show when={props.retryState && props.retryState.state === "scheduled"}>
+              <span class="text-xs px-2 py-1 bg-yellow-800 text-yellow-100 rounded">
+                {i18n.t("activityPanel.retry.scheduled", {
+                  attempts: props.retryState?.attempts ?? 0,
+                  nextIn: props.retryState?.nextIn ?? 0,
+                })}
               </span>
             </Show>
           </div>
@@ -202,7 +221,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
                   when={props.terminalLines.length > 0}
                   fallback={
                     <div class="text-gray-500 italic flex items-center gap-2">
-                       <span class="activity-cursor blink"></span>
+                      <span class="activity-cursor blink"></span>
                       {i18n.t("ui.sessionTurn.status.thinking")}...
                     </div>
                   }
@@ -231,9 +250,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
                       </Show>
                       <Show when={error().lastLogs && error().lastLogs!.length > 0}>
                         <div class="mt-2">
-                          <div class="text-sm font-medium text-red-400 mb-1">
-                            {i18n.t("activityPanel.lastLogs")}:
-                          </div>
+                          <div class="text-sm font-medium text-red-400 mb-1">{i18n.t("activityPanel.lastLogs")}:</div>
                           <div class="bg-red-900/30 p-2 rounded text-sm font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
                             {error().lastLogs!.join("\n")}
                           </div>
@@ -243,6 +260,51 @@ export function ActivityPanel(props: ActivityPanelProps) {
                   </div>
                 </div>
               )}
+            </Show>
+
+            {/* Client-side logs and retry controls */}
+            <Show when={props.clientLogs && props.clientLogs.length > 0}>
+              <div class="p-3 border-t border-gray-800 bg-gray-900/40">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-sm text-gray-300 font-medium">{i18n.t("activityPanel.clientLogs")}</div>
+                  <div class="flex items-center gap-2">
+                    <Show when={props.onRetry}>
+                      <button
+                        class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          props.onRetry?.()
+                        }}
+                      >
+                        {i18n.t("activityPanel.retry")}
+                      </button>
+                    </Show>
+                    <Show when={props.onStop}>
+                      <button
+                        class="px-2 py-1 bg-gray-700 text-gray-200 rounded text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          props.onStop?.()
+                        }}
+                      >
+                        {i18n.t("activityPanel.stop")}
+                      </button>
+                    </Show>
+                  </div>
+                </div>
+
+                <div class="max-h-40 overflow-y-auto text-sm font-mono text-gray-300 bg-gray-900/20 p-2 rounded">
+                  <For each={props.clientLogs}>
+                    {(log) => (
+                      <div class="flex items-start gap-2 py-0.5">
+                        <div class="text-xs text-gray-500">[{new Date(log.ts).toLocaleTimeString()}]</div>
+                        <div class="text-xs text-yellow-300">{log.type}</div>
+                        <div class="flex-1 text-xs text-gray-200">{log.message}</div>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </div>
             </Show>
           </div>
         </Show>

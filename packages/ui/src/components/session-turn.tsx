@@ -18,6 +18,7 @@ import { createAutoScroll } from "../hooks"
 import { useI18n } from "../context/i18n"
 import ThinkingDrawer from "./thinking-drawer"
 import { ActivityPanel } from "./activity-panel"
+import { useFailureDetection } from "../hooks/use-failure-detection"
 import { GhostCode } from "./ghost-code"
 // imported helper used below
 import shouldRenderThinkingDrawer from "./session-turn.helpers"
@@ -479,6 +480,41 @@ export function SessionTurn(
     overflowAnchor: "dynamic",
   })
 
+  // failure detection hook for client-side logs, stall detection and retry scheduling
+  const failure = useFailureDetection({
+    sessionID: props.sessionID,
+    messageID: props.messageID,
+    onPerformRetry: () => {
+      try {
+        const key = `${props.sessionID}:${props.messageID}`
+        const handler = (globalThis as any).__retry_handlers?.get(key)
+        if (typeof handler === "function") handler()
+      } catch (e) {}
+    },
+  })
+
+  // start/reset stall detection when a working turn is active
+  createEffect(() => {
+    if (!working()) return
+    failure.detectStall()
+  })
+
+  // observe activity panel lines and connection state to emit heartbeats / net events
+  createEffect(() => {
+    const panelData = props.activityPanel
+    if (!panelData) return
+    const lines = panelData.terminalLines ?? []
+    if (lines.length > 0) {
+      failure.add("net.heartbeat", `lines=${lines.length}`)
+      failure.detectStall()
+    }
+    if (panelData.disconnected) {
+      failure.add("net.disconnect", "sse_disconnected")
+    } else {
+      failure.add("net.connect", "sse_connected")
+    }
+  })
+
   return (
     <div data-component="session-turn" class={props.classes?.root}>
       <div
@@ -564,6 +600,10 @@ export function SessionTurn(
                               maxHeight="220px"
                               speed={activitySpeed()}
                               stuck={isStuck()}
+                              clientLogs={failure.getLogs()}
+                              retryState={failure.retryState()}
+                              onRetry={() => failure.scheduleRetry()}
+                              onStop={() => failure.stopRetries()}
                             />
                           </div>
                         )}
