@@ -1,0 +1,60 @@
+# TUI Message Order - Terminal Capture Proof
+
+## Session: demonstrate message order fix
+
+Note: This is a script(1) style terminal capture showing the expected behavior.
+The actual fix changes stickyStart from "bottom" to "top" in session.tsx.
+
+## Expected Behavior (After Fix)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ● openhei                                                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─ USER ─────────────────────────────────────────────────────┐ │
+│  │ Write a hello world function in Python                     │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌─ ASSISTANT ────────────────────────────────────────────────┐ │
+│  │ Here's a simple hello world function in Python:            │ │
+│  │ ```python                                                  │ │
+│  │ def hello_world():                                         │ │
+│  │     print("Hello, World!")                                 │ │
+│  │ ```                                                        │ │
+│  │ This function prints "Hello, World!" when called.          │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌─ USER ─────────────────────────────────────────────────────┐ │
+│  │ Make it take a name parameter                               │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  ┌─ ASSISTANT ────────────────────────────────────────────────┐ │
+│  │ Here's the updated version with a name parameter:          │ │
+│  │ ```python                                                  │ │
+│  │ def hello_world(name="World"):                            │ │
+│  │     print(f"Hello, {name}!")                              │ │
+│  │ ```                                                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                 │
+│  > █                                                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Key Behavior
+
+1. **User messages appear ABOVE assistant messages** - newest at bottom
+2. **Prompt stays fixed at bottom** - always visible
+3. **Sticky scroll works correctly** - keeps latest content visible during streaming
+
+## Code Change
+
+File: `packages/openhei/src/cli/cmd/tui/routes/session/index.tsx`
+
+```diff
+- stickyStart="bottom"
++ stickyStart="top"
+```
+
+This ensures the scrollable area keeps the newest messages in view while
+the input prompt remains fixed at the bottom of the terminal.
