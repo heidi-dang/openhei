@@ -320,12 +320,7 @@ export namespace Config {
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
-    await BunProc.run(
-      [
-        "install",
-      ],
-      { cwd: dir },
-    ).catch((err) => {
+    await BunProc.run(["install"], { cwd: dir }).catch((err) => {
       log.warn("failed to install dependencies", { dir, error: err })
     })
   }
@@ -1194,6 +1189,31 @@ export namespace Config {
         .describe("Agent configuration, see https://openhei.ai/docs/agents"),
       provider: z.record(z.string(), Provider).optional().describe("Provider configuration"),
       mcp: z.record(z.string(), Mcp).optional().describe("MCP configuration"),
+      swarm: z
+        .object({
+          enabled: z.boolean().default(false).describe("Enable Swarm Mode for concurrent sub-agent execution"),
+          max_subagents: z.number().min(1).max(2).default(2).describe("Maximum number of sub-agents (hard cap: 2)"),
+          max_parallel_executors: z
+            .number()
+            .min(1)
+            .max(3)
+            .default(3)
+            .describe("Maximum concurrent tool executors (hard cap: 3)"),
+          subagent_models: z
+            .array(ModelId)
+            .max(2)
+            .default([])
+            .describe("Model identifiers for sub-agents [slot1, slot2]"),
+          always_ask_consent: z.boolean().default(true).describe("Always prompt user before spawning sub-agents"),
+        })
+        .default(() => ({
+          enabled: false,
+          max_subagents: 2,
+          max_parallel_executors: 3,
+          subagent_models: [],
+          always_ask_consent: true,
+        }))
+        .describe("Swarm Mode configuration"),
     })
     .meta({
       ref: "Config",
