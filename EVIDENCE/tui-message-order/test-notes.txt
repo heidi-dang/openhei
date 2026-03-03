@@ -17,7 +17,7 @@ Since automated tests require the full TUI runtime (not available in this enviro
 
 ## Expected Result
 
-- Messages ordered: User (index 0, TOP) → Assistant (index 1, BOTTOM)
+- Messages ordered: User (index 0, TOP) -> Assistant (index 1, BOTTOM)
 - With `stickyStart="top"`:
   - New messages append at END of array
   - Rendered at BOTTOM

@@ -13,7 +13,7 @@
 - User message appears in the transcript
 - Assistant response appears BELOW the user message
 - Viewport stays at the bottom showing new content as it streams
-- Messages are ordered: User (older) → Assistant (newer)
+- Messages are ordered: User (older) -> Assistant (newer)
 
 ## Buggy Behavior (Before Fix)
 
