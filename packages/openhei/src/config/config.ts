@@ -1204,14 +1204,12 @@ export namespace Config {
             .max(2)
             .default([])
             .describe("Model identifiers for sub-agents [slot1, slot2]"),
-          always_ask_consent: z.boolean().default(true).describe("Always prompt user before spawning sub-agents"),
         })
         .default(() => ({
           enabled: false,
           max_subagents: 2,
           max_parallel_executors: 3,
           subagent_models: [],
-          always_ask_consent: true,
         }))
         .describe("Swarm Mode configuration"),
     })

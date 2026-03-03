@@ -12,7 +12,6 @@ interface SwarmConfig {
   max_subagents: number
   max_parallel_executors: number
   subagent_models: string[]
-  always_ask_consent: boolean
 }
 
 const fetchSwarmConfig = async (): Promise<SwarmConfig | null> => {
@@ -38,7 +37,6 @@ export const SettingsSwarm: Component = () => {
   const [enabled, setEnabled] = createSignal(false)
   const [subagent1Model, setSubagent1Model] = createSignal<string>("")
   const [subagent2Model, setSubagent2Model] = createSignal<string>("")
-  const [alwaysAskConsent, setAlwaysAskConsent] = createSignal(true)
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
 
@@ -53,7 +51,6 @@ export const SettingsSwarm: Component = () => {
     const config = await fetchSwarmConfig()
     if (config) {
       setEnabled(config.enabled)
-      setAlwaysAskConsent(config.always_ask_consent)
       if (config.subagent_models && config.subagent_models.length > 0) {
         setSubagent1Model(config.subagent_models[0] || "")
       }
@@ -71,7 +68,6 @@ export const SettingsSwarm: Component = () => {
       max_subagents: 2,
       max_parallel_executors: 3,
       subagent_models: [subagent1Model(), subagent2Model()].filter(Boolean),
-      always_ask_consent: alwaysAskConsent(),
     }
     const success = await saveSwarmConfig(swarm)
     setSaving(false)
@@ -133,16 +129,6 @@ export const SettingsSwarm: Component = () => {
                     options={modelOptions()}
                     placeholder={language.t("settings.swarm.select.model")}
                   />
-                </div>
-
-                <div class="flex items-center justify-between">
-                  <div class="flex flex-col gap-1">
-                    <span class="text-14-medium text-text-strong">{language.t("settings.swarm.askConsent")}</span>
-                    <span class="text-12-regular text-text-weak">
-                      {language.t("settings.swarm.askConsent.description")}
-                    </span>
-                  </div>
-                  <Switch checked={alwaysAskConsent()} onChange={setAlwaysAskConsent} />
                 </div>
 
                 <div class="flex items-center gap-2 p-3 rounded-lg bg-surface-base">

@@ -87,14 +87,6 @@ export class SwarmExecutorPool extends EventEmitter {
   }
 
   async requestConsent(reason: string, planned_tasks: string[], models: string[]): Promise<void> {
-    const config = await Config.get()
-    const alwaysAsk = config.swarm?.always_ask_consent ?? true
-
-    if (!alwaysAsk) {
-      log.info("auto-granting consent (always_ask_consent disabled)", { swarm_id: this.state.id })
-      return
-    }
-
     this.state.waiting_consent = true
     this.state.consent_request = {
       swarm_id: this.state.id,
@@ -228,7 +220,6 @@ export async function createSwarmPool(run_id: string, session_id: string): Promi
     max_subagents: 2,
     max_parallel_executors: 3,
     subagent_models: [],
-    always_ask_consent: true,
   }
 
   const { createSwarmRuntimeState } = await import("./runtime")

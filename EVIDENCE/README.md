@@ -13,7 +13,6 @@ This document provides evidence of Swarm Mode implementation including consent f
   - `max_subagents`: hard cap at 2
   - `max_parallel_executors`: hard cap at 3
   - `subagent_models`: array of model identifiers for slots 1 and 2
-  - `always_ask_consent`: boolean (default: true)
 
 - **Settings UI**: `packages/app/src/components/settings-swarm.tsx`
   - Toggle for enabling/disabling Swarm Mode

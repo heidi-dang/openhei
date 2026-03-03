@@ -797,8 +797,6 @@ export const dict = {
   "settings.swarm.subagent1.description": "Model to use for the first sub-agent slot.",
   "settings.swarm.subagent2": "Sub-agent #2 Model",
   "settings.swarm.subagent2.description": "Model to use for the second sub-agent slot.",
-  "settings.swarm.askConsent": "Ask Before Spawning",
-  "settings.swarm.askConsent.description": "Always prompt for user consent before spawning sub-agents.",
   "settings.swarm.limits": "Hard Limits",
   "settings.swarm.limits.description": "Maximum sub-agents: {maxSubagents}, Maximum parallel executors: {maxExecutors}",
   "settings.swarm.select.model": "Select a model",
