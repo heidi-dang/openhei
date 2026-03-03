@@ -1,0 +1,59 @@
+================================================================================
+Sandbox Proof
+================================================================================
+
+--- Sandbox Status API ---
+{
+  "dockerAvailable": false,
+  "defaultMode": "docker",
+  "message": "Docker not available, using host mode"
+}
+
+--- Process Status ---
+{
+  "jobId": "1772507461154-ck5j5tv6o",
+  "backend": {
+    "pid": 972,
+    "status": "running",
+    "port": 3000,
+    "mode": "host",
+    "logs": [
+      "[backend] > sample-tasks-api@1.0.0 start",
+      "[backend] > ts-node src/index.ts",
+      "[backend] 🚀 Server running on port 3000",
+      "[backend] 📊 Health check: http://localhost:3000/health",
+      "[backend] 📚 API docs: http://localhost:3000/"
+    ]
+  },
+  "frontend": null
+}
+
+--- Process Tree ---
+pstree not available
+
+================================================================================
+Sandbox Proof - After Restart
+================================================================================
+
+Old PID: 972
+New PID: 1085
+Different PID: YES
+
+--- Process Status After Restart ---
+{
+  "jobId": "1772507461154-ck5j5tv6o",
+  "backend": {
+    "pid": 1085,
+    "status": "running",
+    "port": 3000,
+    "mode": "host",
+    "logs": [
+      "[backend] > sample-tasks-api@1.0.0 start",
+      "[backend] > ts-node src/index.ts",
+      "[backend] 🚀 Server running on port 3000",
+      "[backend] 📊 Health check: http://localhost:3000/health",
+      "[backend] 📚 API docs: http://localhost:3000/"
+    ]
+  },
+  "frontend": null
+}

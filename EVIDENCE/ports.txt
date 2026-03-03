@@ -1,0 +1,29 @@
+================================================================================
+Port Proof - Before Stop
+================================================================================
+
+Port: 3000
+
+--- ss -ltnp output ---
+ss not available
+
+--- API verify-port Response ---
+{
+  "port": 3000,
+  "isClosed": false,
+  "isOpen": true
+}
+
+================================================================================
+Port Proof - After Stop
+================================================================================
+
+--- ss -ltnp output ---
+Port not found (expected)
+
+--- API verify-port Response (after stop) ---
+{
+  "port": 3000,
+  "isClosed": true,
+  "isOpen": false
+}

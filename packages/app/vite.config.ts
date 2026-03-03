@@ -8,6 +8,12 @@ export default defineConfig({
     allowedHosts: true,
     port: 5000,
     strictPort: true,
+    proxy: {
+      "/appbuild": {
+        target: "http://localhost:3333",
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     target: "esnext",
