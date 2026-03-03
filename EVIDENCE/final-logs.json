@@ -1,0 +1,9 @@
+{
+  "logs": [
+    {
+      "timestamp": 1772507576150,
+      "level": "success",
+      "message": "Backend restarted on port 3000 (PID: 1085, health: OK)"
+    }
+  ]
+}

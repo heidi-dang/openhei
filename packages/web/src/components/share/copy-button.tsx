@@ -13,7 +13,23 @@ export function CopyButton(props: CopyButtonProps) {
 
   function handleCopyClick() {
     if (props.text) {
-      navigator.clipboard.writeText(props.text).catch((err) => console.error("Copy failed", err))
+      const copy = async () => {
+        if (navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(props.text)
+          } catch {
+            const textarea = window.document.createElement("textarea")
+            textarea.value = props.text
+            textarea.style.position = "fixed"
+            textarea.style.left = "-9999px"
+            window.document.body.appendChild(textarea)
+            textarea.select()
+            window.document.execCommand("copy")
+            window.document.body.removeChild(textarea)
+          }
+        }
+      }
+      copy()
 
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)

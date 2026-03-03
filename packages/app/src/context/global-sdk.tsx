@@ -45,6 +45,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const FLUSH_FRAME_MS = 16
     const STREAM_YIELD_MS = 8
     const RECONNECT_DELAY_MS = 250
+    const MAX_RECONNECT_DELAY_MS = 30_000
 
     let queue: Queued[] = []
     let buffer: Queued[] = []
@@ -96,22 +97,72 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     let streamErrorLogged = false
     const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
     const aborted = (error: unknown) => abortError.safeParse(error).success
+    let reconnectDelay = RECONNECT_DELAY_MS
+    const jitter = () => Math.random() * 0.5 * reconnectDelay
+
+    const MAX_RECOVERY_TIME_MS = 60_000
+    let recoveryStartTime: number | undefined
+    const clearRecoveryTimeout = () => {
+      recoveryStartTime = undefined
+    }
+    const checkRecoveryTimeout = () => {
+      if (!recoveryStartTime) return false
+      return Date.now() - recoveryStartTime > MAX_RECOVERY_TIME_MS
+    }
+    const startRecovery = () => {
+      if (recoveryStartTime === undefined) {
+        recoveryStartTime = Date.now()
+      }
+    }
 
     let attempt: AbortController | undefined
     const HEARTBEAT_TIMEOUT_MS = 15_000
+    const CONNECTION_TIMEOUT_MS = 30_000
     let lastEventAt = Date.now()
     let heartbeat: ReturnType<typeof setTimeout> | undefined
+    let connectionTimeout: ReturnType<typeof setTimeout> | undefined
+    let deltaBuffer: { directory: string; payload: Event }[] = []
+    let isReconnecting = false
+
     const resetHeartbeat = () => {
       lastEventAt = Date.now()
       if (heartbeat) clearTimeout(heartbeat)
+      if (connectionTimeout) clearTimeout(connectionTimeout)
       heartbeat = setTimeout(() => {
         attempt?.abort()
       }, HEARTBEAT_TIMEOUT_MS)
+      connectionTimeout = setTimeout(() => {
+        console.warn("[global-sdk] Connection timeout - forcing reconnect")
+        attempt?.abort()
+      }, CONNECTION_TIMEOUT_MS)
     }
     const clearHeartbeat = () => {
-      if (!heartbeat) return
-      clearTimeout(heartbeat)
+      if (heartbeat) clearTimeout(heartbeat)
+      if (connectionTimeout) clearTimeout(connectionTimeout)
       heartbeat = undefined
+      connectionTimeout = undefined
+    }
+
+    // Buffer deltas during reconnection to prevent data loss
+    const bufferDelta = (directory: string, payload: Event) => {
+      if (isReconnecting && payload.type === "message.part.delta") {
+        deltaBuffer.push({ directory, payload })
+        // Keep buffer size manageable
+        if (deltaBuffer.length > 1000) {
+          deltaBuffer = deltaBuffer.slice(-500)
+        }
+      }
+    }
+
+    // Flush buffered deltas after reconnection
+    const flushDeltaBuffer = () => {
+      if (deltaBuffer.length === 0) return
+      batch(() => {
+        for (const { directory, payload } of deltaBuffer) {
+          emitter.emit(directory, payload)
+        }
+      })
+      deltaBuffer = []
     }
 
     void (async () => {
@@ -139,11 +190,18 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
           })
           let yielded = Date.now()
           resetHeartbeat()
+          reconnectDelay = RECONNECT_DELAY_MS
+          clearRecoveryTimeout()
+          isReconnecting = false
+
+          // Flush any buffered deltas from previous reconnection
+          flushDeltaBuffer()
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
             const directory = event.directory ?? "global"
             const payload = event.payload
+            bufferDelta(directory, payload)
             const k = key(directory, payload)
             if (k) {
               const i = coalesced.get(k)
@@ -175,13 +233,26 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
             await wait(0)
           }
         } catch (error) {
+          isReconnecting = true
+          startRecovery()
+          if (checkRecoveryTimeout()) {
+            console.error("[global-sdk] event stream recovery timeout after 60s, triggering reconnect", {
+              url: currentServer.http.url,
+              fetch: eventFetch ? "platform" : "webview",
+              recoveryTimeMs: MAX_RECOVERY_TIME_MS,
+            })
+            clearRecoveryTimeout()
+            reconnectDelay = RECONNECT_DELAY_MS
+          }
           if (!aborted(error) && !streamErrorLogged) {
             streamErrorLogged = true
+            reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS)
             const normalizedError = error ?? new Error("Unknown stream error (null)")
             console.error("[global-sdk] event stream failed", {
               url: currentServer.http.url,
               fetch: eventFetch ? "platform" : "webview",
               error: normalizedError,
+              reconnectDelay,
             })
           }
         } finally {
@@ -191,23 +262,47 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
         }
 
         if (abort.signal.aborted) return
-        await wait(RECONNECT_DELAY_MS)
+        await wait(reconnectDelay + jitter())
       }
     })().finally(flush)
 
     const onVisibility = () => {
       if (typeof document === "undefined") return
       if (document.visibilityState !== "visible") return
-      if (Date.now() - lastEventAt < HEARTBEAT_TIMEOUT_MS) return
+      const timeSinceLastEvent = Date.now() - lastEventAt
+      if (timeSinceLastEvent > HEARTBEAT_TIMEOUT_MS) {
+        console.info("[global-sdk] Tab became visible after long absence, forcing reconnect")
+        attempt?.abort()
+      } else if (timeSinceLastEvent > 5000) {
+        console.info("[global-sdk] Checking connection health after tab visibility change")
+        forceReconnectIfStale(5000)
+      }
+    }
+
+    const onOnline = () => {
+      console.info("[global-sdk] Network came online, forcing reconnect")
       attempt?.abort()
     }
+    const onOffline = () => {
+      console.info("[global-sdk] Network went offline")
+      isReconnecting = true
+    }
+
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", onVisibility)
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", onOnline)
+      window.addEventListener("offline", onOffline)
     }
 
     onCleanup(() => {
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisibility)
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", onOnline)
+        window.removeEventListener("offline", onOffline)
       }
       abort.abort()
       flush()

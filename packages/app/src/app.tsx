@@ -37,6 +37,7 @@ const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
 const QLoRA = lazy(() => import("@/pages/qlora"))
 const Updating = lazy(() => import("@/pages/updating"))
+const AppBuilder = lazy(() => import("@/pages/app-builder"))
 const Diff = lazy(() => import("@openhei-ai/ui/diff").then((m) => ({ default: m.Diff })))
 const Code = lazy(() => import("@openhei-ai/ui/code").then((m) => ({ default: m.Code })))
 
@@ -295,6 +296,22 @@ export function AppInterface(props: {
                 component={() => (
                   <Suspense fallback={<Loading />}>
                     <Updating />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="/app-builder"
+                component={() => (
+                  <Suspense fallback={<Loading />}>
+                    <AppBuilder />
+                  </Suspense>
+                )}
+              />
+              <Route
+                path="/app-builder/:sessionId"
+                component={() => (
+                  <Suspense fallback={<Loading />}>
+                    <AppBuilder />
                   </Suspense>
                 )}
               />

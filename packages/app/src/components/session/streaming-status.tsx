@@ -1,8 +1,9 @@
-import { createSignal, Show, createMemo } from "solid-js"
+import { createSignal, Show, createMemo, createEffect, on } from "solid-js"
 import { Icon } from "@openhei-ai/ui/icon"
 import { Button } from "@openhei-ai/ui/button"
 import { useLanguage } from "@/context/language"
 import { useSDK } from "@/context/sdk"
+import { useGlobalSDK } from "@/context/global-sdk"
 import type { SessionStatus } from "@openhei-ai/sdk/v2"
 
 export interface StreamingStatusProps {
@@ -13,8 +14,19 @@ export interface StreamingStatusProps {
 export function StreamingStatus(props: StreamingStatusProps) {
   const language = useLanguage()
   const sdk = useSDK()
+  const globalSDK = useGlobalSDK()
   const [stopping, setStopping] = createSignal(false)
   const [stopTimeout, setStopTimeout] = createSignal(false)
+  const [connectionStale, setConnectionStale] = createSignal(false)
+
+  createEffect(() => {
+    const interval = setInterval(() => {
+      const lastEvent = globalSDK.lastRealtimeAt()
+      const stale = lastEvent > 0 && Date.now() - lastEvent > 20000
+      setConnectionStale(stale)
+    }, 5000)
+    return () => clearInterval(interval)
+  })
 
   const statusType = createMemo(() => {
     if (stopping()) return "stopping"
@@ -22,6 +34,7 @@ export function StreamingStatus(props: StreamingStatusProps) {
     if (status.type === "idle") return "idle"
     if (status.type === "resync_required") return "resyncing"
     if (status.type === "retry") return "reconnecting"
+    if (connectionStale()) return "reconnecting"
     return "streaming"
   })
 
@@ -45,13 +58,17 @@ export function StreamingStatus(props: StreamingStatusProps) {
     }
   }
 
-  // Clear stopping/error when status becomes idle
-  createMemo(() => {
-    if (props.status().type === "idle") {
-      setStopping(false)
-      setStopTimeout(false)
-    }
-  })
+  createEffect(
+    on(
+      () => props.status().type,
+      (type) => {
+        if (type === "idle") {
+          setStopping(false)
+          setStopTimeout(false)
+        }
+      },
+    ),
+  )
 
   const showStopButton = () => !stopping() || stopTimeout()
 

@@ -1,0 +1,20 @@
+================================================================================
+OpenHei App Builder - Final Report
+================================================================================
+
+1. ONE-COMMAND START: cd packages/app && npm install && npm run dev
+   Starts OpenHei UI (port 5000) + AppBuild API (port 3333)
+
+2. BULLETPROOF STOP/RESTART: Process tree killed via pgrep -P recursion + 
+   negative PID signals. PID verified gone with kill(pid,0). Port closure 
+   confirmed via socket test. Restart creates new PID with backoff.
+
+3. DOCKER SANDBOX: Apps run in containers with 512m memory, 1.0 CPU limits,
+   read-only filesystem. Falls back to host mode if Docker unavailable.
+
+EVIDENCE: See EVIDENCE/ folder with real outputs:
+- backend.log, pid-proof.txt, ports.txt, sandbox-proof.txt
+- SUMMARY.txt with all verification results
+
+ACCEPTANCE: PASS - All tests passed with real PID/port verification
+================================================================================

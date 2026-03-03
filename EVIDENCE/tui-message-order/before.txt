@@ -1,0 +1,40 @@
+# BEFORE: Bad Message Order (with stickyStart="bottom")
+
+## Visual Representation
+
+When using `stickyStart="bottom"` (original buggy state):
+
+```
++--------------------------------------------------+
+|  Session: New Session                    [header] |
++--------------------------------------------------+
+|                                                  |
+|  [Assistant message - streaming response]        |
+|  > I'm thinking about your question...          |
+|                                                  |
+|  [User message - just submitted]                |
+|  Hello, how are you?                            |
+|                                                  |
++--------------------------------------------------+
+| > [User input area - sticky at bottom]           |
++--------------------------------------------------+
+```
+
+## Problem
+
+- Assistant message appears ABOVE user message
+- This is inverted - assistant (newer) should be below user (older)
+- The viewport behavior causes new messages to be inserted at TOP
+
+## Root Cause
+
+With `stickyStart="bottom"`:
+1. ScrollBox keeps the BOTTOM content in view (sticky)
+2. When new children are added, they're inserted at position 0 (TOP)
+3. Assistant message inserted after user message appears at TOP
+4. This causes assistant to render ABOVE user message
+
+## Code Location
+
+File: `packages/openhei/src/cli/cmd/tui/routes/session/index.tsx`
+Line 1013: `stickyStart="bottom"`

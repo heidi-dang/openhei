@@ -116,3 +116,5 @@ export const Tabs = Object.assign(TabsRoot, {
   Content: TabsContent,
   SectionTitle: TabsSectionTitle,
 })
+
+export { TabsList, TabsTrigger, TabsContent }

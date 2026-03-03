@@ -7,7 +7,6 @@ import { NamedError } from "@openhei-ai/util/error"
 import { readableStreamToText } from "bun"
 import { Lock } from "../util/lock"
 import { PackageRegistry } from "./registry"
-import { proxied } from "@/util/proxied"
 
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
@@ -92,8 +91,6 @@ export namespace BunProc {
       "add",
       "--force",
       "--exact",
-      // TODO: get rid of this case (see: https://github.com/oven-sh/bun/issues/19936)
-      ...(proxied() ? ["--no-cache"] : []),
       "--cwd",
       Global.Path.cache,
       pkg + "@" + version,

@@ -10,6 +10,8 @@ import { iife } from "@/util/iife"
 import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
+import { createSwarmPool, getSwarmPoolByRunId } from "../swarm"
+import { RunEventBus } from "../stream/event-bus"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -24,18 +26,48 @@ const parameters = z.object({
   command: z.string().describe("The command that triggered this task").optional(),
 })
 
-export const TaskTool = Tool.define("task", async (ctx) => {
-  const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
+async function getOrCreateSwarmPool(sessionID: string) {
+  const cfg = await Config.get()
+  const swarmConfig = (cfg as any).swarm
 
-  // Filter agents by permissions if agent provided
-  const caller = ctx?.agent
-  const accessibleAgents = caller
-    ? agents.filter((a) => PermissionNext.evaluate("task", a.name, caller.permission).action !== "deny")
-    : agents
+  if (!swarmConfig?.enabled) {
+    return null
+  }
+
+  const run_id = `${sessionID}_run`
+
+  let pool = getSwarmPoolByRunId(run_id)
+  if (!pool) {
+    pool = await createSwarmPool(run_id, sessionID)
+    await pool.start()
+  }
+
+  return pool
+}
+
+async function waitForConsent(pool: ReturnType<typeof getSwarmPoolByRunId>, _sessionID: string): Promise<boolean> {
+  if (!pool) return true
+
+  const maxWaitMs = 300000
+  const pollIntervalMs = 500
+  const startTime = Date.now()
+
+  while (pool.getState().waiting_consent) {
+    if (Date.now() - startTime > maxWaitMs) {
+      throw new Error("Consent timeout - user did not respond in time")
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+  }
+
+  return pool.getState().consent_request === null
+}
+
+export const TaskTool = Tool.define("task", async () => {
+  const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
 
   const description = DESCRIPTION.replace(
     "{agents}",
-    accessibleAgents
+    agents
       .map((a) => `- ${a.name}: ${a.description ?? "This subagent should only be called manually by the user."}`)
       .join("\n"),
   )
@@ -45,7 +77,6 @@ export const TaskTool = Tool.define("task", async (ctx) => {
     async execute(params: z.infer<typeof parameters>, ctx) {
       const config = await Config.get()
 
-      // Skip permission check when user explicitly invoked via @ or command subtask
       if (!ctx.extra?.bypassAgentCheck) {
         await ctx.ask({
           permission: "task",
@@ -62,6 +93,104 @@ export const TaskTool = Tool.define("task", async (ctx) => {
       if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
 
       const hasTaskPermission = agent.permission.some((rule) => rule.permission === "task")
+
+      const swarmPool = await getOrCreateSwarmPool(ctx.sessionID)
+
+      if (swarmPool && swarmPool.isEnabled()) {
+        const canSpawn = swarmPool.canSpawnSubagent()
+
+        if (!canSpawn && swarmPool.getState().waiting_consent) {
+          const consentGranted = await waitForConsent(swarmPool, ctx.sessionID)
+          if (!consentGranted) {
+            RunEventBus.publish({
+              run_id: swarmPool.runId,
+              type: "swarm.consent_denied",
+              properties: {
+                swarm_id: swarmPool.swarmId,
+                session_id: ctx.sessionID,
+                ts: Date.now(),
+              },
+            })
+            throw new Error("Sub-agent spawn denied by user")
+          }
+        }
+
+        if (!swarmPool.canSpawnSubagent()) {
+          RunEventBus.publish({
+            run_id: swarmPool.runId,
+            type: "swarm.slot_status",
+            properties: {
+              swarm_id: swarmPool.swarmId,
+              slot: null,
+              status: "error",
+              phase: "error",
+              session_id: null,
+              model: "",
+              ts: Date.now(),
+            },
+          })
+          throw new Error("No available sub-agent slots")
+        }
+
+        const reason = `Spawn sub-agent for: ${params.description}`
+        const plannedTasks = [params.description]
+        const models = swarmPool.getSubagentModels()
+
+        await swarmPool.requestConsent(reason, plannedTasks, models)
+
+        const consentGranted = await waitForConsent(swarmPool, ctx.sessionID)
+        if (!consentGranted) {
+          return {
+            title: params.description,
+            metadata: { sessionId: undefined },
+            output: "Sub-agent spawn was denied by user. Continuing with main agent only.",
+          }
+        }
+
+        const slot = swarmPool.getAvailableSlot()
+        if (slot !== null && swarmPool.canSpawnSubagent()) {
+          const subagentModels = swarmPool.getSubagentModels()
+          const modelConfig = subagentModels[slot - 1]
+          if (modelConfig) {
+            const [providerID, modelID] = modelConfig.split("/")
+
+            log.info("executing task via swarm pool", {
+              session_id: ctx.sessionID,
+              slot,
+              model: modelConfig,
+            })
+
+            const execResult = await swarmPool.executeTask({
+              slot,
+              agentName: agent.name,
+              model: { providerID, modelID },
+              prompt: params.prompt,
+              parentSessionID: ctx.sessionID,
+              taskDescription: params.description,
+            })
+
+            return {
+              title: params.description,
+              metadata: { sessionId: execResult.sessionID, slot },
+              output: [
+                `task_id: ${execResult.sessionID} (swarm slot ${slot})`,
+                "",
+                "<task_result>",
+                execResult.result,
+                "</task_result>",
+              ].join("\n"),
+            }
+          }
+        }
+      }
+
+      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+      if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
+
+      let model = agent.model ?? {
+        modelID: msg.info.modelID,
+        providerID: msg.info.providerID,
+      }
 
       const session = await iife(async () => {
         if (params.task_id) {
@@ -92,7 +221,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
                     action: "deny" as const,
                   },
                 ]),
-            ...(config.experimental?.primary_tools?.map((t) => ({
+            ...((config as any).experimental?.primary_tools?.map((t: string) => ({
               pattern: "*",
               action: "allow" as const,
               permission: t,
@@ -100,12 +229,14 @@ export const TaskTool = Tool.define("task", async (ctx) => {
           ],
         })
       })
-      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
-      if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
 
-      const model = agent.model ?? {
-        modelID: msg.info.modelID,
-        providerID: msg.info.providerID,
+      if (swarmPool && swarmPool.isEnabled()) {
+        const models = swarmPool.getSubagentModels()
+        const slotIndex = swarmPool.getAvailableSlot()
+        if (slotIndex !== null && models[slotIndex - 1]) {
+          const [providerID, modelID] = models[slotIndex - 1].split("/")
+          model = { modelID, providerID }
+        }
       }
 
       ctx.metadata({
@@ -137,7 +268,7 @@ export const TaskTool = Tool.define("task", async (ctx) => {
           todowrite: false,
           todoread: false,
           ...(hasTaskPermission ? {} : { task: false }),
-          ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
+          ...Object.fromEntries(((config as any).experimental?.primary_tools ?? []).map((t: string) => [t, false])),
         },
         parts: promptParts,
       })

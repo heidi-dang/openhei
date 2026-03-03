@@ -1010,7 +1010,7 @@ export function Session() {
                 },
               }}
               stickyScroll={true}
-              stickyStart="bottom"
+              stickyStart="top"
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
             >

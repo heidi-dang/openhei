@@ -1,0 +1,81 @@
+{
+  "success": true,
+  "job": {
+    "id": "1772507461154-ck5j5tv6o",
+    "name": "Sample Tasks API",
+    "mode": "backend",
+    "status": "stopped",
+    "currentPhase": "ready",
+    "phases": [
+      {
+        "id": "plan",
+        "label": "Plan",
+        "description": "Generate build plan and architecture",
+        "status": "completed",
+        "startedAt": 1772507461161,
+        "completedAt": 1772507461164
+      },
+      {
+        "id": "scaffold",
+        "label": "Scaffold",
+        "description": "Create project structure",
+        "status": "completed",
+        "startedAt": 1772507461164,
+        "completedAt": 1772507461166
+      },
+      {
+        "id": "implement",
+        "label": "Implement",
+        "description": "Generate code",
+        "status": "completed",
+        "startedAt": 1772507461166,
+        "completedAt": 1772507461174
+      },
+      {
+        "id": "validate",
+        "label": "Validate",
+        "description": "Validate generated code",
+        "status": "completed",
+        "startedAt": 1772507461175,
+        "completedAt": 1772507461177
+      },
+      {
+        "id": "run-backend",
+        "label": "Run Backend",
+        "description": "Start backend service",
+        "status": "completed",
+        "startedAt": 1772507461178,
+        "completedAt": 1772507501710
+      },
+      {
+        "id": "ready",
+        "label": "Ready",
+        "description": "Build complete",
+        "status": "completed",
+        "startedAt": 1772507501710,
+        "completedAt": 1772507501711
+      }
+    ],
+    "formData": {
+      "appName": "Sample Tasks API",
+      "description": "A simple CRUD API for managing tasks",
+      "port": 3001
+    },
+    "workspacePath": "/tmp/appbuild-server/.openhei/appbuild/1772507461154-ck5j5tv6o/workspace",
+    "sandboxMode": "host",
+    "createdAt": 1772507461154,
+    "updatedAt": 1772507576151,
+    "backend": {
+      "port": 3000,
+      "pid": 1085,
+      "status": "running",
+      "healthCheck": true,
+      "lastHealthCheck": 1772507576149,
+      "restartCount": 1
+    },
+    "backendUrl": "http://localhost:3000"
+  },
+  "pid": 1085,
+  "port": 3000,
+  "health": true
+}
