@@ -47,7 +47,7 @@ async function getOrCreateSwarmPool(sessionID: string) {
 
 async function waitForConsent(pool: ReturnType<typeof getSwarmPoolByRunId>, _sessionID: string): Promise<boolean> {
   if (!pool) return true
-  
+
   const maxWaitMs = 300000
   const pollIntervalMs = 500
   const startTime = Date.now()
@@ -146,6 +146,50 @@ export const TaskTool = Tool.define("task", async () => {
             output: "Sub-agent spawn was denied by user. Continuing with main agent only.",
           }
         }
+
+        const slot = swarmPool.getAvailableSlot()
+        if (slot !== null && swarmPool.canSpawnSubagent()) {
+          const subagentModels = swarmPool.getSubagentModels()
+          const modelConfig = subagentModels[slot - 1]
+          if (modelConfig) {
+            const [providerID, modelID] = modelConfig.split("/")
+
+            log.info("executing task via swarm pool", {
+              session_id: ctx.sessionID,
+              slot,
+              model: modelConfig,
+            })
+
+            const execResult = await swarmPool.executeTask({
+              slot,
+              agentName: agent.name,
+              model: { providerID, modelID },
+              prompt: params.prompt,
+              parentSessionID: ctx.sessionID,
+              taskDescription: params.description,
+            })
+
+            return {
+              title: params.description,
+              metadata: { sessionId: execResult.sessionID, slot },
+              output: [
+                `task_id: ${execResult.sessionID} (swarm slot ${slot})`,
+                "",
+                "<task_result>",
+                execResult.result,
+                "</task_result>",
+              ].join("\n"),
+            }
+          }
+        }
+      }
+
+      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+      if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
+
+      let model = agent.model ?? {
+        modelID: msg.info.modelID,
+        providerID: msg.info.providerID,
       }
 
       const session = await iife(async () => {
@@ -186,14 +230,6 @@ export const TaskTool = Tool.define("task", async () => {
         })
       })
 
-      const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
-      if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
-
-      let model = agent.model ?? {
-        modelID: msg.info.modelID,
-        providerID: msg.info.providerID,
-      }
-
       if (swarmPool && swarmPool.isEnabled()) {
         const models = swarmPool.getSubagentModels()
         const slotIndex = swarmPool.getAvailableSlot()
@@ -232,9 +268,7 @@ export const TaskTool = Tool.define("task", async () => {
           todowrite: false,
           todoread: false,
           ...(hasTaskPermission ? {} : { task: false }),
-          ...Object.fromEntries(
-            ((config as any).experimental?.primary_tools ?? []).map((t: string) => [t, false]),
-          ),
+          ...Object.fromEntries(((config as any).experimental?.primary_tools ?? []).map((t: string) => [t, false])),
         },
         parts: promptParts,
       })

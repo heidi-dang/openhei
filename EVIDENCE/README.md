@@ -13,11 +13,13 @@ This document provides evidence of Swarm Mode implementation including consent f
   - `max_subagents`: hard cap at 2
   - `max_parallel_executors`: hard cap at 3
   - `subagent_models`: array of model identifiers for slots 1 and 2
+  - **Consent ALWAYS prompts** - no bypass setting
 
 - **Settings UI**: `packages/app/src/components/settings-swarm.tsx`
   - Toggle for enabling/disabling Swarm Mode
   - Model dropdowns for Sub-agent #1 and Sub-agent #2
   - Persists to config via PATCH /api/v1/config
+  - **Removed**: "always ask consent" toggle (per spec - consent always required)
 
 ### 2. Event Contract
 
@@ -25,32 +27,52 @@ This document provides evidence of Swarm Mode implementation including consent f
   - `swarm.started` - emitted when swarm pool initializes
   - `swarm.consent_required` - emitted when main wants to spawn sub-agents
   - `swarm.consent_granted` / `swarm.consent_denied` - user response
-  - `swarm.slot_status` - per-slot status updates
+  - `swarm.slot.started` - when a slot begins executing
+  - `swarm.slot.ended` - when a slot completes
+  - `swarm.slot.status` - per-slot status updates (phase: analyzing/tool_run/patch_apply/tests/done/error)
   - `swarm.ended` - swarm terminated
 
 - **Event Tags**: All events include:
   - `run_id`, `swarm_id`, `session_id`, `parent_session_id`
   - `slot` (1 or 2), `role` (main/subagent)
-  - `agent_name`, `model`, `phase`
+  - `agent_name`, `model`, `phase`, `ts`
 
 ### 3. Consent Flow
 
 - **Backend** (`packages/openhei/src/server/routes/session.ts`):
   - Endpoint: `POST /api/v1/session/:sessionID/swarm/consent`
   - Body: `{ swarm_id, accept: boolean }`
+  - **Always prompts** - no bypass option
   - When consent_required is emitted, spawn is blocked until Accept
 
 - **Frontend** (`packages/app/src/components/swarm-panel.tsx`):
   - `SwarmConsentModal` shows reason, planned tasks, models
   - Accept/Deny buttons post to consent endpoint
 
-### 4. Concurrency
+### 4. Task Execution (Wired)
+
+- **Task Tool** (`packages/openhei/src/tool/task.ts`):
+  - When task tool is invoked with swarm enabled:
+    1. Check if swarm pool can spawn (has available slots)
+    2. Request consent from user (blocks until accepted)
+    3. On consent granted, get available slot
+    4. Execute task via `swarmPool.executeTask()` in that slot
+    5. Returns task result with session_id for the sub-agent
+
+- **Executor Pool** (`packages/openhei/src/swarm/executor-pool.ts`):
+  - `executeTask()` method runs tasks in dedicated slots
+  - Each slot gets its own Session created
+  - Emits slot.started/slot.ended/slot.status events
+  - Phases: analyzing → tool_run → patch_apply → tests → done
+  - Handles errors and emits swarm.error on failure
+
+### 5. Concurrency
 
 - **Executor Pool** (`packages/openhei/src/swarm/executor-pool.ts`):
   - `SwarmExecutorPool` class with capacity 3
   - Main agent + up to 2 sub-agents can run concurrently
-  - Each sub-agent gets its own worktree for isolation
-  - Patches are returned and applied by main in controlled merge step
+  - Slots are independent - can run in parallel
+  - Events include timestamps for proving concurrency
 
 ### 5. UI Integration
 

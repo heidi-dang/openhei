@@ -206,6 +206,137 @@ export class SwarmExecutorPool extends EventEmitter {
     return this.aborted
   }
 
+  async executeTask(params: {
+    slot: SwarmSlot
+    agentName: string
+    model: { providerID: string; modelID: string }
+    prompt: string
+    parentSessionID: string
+    taskDescription: string
+  }): Promise<{ sessionID: string; result: string }> {
+    const slotIndex = params.slot - 1
+
+    const session = await Session.create({
+      parentID: params.parentSessionID,
+      title: params.taskDescription + ` (@${params.agentName} subagent)`,
+      permission: [],
+    })
+
+    const slotState: SwarmSlotState = {
+      slot: params.slot,
+      session_id: session.id,
+      parent_session_id: params.parentSessionID,
+      role: "subagent",
+      agent_name: params.agentName,
+      model: `${params.model.providerID}/${params.model.modelID}`,
+      status: "working",
+      phase: "analyzing",
+    }
+
+    this.state.slots[slotIndex] = slotState
+
+    this.emitEvent({
+      type: "swarm.slot.started",
+      run_id: this.state.run_id,
+      swarm_id: this.state.id,
+      session_id: session.id,
+      parent_session_id: params.parentSessionID,
+      slot: params.slot,
+      role: "subagent",
+      agent_name: params.agentName,
+      model: `${params.model.providerID}/${params.model.modelID}`,
+      phase: "analyzing",
+      ts: Date.now(),
+    })
+
+    log.info("slot started", {
+      swarm_id: this.state.id,
+      slot: params.slot,
+      session_id: session.id,
+      agent: params.agentName,
+    })
+
+    const messageID = Identifier.ascending("message")
+
+    try {
+      this.state.slots[slotIndex]!.phase = "tool_run"
+      this.emitEvent({
+        type: "swarm.slot.status",
+        run_id: this.state.run_id,
+        swarm_id: this.state.id,
+        session_id: session.id,
+        slot: params.slot,
+        status: "working",
+        phase: "tool_run",
+        ts: Date.now(),
+      })
+
+      const result = await SessionPrompt.prompt({
+        messageID,
+        sessionID: session.id,
+        model: params.model,
+        agent: params.agentName,
+        tools: {
+          todo: false,
+        },
+        parts: [{ type: "text", text: params.prompt }],
+      })
+
+      const text = result.parts.findLast((x) => x.type === "text")?.text ?? ""
+
+      this.state.slots[slotIndex]!.status = "done"
+      this.state.slots[slotIndex]!.phase = "done"
+
+      this.emitEvent({
+        type: "swarm.slot.ended",
+        run_id: this.state.run_id,
+        swarm_id: this.state.id,
+        session_id: session.id,
+        slot: params.slot,
+        status: "done",
+        ts: Date.now(),
+      })
+
+      log.info("slot completed", {
+        swarm_id: this.state.id,
+        slot: params.slot,
+        session_id: session.id,
+      })
+
+      return { sessionID: session.id, result: text }
+    } catch (error) {
+      this.state.slots[slotIndex]!.status = "error"
+      this.state.slots[slotIndex]!.phase = "error"
+
+      this.emitEvent({
+        type: "swarm.slot.ended",
+        run_id: this.state.run_id,
+        swarm_id: this.state.id,
+        session_id: session.id,
+        slot: params.slot,
+        status: "error",
+        ts: Date.now(),
+      })
+
+      this.emitEvent({
+        type: "swarm.error",
+        run_id: this.state.run_id,
+        swarm_id: this.state.id,
+        slot: params.slot,
+        error: String(error),
+        ts: Date.now(),
+      })
+
+      log.error("slot error", {
+        swarm_id: this.state.id,
+        slot: params.slot,
+        error,
+      })
+
+      throw error
+    }
+  }
+
   getState(): SwarmRuntimeState {
     return this.state
   }
