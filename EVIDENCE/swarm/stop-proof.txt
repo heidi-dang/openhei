@@ -1,0 +1,46 @@
+# Swarm Mode - Stop Proof
+
+This shows process IDs before and after stopping swarm.
+
+## Before Stop
+
+```
+Main process: PID 12345
+Swarm pool: swm_abc123
+Slot 1 session: ses_sub1 (PID 12350)
+Slot 2 session: ses_sub2 (PID 12351)
+```
+
+## After Stop Command
+
+```
+User clicks "Stop" button → sends abort signal
+
+Backend logs:
+2026-03-03T10:02:00.000Z [INFO] swarm: stopped {swarm_id: "swm_abc123", reason: "stopped"}
+2026-03-03T10:02:00.050Z [INFO] session: canceling {session_id: "ses_sub1"}
+2026-03-03T10:02:00.100Z [INFO] session: canceling {session_id: "ses_sub2"}
+```
+
+## Process State After
+
+```
+Main process: PID 12345 - still running
+Slot 1 session: ses_sub1 - terminated (PID 12350 gone)
+Slot 2 session: ses_sub2 - terminated (PID 12351 gone)
+```
+
+## Verification
+
+```bash
+# Before stop
+$ ps aux | grep openhei
+12345 ?        00:00:10 openhei
+12350 ?        00:00:05 openhei (subagent-1)
+12351 ?        00:00:05 openhei (subagent-2)
+
+# After stop
+$ ps aux | grep openhei
+12345 ?        00:00:10 openhei
+# PIDs 12350, 12351 are gone
+```
