@@ -1,0 +1,44 @@
+# Test Notes for Message Ordering
+
+## Manual Test
+
+Since automated tests require the full TUI runtime (not available in this environment), manual verification is required.
+
+## Verification Steps
+
+1. Start TUI
+2. Create new session or select existing
+3. Type a test message and submit
+4. Observe message order:
+   - User message should appear at TOP of transcript
+   - Assistant response should appear BELOW user message
+5. Verify streaming works correctly (new content appears at bottom)
+6. Test stop/cancel if supported
+
+## Expected Result
+
+- Messages ordered: User (index 0, TOP) → Assistant (index 1, BOTTOM)
+- With `stickyStart="top"`:
+  - New messages append at END of array
+  - Rendered at BOTTOM
+  - Viewport stays at TOP
+
+## Code Under Test
+
+`packages/openhei/src/cli/cmd/tui/routes/session/index.tsx` line 1013:
+```tsx
+stickyStart="top"
+```
+
+## Alternative: Adding Unit Test
+
+If a test harness existed, a minimal test would verify:
+
+```typescript
+// Pseudocode test
+const messages = [userMessage, assistantMessage]
+// With stickyStart="top", rendering should show:
+// - Index 0 (user) at TOP
+// - Index 1 (assistant) at BOTTOM (sticky)
+expect(renderedOrder).toEqual(['user', 'assistant'])
+```

@@ -1,0 +1,45 @@
+# Screen Recording
+
+## Expected Recording Contents
+
+A screen recording should demonstrate:
+
+1. **Startup**: TUI launches and displays empty or existing session
+2. **Send Prompt**: User types a message and presses Enter
+3. **Message Order**: 
+   - User message appears at TOP of transcript
+   - Assistant response starts streaming BELOW user message
+   - This is the correct chronological order
+4. **Streaming**: As assistant generates response, new lines appear at bottom
+5. **Stop/Cancel** (if supported): 
+   - Cancel streaming
+   - Verify assistant shows stopped/error state
+   - Verify user message remains ABOVE assistant
+   - No flickering or reordering
+
+## Recording Commands
+
+### Using asciinema (if available)
+```bash
+asciinema rec tui-message-order.cast
+# Run through the test scenario
+exit
+```
+
+### Using screen + ffmpeg (if available)
+```bash
+# Record terminal session
+script -t 2>/tmp/timing.tmp -q /tmp/typescript.out
+# Run through the test scenario
+exit
+ffmpeg -f x11grab -r 30 -i :0.0 -c:v libx264 tui-message-order.mp4
+```
+
+## Manual Verification Notes
+
+If recording is not possible, manual verification should confirm:
+- [ ] User message appears first (top)
+- [ ] Assistant message appears below user message
+- [ ] No reordering during streaming
+- [ ] Viewport behavior is smooth
+- [ ] Stop/cancel maintains correct order

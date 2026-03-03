@@ -1,0 +1,25 @@
+# Start Commands for TUI
+
+## Commands to run TUI
+
+```bash
+# From the openhei root directory
+cd /root/openhei
+
+# Initialize openhei if not already done
+# openhei init
+
+# Run the TUI
+bun run --cwd packages/openhei --conditions=browser src/index.ts
+```
+
+## Environment Variables
+
+No specific environment variables required for basic TUI usage.
+
+## Alternative: Run specific session
+
+```bash
+# Run TUI with a specific session
+bun run --cwd packages/openhei --conditions=browser src/index.ts --session <session-id>
+```

@@ -1,0 +1,32 @@
+# Reproduction Steps for TUI Message Order Issue
+
+## Steps to Reproduce
+
+1. Start the TUI application using `bun run --cwd packages/openhei --conditions=browser src/index.ts`
+2. Wait for the TUI to fully load
+3. Type a prompt in the input area at the bottom (e.g., "Hello, how are you?")
+4. Press Enter to submit the prompt
+5. Observe the message order in the transcript area
+
+## Expected Behavior (After Fix)
+
+- User message appears in the transcript
+- Assistant response appears BELOW the user message
+- Viewport stays at the bottom showing new content as it streams
+- Messages are ordered: User (older) → Assistant (newer)
+
+## Buggy Behavior (Before Fix)
+
+- User message appears at the bottom of the transcript
+- Assistant response appears ABOVE the user message
+- This is inverted from the expected chronological order
+
+## Manual Verification
+
+After applying the fix (changing stickyStart from "bottom" to "top"):
+
+1. Send a new prompt
+2. Confirm user message appears at the TOP of the message list
+3. Confirm assistant response grows BELOW the user message
+4. Verify viewport stays in place while streaming
+5. Try stopping/canceling mid-stream to verify order remains stable
