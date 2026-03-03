@@ -1,5 +1,6 @@
 import { createSignal, createEffect, onCleanup } from "solid-js"
 import { useTurnLogs, peekTurnLogs } from "./use-turn-logs"
+import { getRetryHandler } from "../services/retry-registry"
 
 type RetryState = { state: "idle" | "scheduled" | "running" | "stopped"; attempts: number; nextIn?: number }
 
@@ -45,10 +46,10 @@ export function useFailureDetection(opts: {
         try {
           opts.onPerformRetry?.()
         } catch (e) {}
-        // fallback: if caller didn't provide a callback, try global handler
+        // fallback: if caller didn't provide a callback, try registry handler
         try {
           const key = `${opts.sessionID}:${opts.messageID}`
-          const handler = (globalThis as any).__retry_handlers?.get(key)
+          const handler = getRetryHandler(key)
           if (typeof handler === "function") handler()
         } catch (e) {}
       }
@@ -88,7 +89,8 @@ export function useFailureDetection(opts: {
     scheduleRetry,
     stopRetries,
     detectStall,
-    getLogs: () => peekTurnLogs(sessionID, messageID),
+    // return a reactive accessor so callers (UI) can bind directly
+    getLogs: () => logs.get,
     retryState,
   }
 

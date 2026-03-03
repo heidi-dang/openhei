@@ -600,6 +600,7 @@ export function SessionTurn(
                               maxHeight="220px"
                               speed={activitySpeed()}
                               stuck={isStuck()}
+                              // pass reactive accessor so ActivityPanel re-renders as logs arrive
                               clientLogs={failure.getLogs()}
                               retryState={failure.retryState()}
                               onRetry={() => failure.scheduleRetry()}

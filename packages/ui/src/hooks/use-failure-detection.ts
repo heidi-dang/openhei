@@ -85,7 +85,8 @@ export function useFailureDetection(opts: {
     scheduleRetry,
     stopRetries,
     detectStall,
-    getLogs: () => peekTurnLogs(sessionID, messageID),
+    // return a reactive accessor for UI components
+    getLogs: () => logs.get,
     retryState,
   }
 

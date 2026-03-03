@@ -27,7 +27,8 @@ export interface ActivityPanelProps {
     lastLogs?: string[]
   }
   // client-side logs emitted by failure-detection (stall, rate-limit, sse)
-  clientLogs?: LogEntry[]
+  // can be a snapshot array or a reactive accessor `() => LogEntry[]`
+  clientLogs?: LogEntry[] | (() => LogEntry[])
   retryState?: { state: "idle" | "scheduled" | "running" | "stopped"; attempts: number; nextIn?: number }
   onRetry?: () => void
   onStop?: () => void
@@ -263,49 +264,58 @@ export function ActivityPanel(props: ActivityPanelProps) {
             </Show>
 
             {/* Client-side logs and retry controls */}
-            <Show when={props.clientLogs && props.clientLogs.length > 0}>
-              <div class="p-3 border-t border-gray-800 bg-gray-900/40">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="text-sm text-gray-300 font-medium">{i18n.t("activityPanel.clientLogs")}</div>
-                  <div class="flex items-center gap-2">
-                    <Show when={props.onRetry}>
-                      <button
-                        class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          props.onRetry?.()
-                        }}
-                      >
-                        {i18n.t("activityPanel.retry")}
-                      </button>
-                    </Show>
-                    <Show when={props.onStop}>
-                      <button
-                        class="px-2 py-1 bg-gray-700 text-gray-200 rounded text-sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          props.onStop?.()
-                        }}
-                      >
-                        {i18n.t("activityPanel.stop")}
-                      </button>
-                    </Show>
-                  </div>
-                </div>
-
-                <div class="max-h-40 overflow-y-auto text-sm font-mono text-gray-300 bg-gray-900/20 p-2 rounded">
-                  <For each={props.clientLogs}>
-                    {(log) => (
-                      <div class="flex items-start gap-2 py-0.5">
-                        <div class="text-xs text-gray-500">[{new Date(log.ts).toLocaleTimeString()}]</div>
-                        <div class="text-xs text-yellow-300">{log.type}</div>
-                        <div class="flex-1 text-xs text-gray-200">{log.message}</div>
+            {(() => {
+              const logs = createMemo(() =>
+                typeof props.clientLogs === "function"
+                  ? (props.clientLogs as () => LogEntry[])()
+                  : (props.clientLogs ?? []),
+              )
+              return (
+                <Show when={logs().length > 0}>
+                  <div class="p-3 border-t border-gray-800 bg-gray-900/40">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-sm text-gray-300 font-medium">{i18n.t("activityPanel.clientLogs")}</div>
+                      <div class="flex items-center gap-2">
+                        <Show when={props.onRetry}>
+                          <button
+                            class="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              props.onRetry?.()
+                            }}
+                          >
+                            {i18n.t("activityPanel.retry")}
+                          </button>
+                        </Show>
+                        <Show when={props.onStop}>
+                          <button
+                            class="px-2 py-1 bg-gray-700 text-gray-200 rounded text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              props.onStop?.()
+                            }}
+                          >
+                            {i18n.t("activityPanel.stop")}
+                          </button>
+                        </Show>
                       </div>
-                    )}
-                  </For>
-                </div>
-              </div>
-            </Show>
+                    </div>
+
+                    <div class="max-h-40 overflow-y-auto text-sm font-mono text-gray-300 bg-gray-900/20 p-2 rounded">
+                      <For each={logs()}>
+                        {(log) => (
+                          <div class="flex items-start gap-2 py-0.5">
+                            <div class="text-xs text-gray-500">[{new Date(log.ts).toLocaleTimeString()}]</div>
+                            <div class="text-xs text-yellow-300">{log.type}</div>
+                            <div class="flex-1 text-xs text-gray-200">{log.message}</div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </div>
+                </Show>
+              )
+            })()}
           </div>
         </Show>
       </div>
