@@ -19,7 +19,6 @@ This document provides evidence of Swarm Mode implementation including consent f
   - Toggle for enabling/disabling Swarm Mode
   - Model dropdowns for Sub-agent #1 and Sub-agent #2
   - Persists to config via PATCH /api/v1/config
-  - **Removed**: "always ask consent" toggle (per spec - consent always required)
 
 ### 2. Event Contract
 
@@ -63,7 +62,7 @@ This document provides evidence of Swarm Mode implementation including consent f
   - `executeTask()` method runs tasks in dedicated slots
   - Each slot gets its own Session created
   - Emits slot.started/slot.ended/slot.status events
-  - Phases: analyzing → tool_run → patch_apply → tests → done
+  - Phases: analyzing -> tool_run -> patch_apply -> tests -> done
   - Handles errors and emits swarm.error on failure
 
 ### 5. Concurrency
@@ -103,7 +102,7 @@ This document provides evidence of Swarm Mode implementation including consent f
 
 ### Enable Swarm Mode
 
-1. Go to Settings → Swarm
+1. Go to Settings -> Swarm
 2. Toggle "Enable Swarm Mode" ON
 3. Select models for Sub-agent #1 and #2
 4. Click Save
@@ -126,7 +125,7 @@ This document provides evidence of Swarm Mode implementation including consent f
 
 ## Backend Event Tags (Example)
 
-```
+```json
 {
   "type": "swarm.slot_status",
   "properties": {

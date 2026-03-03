@@ -5,89 +5,89 @@ This shows the expected user journey through swarm mode.
 ## 1. Enable Swarm in Settings
 
 ```
-[Settings → Swarm]
-┌─────────────────────────────────────────────────────────────┐
-│ 🐝 Swarm Mode                                              │
-│                                                             │
-│ Enable Swarm Mode: [ON]                                    │
-│                                                             │
-│ Sub-agent #1 Model: [anthropic/claude-3-5-sonnet      ▼] │
-│ Sub-agent #2 Model: [openai/gpt-4o                     ▼] │
-│                                                             │
-│ Hard Limits: Max 2 sub-agents, Max 3 executors            │
-│                                                             │
-│ [Save]                                                     │
-└─────────────────────────────────────────────────────────────┘
+[Settings -> Swarm]
++-------------------------------------------------------------+
+| Hive Swarm Mode                                             |
+|                                                              |
+| Enable Swarm Mode: [ON]                                     |
+|                                                              |
+| Sub-agent #1 Model: [anthropic/claude-3-5-sonnet       v]  |
+| Sub-agent #2 Model: [openai/gpt-4o                      v] |
+|                                                              |
+| Hard Limits: Max 2 sub-agents, Max 3 executors             |
+|                                                              |
+| [Save]                                                      |
++-------------------------------------------------------------+
 ```
 
 ## 2. Start Session and Use Task Tool
 
 ```
 [Session]
-┌─────────────────────────────────────────────────────────────┐
-│ > Find all TODO comments in the codebase                    │
-│                                                             │
-│ ┌─ ASSISTANT ────────────────────────────────────────────┐ │
-│ │ I'll search for TODO comments using the task tool...   │ │
-│ │ ```tool_call                                           │ │
-│ │ task(tool="task", description="find todos")           │ │
-│ │ ```                                                    │ │
-│ └───────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+| > Find all TODO comments in the codebase                   |
+|                                                              |
+| +- ASSISTANT ---------------------------------------------+ |
+| | I'll search for TODO comments using the task tool...    | |
+| | ```tool_call                                           | |
+| | task(tool="task", description="find todos")            | |
+| | ```                                                    | |
+| +---------------------------------------------------------+ |
++-------------------------------------------------------------+
 ```
 
 ## 3. Consent Modal Appears
 
 ```
 [Consent Modal]
-┌─────────────────────────────────────────────────────────────┐
-│ 🐝 Swarm Consent Required                                   │
-│                                                             │
-│ Reason: Spawn sub-agent for: find todos                     │
-│                                                             │
-│ Planned Tasks:                                             │
-│ - find todos                                                │
-│                                                             │
-│ Models:                                                    │
-│ - Slot 1: anthropic/claude-3-5-sonnet                      │
-│ - Slot 2: openai/gpt-4o                                    │
-│                                                             │
-│                    [Deny]  [Accept]                        │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+| Hive Swarm Consent Required                                 |
+|                                                              |
+| Reason: Spawn sub-agent for: find todos                     |
+|                                                              |
+| Planned Tasks:                                              |
+| - find todos                                                |
+|                                                              |
+| Models:                                                     |
+| - Slot 1: anthropic/claude-3-5-sonnet                       |
+| - Slot 2: openai/gpt-4o                                    |
+|                                                              |
+|                    [Deny]  [Accept]                        |
++-------------------------------------------------------------+
 ```
 
 ## 4. After Accept - Swarm Active
 
 ```
 [Session with Swarm Panel]
-┌─────────────────────────────────────────────────────────────┐
-│ 🐝 Swarm: Main ● Sub1 ● Sub2                               │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│ ┌─ ASSISTANT ────────────────────────────────────────────┐ │
-│ │ Running sub-agents...                                  │ │
-│ └───────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ 🐝 Main: working | Sub1: working (analyzing) | Sub2: idle │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+| Hive Swarm: Main * Sub1 * Sub2                              |
++-------------------------------------------------------------+
+|                                                              |
+| +- ASSISTANT ---------------------------------------------+ |
+| | Running sub-agents...                                   | |
+| +---------------------------------------------------------+ |
+|                                                              |
+| Hive Main: working | Sub1: working (analyzing) | Sub2: idle |
++-------------------------------------------------------------+
 ```
 
 ## 5. Click Tab to View Sub-agent Transcript
 
 ```
 [Session - Sub1 Tab Active]
-┌─────────────────────────────────────────────────────────────┐
-│ 🐝 Swarm: Main | ●Sub1 | Sub2                              │
-├─────────────────────────────────────────────────────────────┤
-│ ┌─ SUBAGENT-1 ───────────────────────────────────────────┐ │
-│ │ Found 5 TODO comments:                                │ │
-│ │ - src/main.ts:42                                      │ │
-│ │ - src/utils.ts:15                                     │ │
-│ │ - src/cli.ts:8                                        │ │
-│ │ - src/config.ts:23                                     │ │
-│ │ - src/handlers/auth.ts:56                             │ │
-│ └───────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ > █                                                        │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+| Hive Swarm: Main | *Sub1 | Sub2                             |
++-------------------------------------------------------------+
+| +- SUBAGENT-1 --------------------------------------------+ |
+| | Found 5 TODO comments:                                 | |
+| | - src/main.ts:42                                      | |
+| | - src/utils.ts:15                                     | |
+| | - src/cli.ts:8                                        | |
+| | - src/config.ts:23                                    | |
+| | - src/handlers/auth.ts:56                            | |
+| +---------------------------------------------------------+ |
+|                                                              |
+| > _                                                        |
++-------------------------------------------------------------+
 ```

@@ -5,37 +5,37 @@ This shows the backend logs when a swarm task is executed.
 ## Consent Flow
 
 ```
-2026-03-03T10:00:00.000Z [INFO] swarm: consent required {swarm_id: "swm_abc123", reason: "Spawn sub-agent for: search codebase", session_id: "ses_main"}
-2026-03-03T10:00:00.100Z [INFO] swarm: consent required {swarm_id: "swm_abc123", planned_tasks: ["search codebase"], models: ["anthropic/claude-3"]}
+2026-03-03T10:00:00.000Z [INFO] swarm: consent required {swarm_id: "hvm_abc123", reason: "Spawn sub-agent for: search codebase", session_id: "ses_main"}
+2026-03-03T10:00:00.100Z [INFO] swarm: consent required {swarm_id: "hvm_abc123", planned_tasks: ["search codebase"], models: ["anthropic/claude-3"]}
 ```
 
 ## After User Accepts
 
 ```
-2026-03-03T10:00:05.000Z [INFO] swarm: consent granted {swarm_id: "swm_abc123"}
-2026-03-03T10:00:05.050Z [INFO] swarm: slot started {swarm_id: "swm_abc123", slot: 1, session_id: "ses_sub1", agent: "code-expert"}
-2026-03-03T10:00:05.100Z [INFO] swarm: slot status {swarm_id: "swm_abc123", slot: 1, phase: "tool_run"}
+2026-03-03T10:00:05.000Z [INFO] swarm: consent granted {swarm_id: "hvm_abc123"}
+2026-03-03T10:00:05.050Z [INFO] swarm: slot started {swarm_id: "hvm_abc123", slot: 1, session_id: "ses_sub1", agent: "code-expert"}
+2026-03-03T10:00:05.100Z [INFO] swarm: slot status {swarm_id: "hvm_abc123", slot: 1, phase: "tool_run"}
 ```
 
 ## Concurrent Execution (2 slots)
 
 ```
-2026-03-03T10:00:10.000Z [INFO] swarm: slot started {swarm_id: "swm_abc123", slot: 1, session_id: "ses_sub1", agent: "code-expert", ts: 1709534410000}
-2026-03-03T10:00:10.050Z [INFO] swarm: slot started {swarm_id: "swm_abc123", slot: 2, session_id: "ses_sub2", agent: "docs-expert", ts: 1709534410050}
+2026-03-03T10:00:10.000Z [INFO] swarm: slot started {swarm_id: "hvm_abc123", slot: 1, session_id: "ses_sub1", agent: "code-expert", ts: 1709534410000}
+2026-03-03T10:00:10.050Z [INFO] swarm: slot started {swarm_id: "hvm_abc123", slot: 2, session_id: "ses_sub2", agent: "docs-expert", ts: 1709534410050}
                                            ^-- overlapping timestamps prove concurrency
 ```
 
 ## Task Completion
 
 ```
-2026-03-03T10:01:00.000Z [INFO] swarm: slot completed {swarm_id: "swm_abc123", slot: 1, session_id: "ses_sub1", status: "done"}
-2026-03-03T10:01:30.000Z [INFO] swarm: slot completed {swarm_id: "swm_abc123", slot: 2, session_id: "ses_sub2", status: "done"}
+2026-03-03T10:01:00.000Z [INFO] swarm: slot completed {swarm_id: "hvm_abc123", slot: 1, session_id: "ses_sub1", status: "done"}
+2026-03-03T10:01:30.000Z [INFO] swarm: slot completed {swarm_id: "hvm_abc123", slot: 2, session_id: "ses_sub2", status: "done"}
 ```
 
 ## Stop
 
 ```
-2026-03-03T10:02:00.000Z [INFO] swarm: stopped {swarm_id: "swm_abc123", reason: "stopped"}
+2026-03-03T10:02:00.000Z [INFO] swarm: stopped {swarm_id: "hvm_abc123", reason: "stopped"}
 ```
 
 ## Event Types
