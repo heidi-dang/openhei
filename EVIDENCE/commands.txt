@@ -1,0 +1,139 @@
+================================================================================
+OpenHei App Builder - Commands Reference
+================================================================================
+
+STARTUP COMMANDS
+================================================================================
+
+# 1. Install dependencies (from repo root)
+cd /root/openhei
+bun install
+
+# 2. Start development servers (from packages/app)
+cd packages/app
+bun run dev
+
+This starts:
+- AppBuild API server on http://localhost:3333
+- OpenHei UI dev server on http://localhost:5000
+
+# 3. Access App Builder
+Open browser to: http://localhost:5000/app-builder
+
+
+API ENDPOINTS
+================================================================================
+
+# Health check
+curl http://localhost:3333/health
+
+# List all jobs
+curl http://localhost:3333/appbuild/jobs
+
+# Create a backend job
+curl -X POST http://localhost:3333/appbuild/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test API",
+    "mode": "backend",
+    "formData": {
+      "appName": "Test API",
+      "description": "A test API",
+      "port": 3001
+    }
+  }'
+
+# Get job details
+curl http://localhost:3333/appbuild/jobs/<job-id>
+
+# Get job logs
+curl http://localhost:3333/appbuild/jobs/<job-id>/logs
+
+# Stop job
+curl -X POST http://localhost:3333/appbuild/jobs/<job-id>/stop
+
+# Restart backend
+curl -X POST http://localhost:3333/appbuild/jobs/<job-id>/restart-backend
+
+# Verify PID is gone
+curl http://localhost:3333/appbuild/jobs/<job-id>/verify-pid/<pid>
+
+# Verify port is closed
+curl http://localhost:3333/appbuild/verify-port/<port>
+
+# Check backend health
+curl http://localhost:3333/appbuild/jobs/<job-id>/health
+
+# Get sandbox status
+curl http://localhost:3333/appbuild/sandbox/status
+
+# Set sandbox mode for job
+curl -X POST http://localhost:3333/appbuild/jobs/<job-id>/sandbox-mode \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "docker"}'
+
+# Get workspace path
+curl http://localhost:3333/appbuild/jobs/<job-id>/workspace-path
+
+
+DOCKER COMMANDS (for sandbox verification)
+================================================================================
+
+# List running containers
+docker ps
+
+# List all containers (including stopped)
+docker ps -a
+
+# Inspect container
+docker inspect <container-id>
+
+# View container logs
+docker logs <container-id>
+
+# Check container resource usage
+docker stats <container-id> --no-stream
+
+# Stop container
+docker stop <container-id>
+
+# Remove container
+docker rm <container-id>
+
+
+PROCESS VERIFICATION COMMANDS
+================================================================================
+
+# Check if PID exists
+ps -p <pid>
+
+# List process tree
+pstree -p <pid>
+
+# Check port usage
+lsof -i :<port>
+
+# List all listening ports
+ss -ltnp
+
+# Check network connections
+netstat -tlnp
+
+
+WORKSPACE INSPECTION
+================================================================================
+
+# List workspace
+ls -la .openhei/appbuild/
+
+# View job metadata
+cat .openhei/appbuild/<job-id>/job.json | jq
+
+# View logs
+cat .openhei/appbuild/<job-id>/logs.json | jq
+
+# View generated backend code
+cat .openhei/appbuild/<job-id>/workspace/backend/src/index.ts
+
+# View generated frontend code
+cat .openhei/appbuild/<job-id>/workspace/frontend/src/App.tsx
