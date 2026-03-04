@@ -251,7 +251,7 @@ export namespace Config {
     }
 
     if (Flag.OPENHEI_PERMISSION) {
-      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.OPENHEI_PERMISSION))
+      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.OPENHEI_PERMISSION)) as Permission
     }
 
     // Backwards compatibility: legacy top-level `tools` config
@@ -1122,6 +1122,10 @@ export namespace Config {
       compaction: z.record(z.string(), z.any()).optional(),
       tools: z.record(z.string(), z.boolean()).optional().describe("@deprecated Use 'permission' field instead"),
       snapshot: z.boolean().optional(),
+      experimental: z.record(z.string(), z.any()).optional(),
+      formatter: z.record(z.string(), z.any()).optional(),
+      lsp: z.record(z.string(), z.any()).optional(),
+      enterprise: z.record(z.string(), z.any()).optional(),
       share: z
         .enum(["manual", "auto", "disabled"])
         .optional()

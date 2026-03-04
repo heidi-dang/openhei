@@ -28,7 +28,7 @@ export namespace Format {
     const cfg = await Config.get()
 
     const formatters: Record<string, Formatter.Info> = {}
-    if (cfg.formatter === false) {
+    if ((cfg.formatter as any) === false) {
       log.info("all formatters are disabled")
       return {
         enabled,

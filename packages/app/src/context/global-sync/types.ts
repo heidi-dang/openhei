@@ -70,6 +70,7 @@ export type State = {
   part: {
     [messageID: string]: Part[]
   }
+  appliedDeltas: import("../../lib/lru").LruSet | Set<string> | undefined
 }
 
 export type VcsCache = {

@@ -1,5 +1,7 @@
 import { Binary } from "@openhei-ai/util/binary"
 import { produce, reconcile, type SetStoreFunction, type Store } from "solid-js/store"
+import LruSet from "../../lib/lru"
+import { dedupeOptions } from "../../config/dedupe-config"
 import type {
   FileDiff,
   Message,
@@ -13,6 +15,18 @@ import type {
 } from "@openhei-ai/sdk/v2/client"
 import type { State, VcsCache } from "./types"
 import { trimSessions } from "./session-trim"
+
+// Dedupe shape used by LruSet-like objects
+type DedupeLike = { has: (k: string) => boolean; add: (k: string) => void }
+
+function isDedupeLike(x: unknown): x is DedupeLike {
+  return !!x && typeof x === "object" && typeof (x as any).has === "function" && typeof (x as any).add === "function"
+}
+
+type TextPart = Part & { type: "text"; text?: string }
+function isTextPart(p: Part | undefined): p is TextPart {
+  return !!p && (p as any).type === "text"
+}
 
 export function applyGlobalEvent(input: {
   event: { type: string; properties?: unknown }
@@ -214,16 +228,17 @@ export function applyDirectoryEvent(input: {
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
         const existing = parts[result.index]
-        input.setStore(
-          "part",
-          part.messageID,
-          result.index,
-          reconcile({
+        // Use typed guard for text parts
+        if (isTextPart(existing) || isTextPart(part)) {
+          const next = {
             ...existing,
             ...part,
-            text: part.text ?? existing.text,
-          }),
-        )
+            text: (isTextPart(part) ? part.text : undefined) ?? (isTextPart(existing) ? existing.text : undefined),
+          } as Part
+          input.setStore("part", part.messageID, result.index, reconcile(next))
+        } else {
+          input.setStore("part", part.messageID, result.index, reconcile({ ...existing, ...part } as Part))
+        }
         break
       }
       input.setStore(
@@ -256,7 +271,6 @@ export function applyDirectoryEvent(input: {
     }
     case "message.part.delta": {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
-      performance.mark(`stream-part-delta-${props.messageID}-${props.partID}`)
       const parts = input.store.part[props.messageID]
       if (!parts) {
         console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
@@ -267,16 +281,43 @@ export function applyDirectoryEvent(input: {
         console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
         break
       }
+
+      // Track applied deltas to prevent duplicates and ensure ordering
+      const deltaKey = `${props.messageID}:${props.partID}:${props.field}`
+
+      // Skip if this exact delta was already applied
+      const deltaHash = `${deltaKey}:${props.delta}`
+      const applied = input.store.appliedDeltas
+      if (applied) {
+        try {
+          // LruSet has has/add; Set has has/add
+          if ((applied as any).has?.(deltaHash)) break
+        } catch (e) {}
+      }
+
       input.setStore(
-        "part",
-        props.messageID,
         produce((draft) => {
-          const part = draft[result.index]
+          const part = draft.part[props.messageID]?.[result.index]
           if (!part) return
-          const field = props.field as keyof typeof part
-          const existing = part[field] as string | undefined
-          const newValue = (existing ?? "") + (props.delta ?? "")
-          ;(part[field] as string) = newValue
+          const field = props.field
+          // Only attempt to append to string fields on text parts
+          if (isTextPart(part) && (field === "text" || typeof (part as any)[field] === "string")) {
+            const existing = (part as any)[field] as string | undefined
+            const newValue = (existing ?? "") + (props.delta ?? "")
+            ;(part as any)[field] = newValue
+          } else {
+            // If field isn't a text-like field, set directly
+            ;(part as any)[field] = ((part as any)[field] ?? "") + (props.delta ?? "")
+          }
+
+          // Ensure appliedDeltas exists and mark this delta as applied on the draft
+          if (!draft.appliedDeltas) draft.appliedDeltas = new LruSet(dedupeOptions())
+          try {
+            const ad = draft.appliedDeltas as any
+            if (ad.add) ad.add(deltaHash)
+          } catch (e) {
+            // ignore
+          }
         }),
       )
       break
