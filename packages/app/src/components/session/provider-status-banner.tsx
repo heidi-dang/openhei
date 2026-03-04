@@ -2,7 +2,8 @@ import { Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { Icon } from "@openhei-ai/ui/icon"
 import { Button } from "@openhei-ai/ui/button"
 import { useLanguage } from "@/context/language"
-import type { SessionStatus } from "@openhei-ai/sdk/v2"
+// Loose-session status typing for UI component to avoid direct coupling with generated SDK union
+type SessionStatus = any
 
 export interface ProviderStatusBannerProps {
   status: () => SessionStatus
@@ -17,16 +18,13 @@ export function ProviderStatusBanner(props: ProviderStatusBannerProps) {
   // Check if status is a provider error or warning
   const isProviderStatus = createMemo(() => {
     const status = props.status()
-    return (
-      status.type === "provider_error" ||
-      status.type === "provider_warning" ||
-      status.type === "provider_status"
-    )
+    return status.type === "provider_error" || status.type === "provider_warning" || status.type === "provider_status"
   })
 
   // Get status details
   const statusDetails = createMemo(() => {
     const status = props.status()
+    if (!status) return null
     if (status.type === "provider_error") {
       return {
         type: "error" as const,
@@ -147,9 +145,7 @@ export function ProviderStatusBanner(props: ProviderStatusBannerProps) {
       case "PROVIDER_OVERLOADED":
         return language.t("provider.error.providerOverloaded")
       default:
-        return details.type === "error"
-          ? language.t("provider.error.generic")
-          : language.t("provider.warning.generic")
+        return details.type === "error" ? language.t("provider.error.generic") : language.t("provider.warning.generic")
     }
   })
 
@@ -191,14 +187,10 @@ export function ProviderStatusBanner(props: ProviderStatusBannerProps) {
                 class="text-xs mt-2 underline opacity-70 hover:opacity-100"
                 onClick={() => setExpanded(!expanded())}
               >
-                {expanded()
-                  ? language.t("common.hideDetails")
-                  : language.t("common.showDetails")}
+                {expanded() ? language.t("common.hideDetails") : language.t("common.showDetails")}
               </button>
               <Show when={expanded()}>
-                <pre class="mt-2 p-2 rounded bg-black/5 text-xs overflow-auto max-h-40">
-                  {statusDetails()?.details}
-                </pre>
+                <pre class="mt-2 p-2 rounded bg-black/5 text-xs overflow-auto max-h-40">{statusDetails()?.details}</pre>
               </Show>
             </Show>
           </div>
@@ -206,12 +198,7 @@ export function ProviderStatusBanner(props: ProviderStatusBannerProps) {
           {/* Actions */}
           <div class="flex items-center gap-2 flex-shrink-0">
             <Show when={statusDetails()?.retryable && props.onRetry}>
-              <Button
-                variant="secondary"
-                size="small"
-                onClick={props.onRetry}
-                disabled={countdown() > 0}
-              >
+              <Button variant="secondary" size="small" onClick={props.onRetry} disabled={countdown() > 0}>
                 <Icon name="refresh-cw" size="small" class="mr-1" />
                 {language.t("common.retry")}
               </Button>

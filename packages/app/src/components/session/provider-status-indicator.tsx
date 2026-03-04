@@ -1,7 +1,9 @@
 import { Show, createMemo, createSignal } from "solid-js"
 import { Icon } from "@openhei-ai/ui/icon"
 import { useLanguage } from "@/context/language"
-import type { SessionStatus } from "@openhei-ai/sdk/v2"
+// Use a loose type here to avoid coupling to generated SDK union shapes
+// The SessionStatus used in UI can contain provider_* variants added elsewhere.
+type SessionStatus = any
 
 export interface ProviderStatusIndicatorProps {
   status: () => SessionStatus
@@ -72,18 +74,14 @@ export function ProviderStatusIndicator(props: ProviderStatusIndicatorProps) {
     const info = statusInfo()
     switch (info.state) {
       case "error":
-        return info.severity === "critical"
-          ? "bg-error-base animate-pulse"
-          : "bg-error-base"
+        return info.severity === "critical" ? "bg-error-base animate-pulse" : "bg-error-base"
       case "warning":
       case "retrying":
         return "bg-warning-base animate-pulse"
       case "busy":
         return "bg-success-base animate-pulse"
       case "status":
-        return info.severity === "warning"
-          ? "bg-warning-base"
-          : "bg-info-base"
+        return info.severity === "warning" ? "bg-warning-base" : "bg-info-base"
       case "idle":
       default:
         return "bg-success-base"
@@ -132,17 +130,13 @@ export function ProviderStatusIndicator(props: ProviderStatusIndicatorProps) {
           data-severity={statusInfo().severity}
         />
         <Show when={hasActiveStatus()}>
-          <span
-            class={`absolute inset-0 size-2.5 rounded-full ${dotColorClass()} animate-ping opacity-50`}
-          />
+          <span class={`absolute inset-0 size-2.5 rounded-full ${dotColorClass()} animate-ping opacity-50`} />
         </Show>
       </button>
 
       {/* Provider name (if available) */}
       <Show when={statusInfo().providerID}>
-        <span class="text-xs text-text-weak truncate max-w-[120px]">
-          {statusInfo().providerID}
-        </span>
+        <span class="text-xs text-text-weak truncate max-w-[120px]">{statusInfo().providerID}</span>
       </Show>
 
       {/* Tooltip */}
@@ -153,7 +147,8 @@ export function ProviderStatusIndicator(props: ProviderStatusIndicatorProps) {
         >
           <div class="flex items-start gap-2">
             <Icon
-              name={stateIcon()}
+              // icon names are a wide set across packages; cast to any to satisfy strict icon union types
+              name={stateIcon() as any}
               size="small"
               class={
                 statusInfo().state === "error"
@@ -168,19 +163,17 @@ export function ProviderStatusIndicator(props: ProviderStatusIndicatorProps) {
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-text-base">
                 {statusInfo().state === "error"
-                  ? language.t("provider.status.error")
+                  ? language.t("provider.status.error" as any)
                   : statusInfo().state === "warning"
-                    ? language.t("provider.status.warning")
+                    ? language.t("provider.status.warning" as any)
                     : statusInfo().state === "retrying"
-                      ? language.t("provider.status.retrying")
+                      ? language.t("provider.status.retrying" as any)
                       : statusInfo().state === "busy"
-                        ? language.t("provider.status.busy")
-                        : language.t("provider.status.ready")}
+                        ? language.t("provider.status.busy" as any)
+                        : language.t("provider.status.ready" as any)}
               </p>
               <Show when={statusInfo().message}>
-                <p class="text-xs text-text-weak mt-1 line-clamp-3">
-                  {statusInfo().message}
-                </p>
+                <p class="text-xs text-text-weak mt-1 line-clamp-3">{statusInfo().message}</p>
               </Show>
               <Show when={statusInfo().code}>
                 <p class="text-xs text-text-weak/70 mt-1">

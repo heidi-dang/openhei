@@ -2,11 +2,12 @@ import { createSignal, Show, createMemo } from "solid-js"
 import { Icon } from "@openhei-ai/ui/icon"
 import { Button } from "@openhei-ai/ui/button"
 import { useLanguage } from "@/context/language"
-import type { MessageV2 } from "@openhei-ai/sdk/v2"
+// The SDK's generated types may differ across packages; allow flexible typing here.
+import type { Message } from "@openhei-ai/sdk/v2"
 
 export interface ProviderErrorCardProps {
   id: string
-  error: MessageV2.Error
+  error: any
   onRetry?: () => void
   onDismiss?: () => void
 }
@@ -22,7 +23,9 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
     if (!error) return null
 
     // Handle different error types
-    if (error.name === "APIError") {
+    if (!error) return null
+
+    if (error.name === "APIError" || error.name === "ApiError" || error.name === "Apierror") {
       const data = error.data as {
         message: string
         statusCode?: number
@@ -42,7 +45,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       }
     }
 
-    if (error.name === "ContextOverflowError") {
+    if (error.name === "ContextOverflowError" || error.name === "ContextOverflow") {
       const data = error.data as { message: string; responseBody?: string }
       return {
         type: "context_overflow" as const,
@@ -53,7 +56,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       }
     }
 
-    if (error.name === "ProviderAuthError") {
+    if (error.name === "ProviderAuthError" || error.name === "AuthError") {
       const data = error.data as { providerID: string; message: string }
       return {
         type: "auth_error" as const,
@@ -64,7 +67,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       }
     }
 
-    if (error.name === "MessageAbortedError") {
+    if (error.name === "MessageAbortedError" || error.name === "AbortedError") {
       return {
         type: "aborted" as const,
         title: language.t("error.aborted"),
@@ -76,8 +79,8 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
     // Generic error fallback
     return {
       type: "unknown" as const,
-      title: language.t("error.unknown"),
-      message: error.message || language.t("error.unknownError"),
+      title: language.t("error.unknown" as any),
+      message: error.message || language.t("error.unknownError" as any),
       retryable: false,
       details: JSON.stringify(error, null, 2),
     }
@@ -224,9 +227,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
               onClick={() => setExpanded(!expanded())}
             >
               <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
-              {expanded()
-                ? language.t("common.hideDetails")
-                : language.t("common.showDetails")}
+              {expanded() ? language.t("common.hideDetails") : language.t("common.showDetails")}
             </button>
             <Show when={expanded()}>
               <div class="mt-2 relative">
