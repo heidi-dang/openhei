@@ -35,7 +35,10 @@ import type {
   FindSymbolsResponses,
   FindTextResponses,
   FormatterStatusResponses,
+  GlobalConfigFilePutResponses,
+  GlobalConfigFileResponses,
   GlobalConfigGetResponses,
+  GlobalConfigTranslateResponses,
   GlobalConfigUpdateErrors,
   GlobalConfigUpdateResponses,
   GlobalDebugResponses,
@@ -100,8 +103,11 @@ import type {
   QloraBaseModelsResponses,
   QloraDoctorResponses,
   QloraGetConfigResponses,
+  QloraGetPidsResponses,
   QloraGetStacksResponses,
   QloraInstallResponses,
+  QloraKillErrors,
+  QloraKillResponses,
   QloraLogsResponses,
   QloraPutConfigErrors,
   QloraPutConfigResponses,
@@ -154,6 +160,8 @@ import type {
   SessionStatusResponses,
   SessionSummarizeErrors,
   SessionSummarizeResponses,
+  SessionSwarmConsentErrors,
+  SessionSwarmConsentResponses,
   SessionTodoErrors,
   SessionTodoResponses,
   SessionUnrevertErrors,
@@ -316,6 +324,43 @@ export class Update extends HeyApiClient {
   }
 }
 
+export class ConfigFile extends HeyApiClient {
+  /**
+   * Update openhei.conf
+   *
+   * Write the global openhei.conf file atomically.
+   */
+  public put<ThrowOnError extends boolean = false>(
+    parameters?: {
+      text?: string
+      expectedMtime?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "text" },
+            { in: "body", key: "expectedMtime" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<GlobalConfigFilePutResponses, unknown, ThrowOnError>({
+      url: "/global/config-file",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Global extends HeyApiClient {
   /**
    * Get health
@@ -365,6 +410,53 @@ export class Global extends HeyApiClient {
     })
   }
 
+  /**
+   * Get openhei.conf content
+   *
+   * Get the global openhei.conf file content with metadata.
+   */
+  public configFile<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<GlobalConfigFileResponses, unknown, ThrowOnError>({
+      url: "/global/config-file",
+      ...options,
+    })
+  }
+
+  /**
+   * Translate human language to JSON config
+   *
+   * Generate JSON config changes from plain language requests.
+   */
+  public configTranslate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      currentText?: string
+      requestText?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "currentText" },
+            { in: "body", key: "requestText" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GlobalConfigTranslateResponses, unknown, ThrowOnError>({
+      url: "/global/config-translate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
   private _config?: Config
   get config(): Config {
     return (this._config ??= new Config({ client: this.client }))
@@ -373,6 +465,11 @@ export class Global extends HeyApiClient {
   private _update?: Update
   get update(): Update {
     return (this._update ??= new Update({ client: this.client }))
+  }
+
+  private _configFile?: ConfigFile
+  get configFile2(): ConfigFile {
+    return (this._configFile ??= new ConfigFile({ client: this.client }))
   }
 }
 
@@ -1046,6 +1143,49 @@ export class Experimental extends HeyApiClient {
   private _resource?: Resource
   get resource(): Resource {
     return (this._resource ??= new Resource({ client: this.client }))
+  }
+}
+
+export class Swarm extends HeyApiClient {
+  /**
+   * Respond to swarm consent request
+   *
+   * Accept or deny a sub-agent spawn request from the main agent.
+   */
+  public consent<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      swarm_id?: string
+      accept?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "body", key: "swarm_id" },
+            { in: "body", key: "accept" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<SessionSwarmConsentResponses, SessionSwarmConsentErrors, ThrowOnError>(
+      {
+        url: "/session/{sessionID}/swarm/consent",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
   }
 }
 
@@ -1930,6 +2070,11 @@ export class Session2 extends HeyApiClient {
       ...params,
     })
   }
+
+  private _swarm?: Swarm
+  get swarm(): Swarm {
+    return (this._swarm ??= new Swarm({ client: this.client }))
+  }
 }
 
 export class Part extends HeyApiClient {
@@ -2206,6 +2351,7 @@ export class Runs extends HeyApiClient {
       directory?: string
       replay?: boolean
       limit?: number
+      cursor?: number
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -2218,6 +2364,7 @@ export class Runs extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "replay" },
             { in: "query", key: "limit" },
+            { in: "query", key: "cursor" },
           ],
         },
       ],
@@ -2708,6 +2855,58 @@ export class Qlora extends HeyApiClient {
       url: "/api/v1/qlora/logs",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * List QLoRA processes
+   */
+  public getPids<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<QloraGetPidsResponses, unknown, ThrowOnError>({
+      url: "/api/v1/qlora/pids",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Kill a QLoRA process
+   */
+  public kill<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      pid?: number
+      signal?: "SIGTERM" | "SIGKILL"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "pid" },
+            { in: "body", key: "signal" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<QloraKillResponses, QloraKillErrors, ThrowOnError>({
+      url: "/api/v1/qlora/kill",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 }

@@ -600,12 +600,47 @@ export type SessionStatus =
       message?: string
     }
   | {
-      type: "replay"
-      message?: string
+      type: "provider_error"
+      severity: "error" | "critical"
+      code:
+        | "AUTH_FAILED"
+        | "QUOTA_EXCEEDED"
+        | "RATE_LIMITED"
+        | "CONTEXT_OVERFLOW"
+        | "MODEL_UNAVAILABLE"
+        | "NETWORK_ERROR"
+        | "TIMEOUT"
+        | "INVALID_REQUEST"
+        | "SERVER_ERROR"
+        | "PROVIDER_OVERLOADED"
+        | "UNKNOWN_ERROR"
+        | "TOOL_NOT_SUPPORTED"
+        | "BILLING_ERROR"
+      message: string
+      details?: string
+      providerID: string
+      retryable: boolean
+      timestamp: number
+      retryAttempt?: number
+      nextRetryAt?: number
     }
   | {
-      type: "resync_required"
-      message?: string
+      type: "provider_warning"
+      code: "RATE_LIMITED" | "NETWORK_ERROR" | "TIMEOUT" | "PROVIDER_OVERLOADED" | "MODEL_UNAVAILABLE"
+      message: string
+      details?: string
+      providerID: string
+      timestamp: number
+    }
+  | {
+      type: "provider_status"
+      severity: "info" | "warning"
+      code: "RATE_LIMITED" | "NETWORK_ERROR" | "TIMEOUT" | "PROVIDER_OVERLOADED" | "MODEL_UNAVAILABLE"
+      message: string
+      details?: string
+      providerID: string
+      retryable: boolean
+      timestamp: number
     }
 
 export type EventSessionStatus = {
@@ -620,6 +655,32 @@ export type EventSessionIdle = {
   type: "session.idle"
   properties: {
     sessionID: string
+  }
+}
+
+export type EventSessionProviderStatus = {
+  type: "session.provider_status"
+  properties: {
+    sessionID: string
+    status:
+      | {
+          type: "provider_error"
+          severity: "error" | "critical"
+          code: string
+          message: string
+          details?: string
+          providerID: string
+          retryable: boolean
+          timestamp: number
+        }
+      | {
+          type: "provider_warning"
+          code: string
+          message: string
+          details?: string
+          providerID: string
+          timestamp: number
+        }
   }
 }
 
@@ -977,6 +1038,7 @@ export type Event =
   | EventPermissionReplied
   | EventSessionStatus
   | EventSessionIdle
+  | EventSessionProviderStatus
   | EventQuestionAsked
   | EventQuestionReplied
   | EventQuestionRejected
@@ -1679,11 +1741,6 @@ export type McpRemoteConfig = {
   timeout?: number
 }
 
-/**
- * @deprecated Always uses stretch layout.
- */
-export type LayoutConfig = "auto" | "stretch"
-
 export type Config = {
   /**
    * JSON schema reference for configuration validation
@@ -1747,7 +1804,30 @@ export type Config = {
     ignore?: Array<string>
   }
   plugin?: Array<string>
+  instructions?: Array<string>
+  permission?: PermissionConfig
+  compaction?: {
+    [key: string]: unknown
+  }
+  /**
+   * @deprecated Use 'permission' field instead
+   */
+  tools?: {
+    [key: string]: boolean
+  }
   snapshot?: boolean
+  experimental?: {
+    [key: string]: unknown
+  }
+  formatter?: {
+    [key: string]: unknown
+  }
+  lsp?: {
+    [key: string]: unknown
+  }
+  enterprise?: {
+    [key: string]: unknown
+  }
   /**
    * Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing
    */
@@ -1793,6 +1873,10 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
+   * Control whether the system uses tool execution or simple chat mode. 'tool_execution' enables tool calls and file operations, 'simple_chat' provides a conversational experience without tool execution.
+   */
+  chat_mode?: "tool_execution" | "simple_chat"
+  /**
    * Agent configuration, see https://openhei.ai/docs/agents
    */
   agent?: {
@@ -1806,104 +1890,37 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Custom provider configurations and model overrides
+   * Provider configuration
    */
   provider?: {
     [key: string]: ProviderConfig
   }
   /**
-   * MCP (Model Context Protocol) server configurations
+   * MCP configuration
    */
   mcp?: {
-    [key: string]:
-      | McpLocalConfig
-      | McpRemoteConfig
-      | {
-          enabled: boolean
-        }
+    [key: string]: McpLocalConfig | McpRemoteConfig
   }
-  formatter?:
-    | false
-    | {
-        [key: string]: {
-          disabled?: boolean
-          command?: Array<string>
-          environment?: {
-            [key: string]: string
-          }
-          extensions?: Array<string>
-        }
-      }
-  lsp?:
-    | false
-    | {
-        [key: string]:
-          | {
-              disabled: true
-            }
-          | {
-              command: Array<string>
-              extensions?: Array<string>
-              disabled?: boolean
-              env?: {
-                [key: string]: string
-              }
-              initialization?: {
-                [key: string]: unknown
-              }
-            }
-      }
   /**
-   * Additional instruction files or patterns to include
+   * Swarm Mode configuration
    */
-  instructions?: Array<string>
-  layout?: LayoutConfig
-  permission?: PermissionConfig
-  tools?: {
-    [key: string]: boolean
-  }
-  enterprise?: {
+  swarm?: {
     /**
-     * Enterprise URL
+     * Enable Swarm Mode for concurrent sub-agent execution
      */
-    url?: string
-  }
-  compaction?: {
+    enabled?: boolean
     /**
-     * Enable automatic compaction when context is full (default: true)
+     * Maximum number of sub-agents (hard cap: 2)
      */
-    auto?: boolean
+    max_subagents?: number
     /**
-     * Enable pruning of old tool outputs (default: true)
+     * Maximum concurrent tool executors (hard cap: 3)
      */
-    prune?: boolean
+    max_parallel_executors?: number
     /**
-     * Token buffer for compaction. Leaves enough window to avoid overflow during compaction.
+     * Model identifiers for sub-agents [slot1, slot2]
      */
-    reserved?: number
-  }
-  experimental?: {
-    disable_paste_summary?: boolean
-    /**
-     * Enable the batch tool
-     */
-    batch_tool?: boolean
-    /**
-     * Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)
-     */
-    openTelemetry?: boolean
-    /**
-     * Tools that should only be available to primary agents.
-     */
-    primary_tools?: Array<string>
-    /**
-     * Continue the agent loop when a tool call is denied
-     */
-    continue_loop_on_deny?: boolean
-    /**
-     * Timeout in milliseconds for model context protocol (MCP) requests
-     */
-    mcp_timeout?: number
+    subagent_models?: Array<string>
   }
 }
 
@@ -2486,6 +2503,71 @@ export type GlobalDebugResponses = {
 }
 
 export type GlobalDebugResponse = GlobalDebugResponses[keyof GlobalDebugResponses]
+
+export type GlobalConfigFileData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/global/config-file"
+}
+
+export type GlobalConfigFileResponses = {
+  /**
+   * Config file content and metadata
+   */
+  200: {
+    path: string
+    text: string
+    mtime: number
+    exists: boolean
+  }
+}
+
+export type GlobalConfigFileResponse = GlobalConfigFileResponses[keyof GlobalConfigFileResponses]
+
+export type GlobalConfigFilePutData = {
+  body?: {
+    text: string
+    expectedMtime?: number
+  }
+  path?: never
+  query?: never
+  url: "/global/config-file"
+}
+
+export type GlobalConfigFilePutResponses = {
+  /**
+   * Config file updated
+   */
+  200: {
+    success: boolean
+    mtime: number
+  }
+}
+
+export type GlobalConfigFilePutResponse = GlobalConfigFilePutResponses[keyof GlobalConfigFilePutResponses]
+
+export type GlobalConfigTranslateData = {
+  body?: {
+    currentText: string
+    requestText: string
+  }
+  path?: never
+  query?: never
+  url: "/global/config-translate"
+}
+
+export type GlobalConfigTranslateResponses = {
+  /**
+   * Proposed config text
+   */
+  200: {
+    proposedText: string
+    warnings?: Array<string>
+  }
+}
+
+export type GlobalConfigTranslateResponse = GlobalConfigTranslateResponses[keyof GlobalConfigTranslateResponses]
 
 export type AuthRemoveData = {
   body?: never
@@ -4103,6 +4185,42 @@ export type PermissionRespondResponses = {
 
 export type PermissionRespondResponse = PermissionRespondResponses[keyof PermissionRespondResponses]
 
+export type SessionSwarmConsentData = {
+  body?: {
+    swarm_id: string
+    accept: boolean
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/session/{sessionID}/swarm/consent"
+}
+
+export type SessionSwarmConsentErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionSwarmConsentError = SessionSwarmConsentErrors[keyof SessionSwarmConsentErrors]
+
+export type SessionSwarmConsentResponses = {
+  /**
+   * Consent processed
+   */
+  200: boolean
+}
+
+export type SessionSwarmConsentResponse = SessionSwarmConsentResponses[keyof SessionSwarmConsentResponses]
+
 export type PermissionReplyData = {
   body?: {
     reply: "once" | "always" | "reject"
@@ -4255,6 +4373,7 @@ export type RunsEventsData = {
     directory?: string
     replay?: boolean
     limit?: number
+    cursor?: number
   }
   url: "/runs/{runId}/events"
 }
@@ -4882,6 +5001,76 @@ export type QloraLogsResponses = {
    */
   200: unknown
 }
+
+export type QloraGetPidsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/pids"
+}
+
+export type QloraGetPidsResponses = {
+  /**
+   * Process list
+   */
+  200: {
+    processes: Array<{
+      pid: number
+      ppid: number
+      cmd: string
+      cwd?: string
+      user: string
+      started_at: string
+      tag: "qlora" | "child"
+    }>
+  }
+}
+
+export type QloraGetPidsResponse = QloraGetPidsResponses[keyof QloraGetPidsResponses]
+
+export type QloraKillData = {
+  body?: {
+    pid: number
+    signal?: "SIGTERM" | "SIGKILL"
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/api/v1/qlora/kill"
+}
+
+export type QloraKillErrors = {
+  /**
+   * Invalid request
+   */
+  400: {
+    error: string
+  }
+  /**
+   * Not eligible for kill
+   */
+  403: {
+    error: string
+  }
+}
+
+export type QloraKillError = QloraKillErrors[keyof QloraKillErrors]
+
+export type QloraKillResponses = {
+  /**
+   * Kill result
+   */
+  200: {
+    ok: boolean
+    message: string
+    used_signal?: "SIGTERM" | "SIGKILL"
+  }
+}
+
+export type QloraKillResponse = QloraKillResponses[keyof QloraKillResponses]
 
 export type FindTextData = {
   body?: never
