@@ -24,14 +24,23 @@ function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
 }
 
-export const EditTool = Tool.define("edit", {
+const parameters = z.object({
+  filePath: z.string().describe("The absolute path to the file to modify"),
+  oldString: z.string().describe("The text to replace"),
+  newString: z.string().describe("The text to replace it with (must be different from oldString)"),
+  replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
+})
+
+type EditMetadata = {
+  diff?: string
+  filediff?: any
+  diagnostics?: Record<string, any>
+  [key: string]: any
+}
+
+export const EditTool = Tool.define<typeof parameters, EditMetadata>("edit", {
   description: DESCRIPTION,
-  parameters: z.object({
-    filePath: z.string().describe("The absolute path to the file to modify"),
-    oldString: z.string().describe("The text to replace"),
-    newString: z.string().describe("The text to replace it with (must be different from oldString)"),
-    replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
-  }),
+  parameters,
   async execute(params, ctx) {
     if (!params.filePath) {
       throw new Error("filePath is required")

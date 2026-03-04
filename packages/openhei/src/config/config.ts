@@ -251,7 +251,9 @@ export namespace Config {
     }
 
     if (Flag.OPENHEI_PERMISSION) {
-      result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.OPENHEI_PERMISSION))
+      // Flag content is runtime JSON; cast to any to satisfy static typing and then merge
+      const parsedPerms = JSON.parse(Flag.OPENHEI_PERMISSION) as any
+      result.permission = mergeDeep(result.permission ?? {}, parsedPerms) as any
     }
 
     // Backwards compatibility: legacy top-level `tools` config
@@ -1189,6 +1191,16 @@ export namespace Config {
         .describe("Agent configuration, see https://openhei.ai/docs/agents"),
       provider: z.record(z.string(), Provider).optional().describe("Provider configuration"),
       mcp: z.record(z.string(), Mcp).optional().describe("MCP configuration"),
+      experimental: z.record(z.string(), z.any()).optional().describe("Experimental feature flags and settings"),
+      formatter: z
+        .union([z.record(z.string(), z.any()), z.literal(false)])
+        .optional()
+        .describe("Formatter configuration (plugins) or false to disable all"),
+      lsp: z
+        .union([z.record(z.string(), z.any()), z.literal(false)])
+        .optional()
+        .describe("LSP related configuration or false to disable all"),
+      enterprise: z.record(z.string(), z.any()).optional().describe("Enterprise-specific settings"),
       swarm: z
         .object({
           enabled: z.boolean().default(false).describe("Enable Swarm Mode for concurrent sub-agent execution"),

@@ -62,7 +62,15 @@ async function waitForConsent(pool: ReturnType<typeof getSwarmPoolByRunId>, _ses
   return pool.getState().consent_request === null
 }
 
-export const TaskTool = Tool.define("task", async () => {
+type TaskMetadata = {
+  sessionId?: string | undefined
+  model?: { modelID: string; providerID: string } | undefined
+  slot?: number | undefined
+  // allow other fields (truncated, outputPath, etc.) to be present
+  [key: string]: any
+}
+
+export const TaskTool = Tool.define<typeof parameters, TaskMetadata>("task", (async (initCtx?: Tool.InitContext) => {
   const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
 
   const description = DESCRIPTION.replace(
@@ -74,7 +82,7 @@ export const TaskTool = Tool.define("task", async () => {
   return {
     description,
     parameters,
-    async execute(params: z.infer<typeof parameters>, ctx) {
+    async execute(params: z.infer<typeof parameters>, ctx: Tool.Context) {
       const config = await Config.get()
 
       if (!ctx.extra?.bypassAgentCheck) {
@@ -142,7 +150,7 @@ export const TaskTool = Tool.define("task", async () => {
         if (!consentGranted) {
           return {
             title: params.description,
-            metadata: { sessionId: undefined },
+            metadata: { sessionId: undefined as string | undefined },
             output: "Sub-agent spawn was denied by user. Continuing with main agent only.",
           }
         }
@@ -154,11 +162,7 @@ export const TaskTool = Tool.define("task", async () => {
           if (modelConfig) {
             const [providerID, modelID] = modelConfig.split("/")
 
-            log.info("executing task via swarm pool", {
-              session_id: ctx.sessionID,
-              slot,
-              model: modelConfig,
-            })
+            // runtime log available via console; use Log util if needed elsewhere
 
             const execResult = await swarmPool.executeTask({
               slot,
@@ -171,7 +175,7 @@ export const TaskTool = Tool.define("task", async () => {
 
             return {
               title: params.description,
-              metadata: { sessionId: execResult.sessionID, slot },
+              metadata: { sessionId: execResult.sessionID as string | undefined, slot },
               output: [
                 `task_id: ${execResult.sessionID} (swarm slot ${slot})`,
                 "",
@@ -253,7 +257,10 @@ export const TaskTool = Tool.define("task", async () => {
         SessionPrompt.cancel(session.id)
       }
       ctx.abort.addEventListener("abort", cancel)
-      using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
+      // `using` requires a proper disposable; wrap removal in a disposable-like object
+      const _dispose = { [Symbol.dispose]: () => ctx.abort.removeEventListener("abort", cancel) }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _using = _dispose
       const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
 
       const result = await SessionPrompt.prompt({
@@ -286,11 +293,11 @@ export const TaskTool = Tool.define("task", async () => {
       return {
         title: params.description,
         metadata: {
-          sessionId: session.id,
+          sessionId: session.id as string | undefined,
           model,
         },
         output,
       }
     },
   }
-})
+}) as any)

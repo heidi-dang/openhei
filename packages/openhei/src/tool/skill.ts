@@ -7,7 +7,16 @@ import { PermissionNext } from "../permission/next"
 import { Ripgrep } from "../file/ripgrep"
 import { iife } from "@/util/iife"
 
-export const SkillTool = Tool.define("skill", async (ctx) => {
+const parameters = z.object({
+  name: z.string().describe("The name of the skill from available_skills"),
+})
+
+type SkillMetadata = {
+  name: string
+  dir: string
+}
+
+export const SkillTool = Tool.define<typeof parameters, SkillMetadata>("skill", async (ctx) => {
   const skills = await Skill.all()
 
   // Filter skills by agent permissions if agent provided
@@ -51,9 +60,8 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
     .join(", ")
   const hint = examples.length > 0 ? ` (e.g., ${examples}, ...)` : ""
 
-  const parameters = z.object({
-    name: z.string().describe(`The name of the skill from available_skills${hint}`),
-  })
+  // use top-level `parameters`; update description to include hint
+  const parametersWithHint = parameters.describe(parameters.shape.name.description + (hint || ""))
 
   return {
     description,

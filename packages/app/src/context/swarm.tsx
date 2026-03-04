@@ -45,14 +45,17 @@ export const { use: useSwarm, provider: SwarmProvider } = createSimpleContext({
       const event = e.details
       if (!event) return
 
-      if (event.type === "swarm.started") {
+      // event may be a wide union type from the global SDK; narrow via `any` for swarm-specific events
+      const ev = event as any
+
+      if (ev.type === "swarm.started") {
         setStore(
           produce((s) => {
             s.active = true
-            s.swarm_id = event.properties.swarm_id
+            s.swarm_id = ev.properties?.swarm_id ?? null
           }),
         )
-      } else if (event.type === "swarm.ended") {
+      } else if (ev.type === "swarm.ended") {
         setStore(
           produce((s) => {
             s.active = false
@@ -60,35 +63,37 @@ export const { use: useSwarm, provider: SwarmProvider } = createSimpleContext({
             s.consent_request = null
           }),
         )
-      } else if (event.type === "swarm.consent_required") {
+      } else if (ev.type === "swarm.consent_required") {
+        const p = ev.properties ?? {}
         setStore(
           produce((s) => {
             s.consent_request = {
-              swarm_id: event.properties.swarm_id,
-              session_id: event.properties.session_id,
-              reason: event.properties.reason,
-              planned_tasks: event.properties.planned_tasks,
-              models: event.properties.models,
+              swarm_id: p.swarm_id,
+              session_id: p.session_id,
+              reason: p.reason,
+              planned_tasks: p.planned_tasks,
+              models: p.models,
             }
           }),
         )
-      } else if (event.type === "swarm.consent_granted" || event.type === "swarm.consent_denied") {
+      } else if (ev.type === "swarm.consent_granted" || ev.type === "swarm.consent_denied") {
         setStore(
           produce((s) => {
             s.consent_request = null
           }),
         )
-      } else if (event.type === "swarm.slot_status") {
-        const slot = event.properties.slot
+      } else if (ev.type === "swarm.slot_status") {
+        const slot = ev.properties?.slot
         if (slot) {
+          const p = ev.properties ?? {}
           setStore(
             produce((s) => {
               s.slots[slot - 1] = {
                 slot: slot as 1 | 2,
-                status: event.properties.status,
-                session_id: event.properties.session_id,
-                model: event.properties.model,
-                phase: event.properties.phase,
+                status: p.status,
+                session_id: p.session_id,
+                model: p.model,
+                phase: p.phase,
               }
             }),
           )

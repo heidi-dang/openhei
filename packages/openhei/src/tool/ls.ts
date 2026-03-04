@@ -2,6 +2,16 @@ import z from "zod"
 import { Tool } from "./tool"
 import * as path from "path"
 import DESCRIPTION from "./ls.txt"
+const parameters = z.object({
+  path: z.string().describe("The absolute path to the directory to list (must be absolute, not relative)").optional(),
+  ignore: z.array(z.string()).describe("List of glob patterns to ignore").optional(),
+})
+
+type ListMetadata = {
+  count?: number
+  truncated?: boolean
+  [key: string]: any
+}
 import { Instance } from "../project/instance"
 import { Ripgrep } from "../file/ripgrep"
 import { assertExternalDirectory } from "./external-directory"
@@ -35,12 +45,9 @@ export const IGNORE_PATTERNS = [
 
 const LIMIT = 100
 
-export const ListTool = Tool.define("list", {
+export const ListTool = Tool.define<typeof parameters, ListMetadata>("list", {
   description: DESCRIPTION,
-  parameters: z.object({
-    path: z.string().describe("The absolute path to the directory to list (must be absolute, not relative)").optional(),
-    ignore: z.array(z.string()).describe("List of glob patterns to ignore").optional(),
-  }),
+  parameters,
   async execute(params, ctx) {
     const searchPath = path.resolve(Instance.directory, params.path || ".")
     await assertExternalDirectory(ctx, searchPath, { kind: "directory" })

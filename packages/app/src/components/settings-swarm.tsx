@@ -1,4 +1,4 @@
-import { Component, createSignal, createEffect, For, Show } from "solid-js"
+import { Component, createSignal, createEffect, For, Show, createMemo } from "solid-js"
 import { Button } from "@openhei-ai/ui/button"
 import { Switch } from "@openhei-ai/ui/switch"
 import { Select } from "@openhei-ai/ui/select"
@@ -39,26 +39,38 @@ export const SettingsSwarm: Component = () => {
   const [subagent2Model, setSubagent2Model] = createSignal<string>("")
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
+  const [configLoaded, setConfigLoaded] = createSignal(false)
 
-  const modelOptions = () => {
-    return models.list().map((m) => ({
+  // Memoized model options to prevent unnecessary recalculations
+  const modelOptions = createMemo(() => {
+    const list = models.list()
+    if (!list || list.length === 0) return []
+    return list.map((m) => ({
       value: `${m.provider.id}/${m.id}`,
       label: `${m.provider.name}/${m.name}`,
     }))
-  }
+  })
 
-  createEffect(async () => {
-    const config = await fetchSwarmConfig()
-    if (config) {
-      setEnabled(config.enabled)
-      if (config.subagent_models && config.subagent_models.length > 0) {
-        setSubagent1Model(config.subagent_models[0] || "")
+  // Check if models are available
+  const hasModels = createMemo(() => modelOptions().length > 0)
+
+  // Load config effect
+  createEffect(() => {
+    const loadConfig = async () => {
+      const config = await fetchSwarmConfig()
+      if (config) {
+        setEnabled(config.enabled)
+        if (config.subagent_models && config.subagent_models.length > 0) {
+          setSubagent1Model(config.subagent_models[0] || "")
+        }
+        if (config.subagent_models && config.subagent_models.length > 1) {
+          setSubagent2Model(config.subagent_models[1] || "")
+        }
       }
-      if (config.subagent_models && config.subagent_models.length > 1) {
-        setSubagent2Model(config.subagent_models[1] || "")
-      }
+      setConfigLoaded(true)
+      setLoading(false)
     }
-    setLoading(false)
+    void loadConfig()
   })
 
   const handleSave = async () => {
@@ -110,12 +122,25 @@ export const SettingsSwarm: Component = () => {
                   <span class="text-12-regular text-text-weak">
                     {language.t("settings.swarm.subagent1.description")}
                   </span>
-                  <Select
-                    value={subagent1Model()}
-                    onChange={setSubagent1Model}
-                    options={modelOptions()}
-                    placeholder={language.t("settings.swarm.select.model")}
-                  />
+                  <Show
+                    when={hasModels()}
+                    fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
+                  >
+                    <Show
+                      when={hasModels()}
+                      fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
+                    >
+                      <Select
+                        current={modelOptions().find((o) => o.value === subagent1Model())}
+                        onSelect={(v) => setSubagent1Model(v ? v.value : "")}
+                        options={modelOptions()}
+                        value={(x) => x.value}
+                        label={(x) => x.label}
+                        placeholder={language.t("settings.swarm.select.model")}
+                        disabled={!hasModels()}
+                      />
+                    </Show>
+                  </Show>
                 </div>
 
                 <div class="flex flex-col gap-2">
@@ -123,12 +148,20 @@ export const SettingsSwarm: Component = () => {
                   <span class="text-12-regular text-text-weak">
                     {language.t("settings.swarm.subagent2.description")}
                   </span>
-                  <Select
-                    value={subagent2Model()}
-                    onChange={setSubagent2Model}
-                    options={modelOptions()}
-                    placeholder={language.t("settings.swarm.select.model")}
-                  />
+                  <Show
+                    when={hasModels()}
+                    fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
+                  >
+                    <Select
+                      current={modelOptions().find((o) => o.value === subagent2Model())}
+                      onSelect={(v) => setSubagent2Model(v ? v.value : "")}
+                      options={modelOptions()}
+                      value={(x) => x.value}
+                      label={(x) => x.label}
+                      placeholder={language.t("settings.swarm.select.model")}
+                      disabled={!hasModels()}
+                    />
+                  </Show>
                 </div>
 
                 <div class="flex items-center gap-2 p-3 rounded-lg bg-surface-base">

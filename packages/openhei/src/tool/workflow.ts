@@ -14,6 +14,8 @@ const params = z.object({
   text: z.string().optional().describe("Optional text to derive slug from (init only)"),
 })
 
+type WorkflowMetadata = Record<string, unknown>
+
 function slug(text: string) {
   const words = text
     .toLowerCase()
@@ -35,7 +37,7 @@ function lastUser(ctx: Tool.Context) {
   return text && text.length ? text : undefined
 }
 
-export const WorkflowTool = Tool.define("workflow", {
+export const WorkflowTool = Tool.define<typeof params, WorkflowMetadata>("workflow", {
   description: DESCRIPTION,
   parameters: params,
   async execute(input, ctx) {

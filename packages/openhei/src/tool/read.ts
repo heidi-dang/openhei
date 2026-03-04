@@ -18,13 +18,22 @@ const MAX_LINE_SUFFIX = `... (line truncated to ${MAX_LINE_LENGTH} chars)`
 const MAX_BYTES = 50 * 1024
 const MAX_BYTES_LABEL = `${MAX_BYTES / 1024} KB`
 
-export const ReadTool = Tool.define("read", {
+const parameters = z.object({
+  filePath: z.string().describe("The absolute path to the file or directory to read"),
+  offset: z.coerce.number().describe("The line number to start reading from (1-indexed)").optional(),
+  limit: z.coerce.number().describe("The maximum number of lines to read (defaults to 2000)").optional(),
+})
+
+type ReadMetadata = {
+  preview?: string
+  truncated?: boolean
+  loaded?: string[]
+  [key: string]: any
+}
+
+export const ReadTool = Tool.define<typeof parameters, ReadMetadata>("read", {
   description: DESCRIPTION,
-  parameters: z.object({
-    filePath: z.string().describe("The absolute path to the file or directory to read"),
-    offset: z.coerce.number().describe("The line number to start reading from (1-indexed)").optional(),
-    limit: z.coerce.number().describe("The maximum number of lines to read (defaults to 2000)").optional(),
-  }),
+  parameters,
   async execute(params, ctx) {
     if (params.offset !== undefined && params.offset < 1) {
       throw new Error("offset must be greater than or equal to 1")

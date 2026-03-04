@@ -3,11 +3,17 @@ import { Tool } from "./tool"
 import DESCRIPTION_WRITE from "./todowrite.txt"
 import { Todo } from "../session/todo"
 
-export const TodoWriteTool = Tool.define("todowrite", {
+const parameters = z.object({
+  todos: z.array(z.object(Todo.Info.shape)).describe("The updated todo list"),
+})
+
+type TodoMetadata = {
+  todos: unknown[]
+}
+
+export const TodoWriteTool = Tool.define<typeof parameters, TodoMetadata>("todowrite", {
   description: DESCRIPTION_WRITE,
-  parameters: z.object({
-    todos: z.array(z.object(Todo.Info.shape)).describe("The updated todo list"),
-  }),
+  parameters,
   async execute(params, ctx) {
     await ctx.ask({
       permission: "todowrite",

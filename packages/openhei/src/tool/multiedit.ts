@@ -5,21 +5,28 @@ import DESCRIPTION from "./multiedit.txt"
 import path from "path"
 import { Instance } from "../project/instance"
 
-export const MultiEditTool = Tool.define("multiedit", {
+const parameters = z.object({
+  filePath: z.string().describe("The absolute path to the file to modify"),
+  edits: z
+    .array(
+      z.object({
+        filePath: z.string().describe("The absolute path to the file to modify"),
+        oldString: z.string().describe("The text to replace"),
+        newString: z.string().describe("The text to replace it with (must be different from oldString)"),
+        replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
+      }),
+    )
+    .describe("Array of edit operations to perform sequentially on the file"),
+})
+
+type MultiEditMetadata = {
+  results?: any[]
+  [key: string]: any
+}
+
+export const MultiEditTool = Tool.define<typeof parameters, MultiEditMetadata>("multiedit", {
   description: DESCRIPTION,
-  parameters: z.object({
-    filePath: z.string().describe("The absolute path to the file to modify"),
-    edits: z
-      .array(
-        z.object({
-          filePath: z.string().describe("The absolute path to the file to modify"),
-          oldString: z.string().describe("The text to replace"),
-          newString: z.string().describe("The text to replace it with (must be different from oldString)"),
-          replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
-        }),
-      )
-      .describe("Array of edit operations to perform sequentially on the file"),
-  }),
+  parameters,
   async execute(params, ctx) {
     const tool = await EditTool.init()
     const results = []

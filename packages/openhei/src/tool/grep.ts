@@ -4,19 +4,26 @@ import { Filesystem } from "../util/filesystem"
 import { Ripgrep } from "../file/ripgrep"
 
 import DESCRIPTION from "./grep.txt"
+const parameters = z.object({
+  pattern: z.string().describe("The regex pattern to search for in file contents"),
+  path: z.string().optional().describe("The directory to search in. Defaults to the current working directory."),
+  include: z.string().optional().describe('File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")'),
+})
+
+type GrepMetadata = {
+  matches?: number
+  truncated?: boolean
+  [key: string]: any
+}
 import { Instance } from "../project/instance"
 import path from "path"
 import { assertExternalDirectory } from "./external-directory"
 
 const MAX_LINE_LENGTH = 2000
 
-export const GrepTool = Tool.define("grep", {
+export const GrepTool = Tool.define<typeof parameters, GrepMetadata>("grep", {
   description: DESCRIPTION,
-  parameters: z.object({
-    pattern: z.string().describe("The regex pattern to search for in file contents"),
-    path: z.string().optional().describe("The directory to search in. Defaults to the current working directory."),
-    include: z.string().optional().describe('File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")'),
-  }),
+  parameters,
   async execute(params, ctx) {
     if (!params.pattern) {
       throw new Error("pattern is required")

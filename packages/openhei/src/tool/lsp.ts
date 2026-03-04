@@ -20,14 +20,20 @@ const operations = [
   "outgoingCalls",
 ] as const
 
-export const LspTool = Tool.define("lsp", {
+const parameters = z.object({
+  operation: z.enum(operations).describe("The LSP operation to perform"),
+  filePath: z.string().describe("The absolute or relative path to the file"),
+  line: z.number().int().min(1).describe("The line number (1-based, as shown in editors)"),
+  character: z.number().int().min(1).describe("The character offset (1-based, as shown in editors)"),
+})
+
+type LspMetadata = {
+  result: unknown[]
+}
+
+export const LspTool = Tool.define<typeof parameters, LspMetadata>("lsp", {
   description: DESCRIPTION,
-  parameters: z.object({
-    operation: z.enum(operations).describe("The LSP operation to perform"),
-    filePath: z.string().describe("The absolute or relative path to the file"),
-    line: z.number().int().min(1).describe("The line number (1-based, as shown in editors)"),
-    character: z.number().int().min(1).describe("The character offset (1-based, as shown in editors)"),
-  }),
+  parameters,
   execute: async (args, ctx) => {
     const file = path.isAbsolute(args.filePath) ? args.filePath : path.join(Instance.directory, args.filePath)
     await assertExternalDirectory(ctx, file)

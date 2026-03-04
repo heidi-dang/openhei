@@ -1511,9 +1511,13 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   )
 }
 
-type ToolProps<T extends Tool.Info> = {
-  input: Partial<Tool.InferParameters<T>>
-  metadata: Partial<Tool.InferMetadata<T>>
+type ToolProps<T extends Tool.Info = any> = {
+  // Allow indexing into input/metadata even when the tool generic cannot be
+  // statically inferred. Intersection with Record<string, any> provides a
+  // safe fallback so callers can access properties like `description` or
+  // `subagent_type` without TypeScript complaining about `unknown`.
+  input: Partial<Tool.InferParameters<T>> & Record<string, any>
+  metadata: Partial<Tool.InferMetadata<T>> & Record<string, any>
   permission: Record<string, any>
   tool: string
   output?: string
@@ -1975,7 +1979,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
   const diagnostics = createMemo(() => {
     const filePath = Filesystem.normalizePath(props.input.filePath ?? "")
     const arr = props.metadata.diagnostics?.[filePath] ?? []
-    return arr.filter((x) => x.severity === 1).slice(0, 3)
+    return arr.filter((x: any) => x.severity === 1).slice(0, 3)
   })
 
   return (

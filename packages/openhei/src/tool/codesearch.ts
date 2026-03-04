@@ -1,6 +1,23 @@
 import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./codesearch.txt"
+const parameters = z.object({
+  query: z
+    .string()
+    .describe(
+      "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
+    ),
+  tokensNum: z
+    .number()
+    .min(1000)
+    .max(50000)
+    .default(5000)
+    .describe(
+      "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
+    ),
+})
+
+type CodeSearchMetadata = Record<string, any>
 import { abortAfterAny } from "../util/abort"
 
 const API_CONFIG = {
@@ -33,23 +50,9 @@ interface McpCodeResponse {
   }
 }
 
-export const CodeSearchTool = Tool.define("codesearch", {
+export const CodeSearchTool = Tool.define<typeof parameters, CodeSearchMetadata>("codesearch", {
   description: DESCRIPTION,
-  parameters: z.object({
-    query: z
-      .string()
-      .describe(
-        "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
-      ),
-    tokensNum: z
-      .number()
-      .min(1000)
-      .max(50000)
-      .default(5000)
-      .describe(
-        "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
-      ),
-  }),
+  parameters,
   async execute(params, ctx) {
     await ctx.ask({
       permission: "codesearch",
