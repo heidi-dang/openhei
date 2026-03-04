@@ -17,5 +17,7 @@
     "paths": {
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src", "test", "script", "vite.config.ts", "sst-env.d.ts"],
+  "exclude": ["node_modules", ".output", "dist"]
 }

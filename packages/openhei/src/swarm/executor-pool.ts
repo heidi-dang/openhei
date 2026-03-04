@@ -322,6 +322,7 @@ export class SwarmExecutorPool extends EventEmitter {
         type: "swarm.error",
         run_id: this.state.run_id,
         swarm_id: this.state.id,
+        session_id: session.id,
         slot: params.slot,
         error: String(error),
         ts: Date.now(),
