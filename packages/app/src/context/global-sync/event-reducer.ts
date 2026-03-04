@@ -309,7 +309,7 @@ export function applyDirectoryEvent(input: {
         produce((draft) => {
           const part = draft.part[props.messageID]?.[result.index]
           if (!part) return
-          const field = props.field as keyof typeof part
+          const field = props.field
           // Only attempt to append to string fields on text parts
           if (isTextPart(part) && ((field as string) === "text" || typeof (part as any)[field] === "string")) {
             const existing = (part as any)[field] as string | undefined
