@@ -759,7 +759,14 @@ export const SettingsQLoRA: Component = () => {
                       available: true,
                     }
                   }
-                  value={options().find((x) => x.id === store.stack)}
+                  value={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
                   itemValue={(x) => x.id}
                   itemLabel={(x) => x.label ?? String(x.id)}
                   onChange={(x) => x && x.available && setStore("stack", x.id)}
