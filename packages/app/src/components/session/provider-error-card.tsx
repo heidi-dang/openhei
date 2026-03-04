@@ -199,7 +199,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
                 onClick={props.onDismiss}
                 title={language.t("common.dismiss" as any)}
               >
-                <Icon name="x" size="small" />
+                <Icon name="close" size="small" />
               </button>
             </Show>
           </div>
