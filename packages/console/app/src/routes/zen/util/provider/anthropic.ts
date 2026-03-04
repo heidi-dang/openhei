@@ -42,14 +42,14 @@ export const anthropicHelper: ProviderHelper = ({ reqModel, providerModel }) => 
       ...body,
       ...(isBedrock
         ? {
-            anthropic_version: "bedrock-2023-05-31",
-            anthropic_beta: supports1m ? "context-1m-2025-08-07" : undefined,
-            model: undefined,
-            stream: undefined,
-          }
+          anthropic_version: "bedrock-2023-05-31",
+          anthropic_beta: supports1m ? "context-1m-2025-08-07" : undefined,
+          model: undefined,
+          stream: undefined,
+        }
         : {
-            service_tier: "standard_only",
-          }),
+          service_tier: "standard_only",
+        }),
     }),
     createBinaryStreamDecoder: () => {
       if (!isBedrock) return undefined
@@ -167,7 +167,7 @@ export const anthropicHelper: ProviderHelper = ({ reqModel, providerModel }) => 
           }
         },
         retrieve: () => usage,
-        buidlCostChunk: (cost: string) => `event: ping\ndata: ${JSON.stringify({ type: "ping", cost })}\n\n`,
+        buildCostChunk: (cost: string) => `event: ping\ndata: ${JSON.stringify({ type: "ping", cost })}\n\n`,
       }
     },
     normalizeUsage: (usage: Usage) => ({
@@ -273,15 +273,15 @@ export function fromAnthropicRequest(body: any): CommonRequest {
 
   const tools = Array.isArray(body.tools)
     ? body.tools
-        .filter((t: any) => t && typeof t === "object" && "input_schema" in t)
-        .map((t: any) => ({
-          type: "function",
-          function: {
-            name: (t as any).name,
-            description: (t as any).description,
-            parameters: (t as any).input_schema,
-          },
-        }))
+      .filter((t: any) => t && typeof t === "object" && "input_schema" in t)
+      .map((t: any) => ({
+        type: "function",
+        function: {
+          name: (t as any).name,
+          description: (t as any).description,
+          parameters: (t as any).input_schema,
+        },
+      }))
     : undefined
 
   const tcin = body.tool_choice
@@ -372,7 +372,7 @@ export function toAnthropicRequest(body: CommonRequest) {
     if ((m as any).role === "assistant") {
       const out: any = { role: "assistant", content: [] as any[] }
       if (typeof (m as any).content === "string" && (m as any).content.length > 0) {
-        ;(out.content as any[]).push({ type: "text", text: (m as any).content, ...cc() })
+        ; (out.content as any[]).push({ type: "text", text: (m as any).content, ...cc() })
       }
       if (Array.isArray((m as any).tool_calls)) {
         for (const tc of (m as any).tool_calls) {
@@ -387,13 +387,13 @@ export function toAnthropicRequest(body: CommonRequest) {
               }
             } else input = a
             const id = (tc as any).id || `toolu_${Math.random().toString(36).slice(2)}`
-            ;(out.content as any[]).push({
-              type: "tool_use",
-              id,
-              name: (tc as any).function.name,
-              input,
-              ...cc(),
-            })
+              ; (out.content as any[]).push({
+                type: "tool_use",
+                id,
+                name: (tc as any).function.name,
+                input,
+                ...cc(),
+              })
           }
         }
       }
@@ -419,13 +419,13 @@ export function toAnthropicRequest(body: CommonRequest) {
 
   const tools = Array.isArray(body.tools)
     ? body.tools
-        .filter((t: any) => t && typeof t === "object" && (t as any).type === "function")
-        .map((t: any) => ({
-          name: (t as any).function.name,
-          description: (t as any).function.description,
-          input_schema: (t as any).function.parameters,
-          ...cc(),
-        }))
+      .filter((t: any) => t && typeof t === "object" && (t as any).type === "function")
+      .map((t: any) => ({
+        name: (t as any).function.name,
+        description: (t as any).function.description,
+        input_schema: (t as any).function.parameters,
+        ...cc(),
+      }))
     : undefined
 
   const tcIn = body.tool_choice
