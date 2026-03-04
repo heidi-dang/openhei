@@ -15,6 +15,7 @@ import { Config } from "@/config/config"
 import { SessionCompaction } from "./compaction"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
+import { ProviderError } from "@/provider/error"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -318,11 +319,7 @@ export namespace SessionProcessor {
                     currentText.text = currentText.text.trimEnd()
                     const textOutput = await Plugin.trigger(
                       "experimental.text.complete",
-                      {
-                        sessionID: input.sessionID,
-                        messageID: input.assistantMessage.id,
-                        partID: currentText.id,
-                      },
+                      { sessionID: input.sessionID, messageID: input.assistantMessage.id, partID: currentText.id },
                       { text: currentText.text },
                     )
                     currentText.text = textOutput.text
@@ -352,6 +349,29 @@ export namespace SessionProcessor {
               error: e,
               stack: JSON.stringify(e.stack),
             })
+            
+            // Convert error to standardized format and set provider status
+            const standardizedError = ProviderError.standardize(input.model.providerID, e)
+            
+            // Set provider status based on error severity
+            if (standardizedError.severity === "critical" || standardizedError.severity === "error") {
+              SessionStatus.setProviderError(input.sessionID, {
+                severity: standardizedError.severity,
+                code: standardizedError.code,
+                message: standardizedError.message,
+                details: standardizedError.details,
+                providerID: input.model.providerID,
+                retryable: standardizedError.retryable,
+              })
+            } else if (standardizedError.severity === "warning") {
+              SessionStatus.setProviderWarning(input.sessionID, {
+                code: standardizedError.code as Exclude<SessionStatus.ProviderErrorCode, "AUTH_FAILED" | "QUOTA_EXCEEDED" | "CONTEXT_OVERFLOW">,
+                message: standardizedError.message,
+                details: standardizedError.details,
+                providerID: input.model.providerID,
+              })
+            }
+            
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
               needsCompaction = true
@@ -361,12 +381,28 @@ export namespace SessionProcessor {
               if (retry !== undefined) {
                 attempt++
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-                SessionStatus.set(input.sessionID, {
-                  type: "retry",
-                  attempt,
-                  message: retry,
-                  next: Date.now() + delay,
-                })
+                
+                // Update provider status with retry information
+                const currentStatus = SessionStatus.get(input.sessionID)
+                if (currentStatus.type === "provider_error" || currentStatus.type === "provider_warning") {
+                  SessionStatus.setProviderError(input.sessionID, {
+                    severity: "warning",
+                    code: "RATE_LIMITED",
+                    message: retry,
+                    providerID: input.model.providerID,
+                    retryable: true,
+                    retryAttempt: attempt,
+                    nextRetryAt: Date.now() + delay,
+                  })
+                } else {
+                  SessionStatus.set(input.sessionID, {
+                    type: "retry",
+                    attempt,
+                    message: retry,
+                    next: Date.now() + delay,
+                  })
+                }
+                
                 await SessionRetry.sleep(delay, input.abort).catch(() => {})
                 continue
               }
@@ -392,32 +428,19 @@ export namespace SessionProcessor {
             }
             snapshot = undefined
           }
-          const p = await MessageV2.parts(input.assistantMessage.id)
-          for (const part of p) {
-            if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
-              await Session.updatePart({
-                ...part,
-                state: {
-                  ...part.state,
-                  status: "error",
-                  error: "Tool execution aborted",
-                  time: {
-                    start: Date.now(),
-                    end: Date.now(),
-                  },
-                },
-              })
-            }
+          if (needsCompaction) {
+            await SessionCompaction.compact({
+              sessionID: input.sessionID,
+              messageID: input.assistantMessage.parentID,
+              model: input.model,
+            })
           }
-          input.assistantMessage.time.completed = Date.now()
-          await Session.updateMessage(input.assistantMessage)
-          if (needsCompaction) return "compact"
-          if (blocked) return "stop"
-          if (input.assistantMessage.error) return "stop"
-          return "continue"
+          break
         }
+        return blocked ? "blocked" : "completed"
       },
     }
+
     return result
   }
 }
