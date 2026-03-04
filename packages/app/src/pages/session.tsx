@@ -20,12 +20,12 @@ import { useSDK } from "@/context/sdk"
 import { usePrompt } from "@/context/prompt"
 import { useComments } from "@/context/comments"
 import { useSettings } from "@/context/settings"
-import { 
-  SessionHeader, 
+import {
+  SessionHeader,
   NewSessionView,
   ProviderStatusBanner,
   ProviderErrorCard,
-  ProviderStatusIndicator 
+  ProviderStatusIndicator,
 } from "@/components/session"
 import { StreamingStatus } from "@/components/session/streaming-status"
 import { StreamingBanner, type BannerType } from "@/components/session/streaming-banner"
@@ -117,11 +117,7 @@ export default function Page() {
 
         const all = normalizeTabs(from.all)
 
-        layout.setTabs(
-          sessionKey(),
-          all,
-          from.active ?? all[0]?.id,
-        )
+        layout.setTabs(sessionKey(), all, from.active ?? all[0]?.id)
       },
     ),
   )
@@ -182,7 +178,7 @@ export default function Page() {
   const handleProviderRetry = () => {
     const sessionID = params.id
     if (!sessionID) return
-    
+
     // Clear the provider status and retry the last message
     // This will be handled by the session processor
     showToast({
@@ -196,7 +192,7 @@ export default function Page() {
   const handleProviderDismiss = () => {
     const sessionID = params.id
     if (!sessionID) return
-    
+
     // The status will be cleared when the user sends a new message
     // or we can explicitly clear it here
   }
@@ -334,12 +330,11 @@ export default function Page() {
 
   const [turnStart, setTurnStart] = createSignal(0)
 
-  const { renderedUserMessages, historyMore, historyLoading, onLoadEarlier, onRenderEarlier } =
-    createMessageHistory({
-      get sessionID() {
-        return params.id
-      },
-    })
+  const { renderedUserMessages, historyMore, historyLoading, onLoadEarlier, onRenderEarlier } = createMessageHistory({
+    get sessionID() {
+      return params.id
+    },
+  })
 
   const lastUserMessageID = createMemo(() => {
     const messages = renderedUserMessages()
@@ -393,14 +388,14 @@ export default function Page() {
     ),
   )
 
-  const [bannerType, setBannerType] = createSignal<BannerType>(null)
+  const [bannerType, setBannerType] = createSignal<BannerType | null>(null)
 
   createEffect(
     on(
       () => sync.data.session_status[params.id ?? ""]?.type,
       (type) => {
         if (type === "resync_required") {
-          setBannerType("resync")
+          setBannerType("resync_required")
         } else if (type === "retry") {
           setBannerType("retry")
         } else {
@@ -424,10 +419,7 @@ export default function Page() {
           <SessionHeader />
           <Show when={providerStatusEnabled() && sessionProviderID()}>
             <div class="border-l border-border-weak-base pl-4">
-              <ProviderStatusIndicator 
-                status={sessionStatus} 
-                providerID={sessionProviderID}
-              />
+              <ProviderStatusIndicator status={sessionStatus} providerID={sessionProviderID} />
             </div>
           </Show>
         </div>
@@ -441,19 +433,13 @@ export default function Page() {
       {/* Provider Status Banner */}
       <Show when={providerStatusEnabled() && hasProviderError()}>
         <div class="px-4 py-2 border-b border-border-weak-base bg-surface-raised-base">
-          <ProviderStatusBanner 
-            status={sessionStatus}
-            onRetry={handleProviderRetry}
-          />
+          <ProviderStatusBanner status={sessionStatus} onRetry={handleProviderRetry} />
         </div>
       </Show>
 
       {/* Streaming Banner */}
       <Show when={streamBannersEnabled() && bannerType()}>
-        <StreamingBanner 
-          type={bannerType()} 
-          onDismiss={() => setBannerType(null)}
-        />
+        <StreamingBanner type={bannerType()} onDismiss={() => setBannerType(null)} />
       </Show>
 
       {/* Main content area */}
@@ -513,28 +499,18 @@ export default function Page() {
           </Show>
 
           {/* Composer */}
-          <SessionComposerRegion
-            composer={composer}
-            sessionID={params.id}
-          />
+          <SessionComposerRegion composer={composer} sessionID={params.id} />
         </div>
 
         {/* Side Panel (Desktop only) */}
         <Show when={isDesktop()}>
-          <SessionSidePanel
-            sessionID={params.id}
-            tabs={tabs}
-            view={view}
-          />
+          <SessionSidePanel sessionID={params.id} tabs={tabs} view={view} />
         </Show>
       </div>
 
       {/* Mobile Tabs */}
       <Show when={isMobile()}>
-        <SessionMobileTabs
-          sessionID={params.id}
-          tabs={tabs}
-        />
+        <SessionMobileTabs sessionID={params.id} tabs={tabs} />
       </Show>
     </div>
   )

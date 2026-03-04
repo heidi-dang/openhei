@@ -92,13 +92,13 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
     if (!data) return "alert-circle"
     switch (data.type) {
       case "api_error":
-        return data.statusCode && data.statusCode >= 500 ? "server-off" : "alert-circle"
+        return data.statusCode && data.statusCode >= 500 ? "server" : "alert-circle"
       case "context_overflow":
-        return "text-cursor"
+        return "alert-circle"
       case "auth_error":
-        return "lock"
+        return "circle-ban-sign"
       case "aborted":
-        return "stop-circle"
+        return "stop"
       default:
         return "alert-circle"
     }

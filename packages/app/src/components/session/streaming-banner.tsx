@@ -1,10 +1,10 @@
 import { Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 
-export type BannerType = "replaying" | "resync_required"
+export type BannerType = "replaying" | "resync_required" | "retry" | "resync" | null
 
 export interface StreamingBannerProps {
-  type: BannerType
+  type: BannerType | undefined
 }
 
 export function StreamingBanner(props: StreamingBannerProps) {
