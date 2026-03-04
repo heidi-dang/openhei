@@ -78,17 +78,23 @@ export async function handler(
       request: requestId,
       client: ocClient,
     })
+    // --- Free Limit Bypass ---
+    // Set BYPASS_FREE_LIMITS=true in shell env to disable all usage caps.
+    // This makes every model behave as a free/anonymous user: no trial tracking,
+    // no rate limiting, and no billing checks. Intended for local dev and self-hosted.
+    const bypassFreeLimits = process.env.BYPASS_FREE_LIMITS === "true" || process.env.BYPASS_FREE_LIMITS === "1"
+
     const zenData = ZenData.list(opts.modelList)
     const modelInfo = validateModel(zenData, model)
     const dataDumper = createDataDumper(sessionId, requestId, projectId)
-    const trialLimiter = createTrialLimiter(modelInfo.trial, ip, ocClient)
+    const trialLimiter = bypassFreeLimits ? undefined : createTrialLimiter(modelInfo.trial, ip, ocClient)
     const isTrial = await trialLimiter?.isTrial()
-    const rateLimiter = createRateLimiter(modelInfo.rateLimit, ip, input.request.headers)
+    const rateLimiter = bypassFreeLimits ? undefined : createRateLimiter(modelInfo.rateLimit, ip, input.request.headers)
     await rateLimiter?.check()
     const stickyTracker = createStickyTracker(modelInfo.stickyProvider, sessionId)
     const stickyProvider = await stickyTracker?.get()
-    const authInfo = await authenticate(modelInfo)
-    const billingSource = validateBilling(authInfo, modelInfo)
+    const authInfo = bypassFreeLimits ? undefined : await authenticate(modelInfo)
+    const billingSource: BillingSource = bypassFreeLimits ? "free" : validateBilling(authInfo, modelInfo)
 
     const retriableRequest = async (retry: RetryOptions = { excludeProviders: [], retryCount: 0 }) => {
       const providerInfo = selectProvider(

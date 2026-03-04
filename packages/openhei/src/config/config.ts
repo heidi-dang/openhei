@@ -163,12 +163,12 @@ export namespace Config {
       // Only scan project .openhei/ directories when project discovery is enabled
       ...(!Flag.OPENHEI_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
-            Filesystem.up({
-              targets: [".openhei"],
-              start: Instance.directory,
-              stop: Instance.worktree,
-            }),
-          )
+          Filesystem.up({
+            targets: [".openhei"],
+            start: Instance.directory,
+            stop: Instance.worktree,
+          }),
+        )
         : []),
       // Always scan ~/.openhei/ (user home directory)
       ...(await Array.fromAsync(
@@ -300,8 +300,16 @@ export namespace Config {
   }
 
   export async function installDependencies(dir: string) {
+    // Skip dependency installation in local/dev builds: workspace-only packages
+    // like @openhei-ai/plugin are not published to npm and will cause 404 errors
+    // when bun tries to install them from the registry in CI e2e environments.
+    if (Installation.isLocal()) {
+      log.debug("skipping dependency install in local build", { dir })
+      return
+    }
+
     const pkg = path.join(dir, "package.json")
-    const targetVersion = Installation.isLocal() ? "*" : Installation.VERSION
+    const targetVersion = Installation.VERSION
 
     const json = await Filesystem.readJson<{ dependencies?: Record<string, string> }>(pkg).catch(() => ({
       dependencies: {},
@@ -1244,7 +1252,7 @@ export namespace Config {
           await Filesystem.writeJson(path.join(Global.Path.config, "config.json"), result)
           await fs.unlink(legacy)
         })
-        .catch(() => {})
+        .catch(() => { })
     }
 
     return result
@@ -1334,7 +1342,7 @@ export namespace Config {
       if (!parsed.data.$schema && isFile) {
         parsed.data.$schema = "https://openhei.ai/config.json"
         const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://openhei.ai/config.json",')
-        await Bun.write(options.path, updated).catch(() => {})
+        await Bun.write(options.path, updated).catch(() => { })
       }
       const data = parsed.data
       if (data.plugin && isFile) {
