@@ -66,8 +66,8 @@ export const SettingsSwarm: Component = () => {
         if (config.subagent_models && config.subagent_models.length > 1) {
           setSubagent2Model(config.subagent_models[1] || "")
         }
+        setConfigLoaded(true)
       }
-      setConfigLoaded(true)
       setLoading(false)
     }
     void loadConfig()
@@ -118,20 +118,15 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
                   >
-                    <Show
-                      when={hasModels()}
-                      fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
-                    >
-                      <Select
-                        current={modelOptions().find((o) => o.value === subagent1Model())}
-                        onSelect={(v) => setSubagent1Model(v ? v.value : "")}
-                        options={modelOptions()}
-                        value={(x) => x.value}
-                        label={(x) => x.label}
-                        placeholder={language.t("settings.swarm.select.model")}
-                        disabled={!hasModels()}
-                      />
-                    </Show>
+                    <Select
+                      current={modelOptions().find((o) => o.value === subagent1Model())}
+                      onSelect={(v) => setSubagent1Model(v ? v.value : "")}
+                      options={modelOptions()}
+                      value={(x) => x.value}
+                      label={(x) => x.label}
+                      placeholder={language.t("settings.swarm.select.model")}
+                      disabled={!hasModels()}
+                    />
                   </Show>
                 </div>
 

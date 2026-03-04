@@ -201,22 +201,25 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab()} onValueChange={setActiveTab} class="flex-1 flex flex-col overflow-hidden">
-        <TabsList class="mx-4 mt-4 w-auto justify-start">
-          <TabsTrigger value="progress">
-            <Icon name="console" class="w-4 h-4 mr-2" />
-            Progress
+        <TabsList class="mx-4 mt-4 w-auto justify-start flex-wrap gap-2">
+          <TabsTrigger value="progress" class="text-xs md:text-sm">
+            <Icon name="console" class="w-4 h-4 mr-1 md:mr-2" />
+            <span class="hidden sm:inline">Progress</span>
+            <span class="sm:hidden">Prog</span>
           </TabsTrigger>
-          <TabsTrigger value="logs">
-            <Icon name="console" class="w-4 h-4 mr-2" />
+          <TabsTrigger value="logs" class="text-xs md:text-sm">
+            <Icon name="console" class="w-4 h-4 mr-1 md:mr-2" />
             Logs
           </TabsTrigger>
-          <TabsTrigger value="backend">
-            <Icon name="server" class="w-4 h-4 mr-2" />
-            Backend
+          <TabsTrigger value="backend" class="text-xs md:text-sm">
+            <Icon name="server" class="w-4 h-4 mr-1 md:mr-2" />
+            <span class="hidden sm:inline">Backend</span>
+            <span class="sm:hidden">API</span>
           </TabsTrigger>
-          <TabsTrigger value="preview">
-            <Icon name="eye" class="w-4 h-4 mr-2" />
-            Preview
+          <TabsTrigger value="preview" class="text-xs md:text-sm">
+            <Icon name="eye" class="w-4 h-4 mr-1 md:mr-2" />
+            <span class="hidden sm:inline">Preview</span>
+            <span class="sm:hidden">View</span>
           </TabsTrigger>
         </TabsList>
 
@@ -334,7 +337,7 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                 >
                   {(backend) => (
                     <div class="space-y-4">
-                      <div class="grid grid-cols-2 gap-4">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="p-4 bg-surface-2 rounded-lg">
                           <p class="text-sm text-text-weak">Status</p>
                           <div class="flex items-center gap-2 mt-1">
@@ -424,7 +427,7 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                 >
                   {(frontend) => (
                     <div class="space-y-4">
-                      <div class="grid grid-cols-2 gap-4">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="p-4 bg-surface-2 rounded-lg">
                           <p class="text-sm text-text-weak">Status</p>
                           <div class="flex items-center gap-2 mt-1">

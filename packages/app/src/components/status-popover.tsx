@@ -260,10 +260,10 @@ export function StatusPopover() {
         style: { scale: 1 },
       }}
       trigger={
-        <div class="flex items-center gap-0.5">
+        <div class="flex items-center gap-2">
           {/* health dot with pulsing + tooltip */}
           <div
-            class="relative"
+            class="relative flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
@@ -271,22 +271,19 @@ export function StatusPopover() {
             <button
               type="button"
               aria-label={language.t("status.popover.trigger")}
-              class="inline-flex items-center justify-center"
-              style={{ padding: "0" }}
+              class="health-dot-button"
               onClick={(e) => {
                 e.stopPropagation()
                 toggleTooltip()
               }}
             >
-              <div
+              <span
                 classList={{
-                  "size-1.5 rounded-full": true,
-                  "bg-icon-success-base": overallHealthy(),
-                  "bg-icon-critical-base pulse": !overallHealthy() && server.healthy() !== undefined,
-                  "bg-border-weak-base": server.healthy() === undefined,
+                  "health-dot": true,
+                  "health-dot--success": overallHealthy(),
+                  "health-dot--error pulse": !overallHealthy() && server.healthy() !== undefined,
+                  "health-dot--neutral": server.healthy() === undefined,
                 }}
-                // ensure touch target meets 44px
-                style={{ "min-width": "44px", "min-height": "44px", display: "grid", "place-items": "center" }}
               />
             </button>
 
@@ -294,7 +291,7 @@ export function StatusPopover() {
               <div
                 role="dialog"
                 aria-hidden={!tooltipOpen()}
-                class="health-tooltip z-50 text-12-regular text-text-base bg-surface-raised-base px-2 py-1 rounded-md shadow-md max-w-[200px] text-center"
+                class="health-tooltip"
                 onClick={(e) => e.stopPropagation()}
               >
                 {overallIssueReason() ?? language.t("status.popover.trigger")}
