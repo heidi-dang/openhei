@@ -406,6 +406,14 @@ install_from_repo() {
 
     # Ensure dependencies are installed
     if [ "$skip_install" != "true" ]; then
+        if ! command -v bun >/dev/null 2>&1; then
+            print_message info "${MUTED}Bun not found. Installing Bun...${NC}"
+            if ! curl -fsSL https://bun.sh/install | bash; then
+                print_message error "Failed to install Bun. Please install it manually: https://bun.sh"
+                exit 1
+            fi
+            export PATH="$HOME/.bun/bin:$PATH"
+        fi
         print_message info "${MUTED}Installing dependencies...${NC}"
         HUSKY=0 bun install
     fi
