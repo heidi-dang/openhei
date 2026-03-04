@@ -13,10 +13,28 @@ export default defineConfig({
       cloudflare: {
         nodeCompat: true,
       },
+      // SSE Optimization: Enable HTTP/2 for better streaming performance
+      // This prevents Head-of-Line blocking that occurs with HTTP/1.1
+      http2: true,
+      // SSE Optimization: Route rules for streaming endpoints
+      routeRules: {
+        "/zen/**": {
+          // Disable compression for SSE streams to prevent buffering delays
+          compress: false,
+          // Enable CORS for streaming endpoints
+          cors: true,
+          headers: {
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache, no-transform",
+          },
+        },
+      },
     }),
   ],
   server: {
     allowedHosts: true,
+    // SSE Optimization: Enable HTTP/2 in dev server
+    http2: true,
   },
   build: {
     rollupOptions: {

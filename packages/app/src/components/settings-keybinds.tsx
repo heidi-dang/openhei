@@ -394,12 +394,7 @@ export const SettingsKeybinds: Component = () => {
               class="flex-1"
             />
             <Show when={store.filter}>
-              <IconButton
-                icon="circle-x"
-                variant="ghost"
-                onClick={() => setStore("filter", "")}
-                aria-label="Clear search"
-              />
+              <IconButton icon="circle-x" variant="ghost" onClick={() => setStore("filter", "")} />
             </Show>
           </div>
         </div>
