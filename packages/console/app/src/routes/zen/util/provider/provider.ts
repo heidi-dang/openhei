@@ -43,7 +43,7 @@ export type ProviderHelper = (input: { reqModel: string; providerModel: string }
   createUsageParser: () => {
     parse: (chunk: string) => void
     retrieve: () => any
-    buildCostChunk: (cost: string) => string
+    buidlCostChunk: (cost: string) => string
   }
   normalizeUsage: (usage: any) => UsageInfo
 }

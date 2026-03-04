@@ -56,7 +56,7 @@ export const googleHelper: ProviderHelper = ({ providerModel }) => ({
         usage = json.usageMetadata
       },
       retrieve: () => usage,
-      buildCostChunk: (cost: string) => `data: ${JSON.stringify({ type: "ping", cost })}\n\n`,
+      buidlCostChunk: (cost: string) => `data: ${JSON.stringify({ type: "ping", cost })}\n\n`,
     }
   },
   normalizeUsage: (usage: Usage) => {
