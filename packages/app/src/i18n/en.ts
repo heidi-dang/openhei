@@ -940,4 +940,5 @@ export const dict = {
   "streaming.stop": "Stop",
   "streaming.banner.replaying": "Replaying from cursor...",
   "streaming.banner.resync": "Resync required",
+  "streaming.banner.retry": "Retrying...",
 }

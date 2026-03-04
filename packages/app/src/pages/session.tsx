@@ -388,7 +388,7 @@ export default function Page() {
     ),
   )
 
-  const [bannerType, setBannerType] = createSignal<BannerType | null>(null)
+  const [bannerType, setBannerType] = createSignal<BannerType>(undefined)
 
   createEffect(
     on(
@@ -399,7 +399,7 @@ export default function Page() {
         } else if (type === "retry") {
           setBannerType("retry")
         } else {
-          setBannerType(null)
+          setBannerType(undefined)
         }
       },
     ),
@@ -439,7 +439,7 @@ export default function Page() {
 
       {/* Streaming Banner */}
       <Show when={streamBannersEnabled() && bannerType()}>
-        <StreamingBanner type={bannerType()} onDismiss={() => setBannerType(null)} />
+        <StreamingBanner type={bannerType()} />
       </Show>
 
       {/* Main content area */}
