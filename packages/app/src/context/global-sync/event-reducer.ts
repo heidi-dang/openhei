@@ -280,20 +280,19 @@ export function applyDirectoryEvent(input: {
       }
 
       input.setStore(
-        "part",
-        props.messageID,
         produce((draft) => {
-          const part = draft[result.index]
+          const part = draft.part[props.messageID]?.[result.index]
           if (!part) return
           const field = props.field as keyof typeof part
-          const existing = part[field] as string | undefined
+          const existing = (part as any)[field] as string | undefined
           const newValue = (existing ?? "") + (props.delta ?? "")
-          ;(part[field] as string) = newValue
+          ;(part as any)[field] = newValue
+
+          // Ensure appliedDeltas exists and mark this delta as applied on the draft
+          if (!draft.appliedDeltas) draft.appliedDeltas = new Set()
+          draft.appliedDeltas.add(deltaHash)
         }),
       )
-
-      // Mark this delta as applied
-      input.store.appliedDeltas.add(deltaHash)
       break
     }
     case "vcs.branch.updated": {
