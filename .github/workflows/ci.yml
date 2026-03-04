@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Use repo's existing local bun setup action if present
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Prefer turbo if repo uses it; otherwise fall back to package scripts.
+      - name: Typecheck
+        run: |
+          if bun run -s turbo --version >/dev/null 2>&1; then
+            bun run -s turbo typecheck
+          else
+            bun run -s typecheck
+          fi
+
+      - name: Test
+        run: |
+          if bun run -s turbo --version >/dev/null 2>&1; then
+            bun run -s turbo test
+          else
+            bun run -s test
+          fi
+
+      - name: Build
+        run: |
+          if bun run -s turbo --version >/dev/null 2>&1; then
+            bun run -s turbo build
+          else
+            bun run -s build
+          fi
