@@ -501,10 +501,11 @@ test("message.part.delta dedupe: idempotent duplicate deltas are ignored", () =>
   const messageID = "msg_dedupe"
   const partID = "prt_dedupe"
 
+  const initialPart = { ...textPart(partID, sessionID, messageID), text: "" } as unknown as Part
   const [store, setStore] = createStore(
     baseState({
       message: { [sessionID]: [userMessage(messageID, sessionID)] },
-      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      part: { [messageID]: [initialPart] },
       appliedDeltas: new LruSet({ capacity: 100, ttlMs: 1000 }),
     }),
   )
@@ -518,8 +519,8 @@ test("message.part.delta dedupe: idempotent duplicate deltas are ignored", () =>
     loadLsp() {},
   })
 
-  expect(store.part[messageID]?.[0].type).toBe("text")
-  expect(store.part[messageID]?.[0].text).toBe("A")
+  expect((store.part[messageID]?.[0] as any).type).toBe("text")
+  expect((store.part[messageID]?.[0] as any).text).toBe("A")
 
   // Reapply identical delta; should be ignored due to dedupe
   applyDirectoryEvent({
@@ -539,10 +540,11 @@ test("message.part.delta ordering: sequential different deltas apply in order", 
   const messageID = "msg_order"
   const partID = "prt_order"
 
+  const initialPart = { ...textPart(partID, sessionID, messageID), text: "" } as unknown as Part
   const [store, setStore] = createStore(
     baseState({
       message: { [sessionID]: [userMessage(messageID, sessionID)] },
-      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      part: { [messageID]: [initialPart] },
       appliedDeltas: new Set(),
     }),
   )
@@ -564,7 +566,7 @@ test("message.part.delta ordering: sequential different deltas apply in order", 
     loadLsp() {},
   })
 
-  expect(store.part[messageID]?.[0].text).toBe("AB")
+  expect((store.part[messageID]?.[0] as any).text).toBe("AB")
 })
 
 test("message.part.delta eviction/TTL: delta can be applied again after expiry", async () => {
@@ -572,10 +574,11 @@ test("message.part.delta eviction/TTL: delta can be applied again after expiry",
   const messageID = "msg_ev"
   const partID = "prt_ev"
 
+  const initialPart = { ...textPart(partID, sessionID, messageID), text: "" } as unknown as Part
   const [store, setStore] = createStore(
     baseState({
       message: { [sessionID]: [userMessage(messageID, sessionID)] },
-      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      part: { [messageID]: [initialPart] },
       // small capacity and TTL so entries expire quickly
       appliedDeltas: new LruSet({ capacity: 1, ttlMs: 10 }),
     }),
@@ -590,7 +593,7 @@ test("message.part.delta eviction/TTL: delta can be applied again after expiry",
     loadLsp() {},
   })
 
-  expect(store.part[messageID]?.[0].text).toBe("X")
+  expect((store.part[messageID]?.[0] as any).text).toBe("X")
 
   // wait for TTL to expire
   await new Promise((r) => setTimeout(r, 30))
@@ -605,5 +608,5 @@ test("message.part.delta eviction/TTL: delta can be applied again after expiry",
     loadLsp() {},
   })
 
-  expect(store.part[messageID]?.[0].text).toBe("XX")
+  expect((store.part[messageID]?.[0] as any).text).toBe("XX")
 })
