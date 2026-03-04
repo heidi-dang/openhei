@@ -1,6 +1,5 @@
 import { Tool } from "./tool"
 import z from "zod"
-import { math } from "@openhei-ai/util/math"
 
 export const CalculatorTool: Tool.Info = {
     id: "calculator",
