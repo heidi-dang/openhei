@@ -134,56 +134,60 @@ export function UIForm(props: UIFormProps) {
 
   return (
     <form onSubmit={handleSubmit} class="space-y-6">
-      {/* Basic Info */}
+      {/* Step 1: Basic Info */}
       <div class="space-y-4">
-        <h3 class="font-medium">Basic Information</h3>
-
-        <div class="space-y-2">
-          <TextField
-            label="Application Name *"
-            value={appName()}
-            onInput={(e) => setAppName(e.currentTarget.value)}
-            placeholder="e.g., Task Manager"
-            required
-          />
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <h3 class="font-medium">Basic Information</h3>
         </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Name your app and describe your target users</p>
 
-        <div class="space-y-2">
-          <TextField
-            label="Target Users"
-            value={targetUsers()}
-            onInput={(e) => setTargetUsers(e.currentTarget.value)}
-            placeholder="Who will use this application?"
-          />
-        </div>
+        <TextField
+          label="Application Name *"
+          value={appName()}
+          onChange={setAppName}
+          placeholder="e.g., Task Manager"
+          required
+        />
+
+        <TextField
+          label="Target Users"
+          value={targetUsers()}
+          onChange={setTargetUsers}
+          placeholder="Who will use this application?"
+        />
       </div>
 
-      {/* Pages */}
+      {/* Step 2: Pages */}
       <div class="space-y-4">
-        <h3 class="font-medium">Pages</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <h3 class="font-medium">Pages</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Define the pages in your application</p>
 
         <Card>
           <CardContent class="pt-4 space-y-4">
-            <div class="grid grid-cols-12 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
               <TextField
-                class="col-span-4"
+                class="sm:col-span-4"
                 value={newPageName()}
-                onInput={(e) => setNewPageName(e.currentTarget.value)}
+                onChange={setNewPageName}
                 placeholder="Page name"
               />
               <TextField
-                class="col-span-3"
+                class="sm:col-span-3"
                 value={newPageRoute()}
-                onInput={(e) => setNewPageRoute(e.currentTarget.value)}
+                onChange={setNewPageRoute}
                 placeholder="/route"
               />
               <TextField
-                class="col-span-4"
+                class="sm:col-span-4"
                 value={newPageDescription()}
-                onInput={(e) => setNewPageDescription(e.currentTarget.value)}
+                onChange={setNewPageDescription}
                 placeholder="Description (optional)"
               />
-              <Button type="button" onClick={handleAddPage} variant="secondary" class="col-span-1">
+              <Button type="button" onClick={handleAddPage} variant="secondary" class="sm:col-span-1 w-full">
                 <Icon name="plus" class="w-4 h-4" />
               </Button>
             </div>
@@ -192,10 +196,10 @@ export function UIForm(props: UIFormProps) {
               <For each={pages()}>
                 {(page) => (
                   <div class="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <div class="flex items-center gap-3">
-                      <span class="font-medium">{page.name}</span>
-                      <code class="text-sm text-text-weak">{page.route}</code>
-                      {page.description && <span class="text-sm text-text-weak">- {page.description}</span>}
+                    <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <span class="font-medium truncate">{page.name}</span>
+                      <code class="text-sm text-text-weak truncate hidden sm:inline">{page.route}</code>
+                      {page.description && <span class="text-sm text-text-weak hidden md:inline truncate">- {page.description}</span>}
                     </div>
                     <Button type="button" variant="ghost" size="small" onClick={() => handleRemovePage(page.id)}>
                       <Icon name="close" class="w-4 h-4" />
@@ -203,34 +207,37 @@ export function UIForm(props: UIFormProps) {
                   </div>
                 )}
               </For>
-              {pages().length === 0 && <p class="text-sm text-text-weak text-center py-4">No pages defined yet</p>}
+              {pages().length === 0 && <p class="text-sm text-text-weak text-center py-4">No pages defined yet. Add one above.</p>}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Components */}
+      {/* Step 3: Components */}
       <div class="space-y-4">
-        <h3 class="font-medium">Components</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <h3 class="font-medium">Components</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Add reusable UI components</p>
 
         <Card>
           <CardContent class="pt-4 space-y-4">
-            <div class="grid grid-cols-12 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
               <Select
-                class="col-span-3"
-                options={componentTypeOptions}
-                current={componentTypeOptions.find((o) => o.value === newComponentType())}
-                value={(o) => o.value}
-                label={(o) => o.label}
-                onSelect={(o) => o && setNewComponentType(o.value)}
+                class="sm:col-span-3"
+                value={newComponentType()}
+                onChange={setNewComponentType}
+                options={componentTypeOptions.map((o) => o.value)}
+                placeholder="Type"
               />
               <TextField
-                class="col-span-8"
+                class="sm:col-span-8"
                 value={newComponentDescription()}
-                onInput={(e) => setNewComponentDescription(e.currentTarget.value)}
+                onChange={setNewComponentDescription}
                 placeholder="Component description"
               />
-              <Button type="button" onClick={handleAddComponent} variant="secondary" class="col-span-1">
+              <Button type="button" onClick={handleAddComponent} variant="secondary" class="sm:col-span-1 w-full">
                 <Icon name="plus" class="w-4 h-4" />
               </Button>
             </div>
@@ -239,9 +246,9 @@ export function UIForm(props: UIFormProps) {
               <For each={components()}>
                 {(component) => (
                   <div class="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <div class="flex items-center gap-3">
-                      <Tag>{componentTypeLabels[component.type]}</Tag>
-                      <span class="text-sm">{component.description}</span>
+                    <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <Tag class="flex-shrink-0 text-xs">{componentTypeLabels[component.type]}</Tag>
+                      <span class="text-sm truncate">{component.description}</span>
                     </div>
                     <Button
                       type="button"
@@ -255,33 +262,37 @@ export function UIForm(props: UIFormProps) {
                 )}
               </For>
               {components().length === 0 && (
-                <p class="text-sm text-text-weak text-center py-4">No components defined yet</p>
+                <p class="text-sm text-text-weak text-center py-4">No components defined yet. Add one above.</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* User Flows */}
+      {/* Step 4: User Flows */}
       <div class="space-y-4">
-        <h3 class="font-medium">User Flows</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <h3 class="font-medium">User Flows</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Describe how users interact with your app</p>
 
         <Card>
           <CardContent class="pt-4 space-y-4">
             <div class="space-y-2">
               <TextField
                 value={newFlowAction()}
-                onInput={(e) => setNewFlowAction(e.currentTarget.value)}
+                onChange={setNewFlowAction}
                 placeholder="User action (e.g., Click login button)"
               />
               <TextField
                 value={newFlowResponse()}
-                onInput={(e) => setNewFlowResponse(e.currentTarget.value)}
+                onChange={setNewFlowResponse}
                 placeholder="System response (e.g., Show login form)"
               />
               <TextField
                 value={newFlowResult()}
-                onInput={(e) => setNewFlowResult(e.currentTarget.value)}
+                onChange={setNewFlowResult}
                 placeholder="Result (optional)"
               />
               <Button type="button" onClick={handleAddFlow} variant="secondary" class="w-full">
@@ -295,7 +306,7 @@ export function UIForm(props: UIFormProps) {
                 {(flow, index) => (
                   <div class="p-3 bg-surface-2 rounded-lg">
                     <div class="flex items-center justify-between">
-                      <Tag>Step {index() + 1}</Tag>
+                      <Tag class="text-xs">Step {index() + 1}</Tag>
                       <Button type="button" variant="ghost" size="small" onClick={() => handleRemoveFlow(flow.id)}>
                         <Icon name="close" class="w-4 h-4" />
                       </Button>
@@ -317,20 +328,24 @@ export function UIForm(props: UIFormProps) {
                 )}
               </For>
               {userFlows().length === 0 && (
-                <p class="text-sm text-text-weak text-center py-4">No user flows defined yet</p>
+                <p class="text-sm text-text-weak text-center py-4">No user flows defined yet. Add one above.</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Brand Style */}
+      {/* Step 5: Brand & Accessibility */}
       <div class="space-y-4">
-        <h3 class="font-medium">Brand Style</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <h3 class="font-medium">Brand & Accessibility</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Customize the look and accessibility features</p>
 
         <div class="flex items-center space-x-2">
           <Checkbox id="inheritTheme" checked={inheritTheme()} onChange={setInheritTheme} />
-          <label for="inheritTheme" class="cursor-pointer">
+          <label for="inheritTheme" class="cursor-pointer text-sm">
             Inherit OpenHei theme
           </label>
         </div>
@@ -340,55 +355,55 @@ export function UIForm(props: UIFormProps) {
             <TextField
               label="Primary Color (optional)"
               value={primaryColor()}
-              onInput={(e) => setPrimaryColor(e.currentTarget.value)}
+              onChange={setPrimaryColor}
               placeholder="#3b82f6 or blue-500"
             />
           </div>
         </Show>
-      </div>
-
-      {/* Accessibility */}
-      <div class="space-y-4">
-        <h3 class="font-medium">Accessibility</h3>
 
         <div class="flex flex-wrap gap-4">
           <div class="flex items-center space-x-2">
             <Checkbox id="mobileSafe" checked={mobileSafe()} onChange={setMobileSafe} />
-            <label for="mobileSafe" class="cursor-pointer">
+            <label for="mobileSafe" class="cursor-pointer text-sm">
               Mobile Responsive
             </label>
           </div>
           <div class="flex items-center space-x-2">
             <Checkbox id="keyboardNav" checked={keyboardNav()} onChange={setKeyboardNav} />
-            <label for="keyboardNav" class="cursor-pointer">
+            <label for="keyboardNav" class="cursor-pointer text-sm">
               Keyboard Navigation
             </label>
           </div>
           <div class="flex items-center space-x-2">
             <Checkbox id="screenReader" checked={screenReader()} onChange={setScreenReader} />
-            <label for="screenReader" class="cursor-pointer">
+            <label for="screenReader" class="cursor-pointer text-sm">
               Screen Reader Support
             </label>
           </div>
         </div>
       </div>
 
-      {/* Success Criteria */}
-      <div class="space-y-2">
+      {/* Step 6: Success Criteria */}
+      <div class="space-y-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">6</span>
+          <h3 class="font-medium">Success Criteria</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">How will we know this UI is working correctly?</p>
+
         <TextField
-          label="Success Criteria"
           value={successCriteria()}
-          onInput={(e) => setSuccessCriteria(e.currentTarget.value)}
-          placeholder="How will we know this UI is working correctly?"
+          onChange={setSuccessCriteria}
+          placeholder="e.g., Users can complete the main task in under 3 clicks"
         />
       </div>
 
       {/* Actions */}
-      <div class="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="ghost" onClick={props.onCancel}>
+      <div class="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={props.onCancel} class="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={!appName().trim()}>
+        <Button type="submit" variant="primary" disabled={!appName().trim()} class="w-full sm:w-auto">
           <Icon name="prompt" class="w-4 h-4 mr-2" />
           Create & Build
         </Button>

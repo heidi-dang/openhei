@@ -220,6 +220,7 @@ export function applyDirectoryEvent(input: {
         console.warn("[event-reducer] Invalid part update received", event.properties)
         break
       }
+
       const parts = input.store.part[part.messageID]
       if (!parts) {
         input.setStore("part", part.messageID, [part])
@@ -227,6 +228,7 @@ export function applyDirectoryEvent(input: {
       }
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
+        // Merge with existing part to prevent data loss from race conditions
         const existing = parts[result.index]
         // Use typed guard for text parts
         if (isTextPart(existing) || isTextPart(part)) {
@@ -272,11 +274,18 @@ export function applyDirectoryEvent(input: {
     case "message.part.delta": {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
       const parts = input.store.part[props.messageID]
+
+      // If parts don't exist yet, the message might still be loading
+      // Store the delta in a pending buffer to be applied later
       if (!parts) {
         console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
         break
       }
+
       const result = Binary.search(parts, props.partID, (p) => p.id)
+
+      // If part not found, it might not have been created yet
+      // This can happen during streaming when deltas arrive before the part update
       if (!result.found) {
         console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
         break

@@ -28,6 +28,7 @@ export default function AppBuilder() {
   const [sessions, setSessions] = createSignal<BuildSession[]>([])
   const [activeSessionId, setActiveSessionId] = createSignal<string | null>(null)
   const [isLoading, setIsLoading] = createSignal(true)
+  const [showMobileSidebar, setShowMobileSidebar] = createSignal(false)
 
   // Fetch sessions on mount
   onMount(() => {
@@ -46,8 +47,10 @@ export default function AppBuilder() {
     try {
       const response = await fetch(`${API_BASE}/jobs`)
       if (response.ok) {
-        const data = await response.json()
-        setSessions(data.jobs)
+        const data = (await response.json()) as { jobs?: BuildSession[] }
+        setSessions(data.jobs || [])
+      } else {
+        console.error("Failed to fetch sessions:", response.status, response.statusText)
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error)
@@ -65,14 +68,26 @@ export default function AppBuilder() {
       const response = await fetch(`${API_BASE}/jobs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, mode, formData: formData as unknown as Record<string, unknown> }),
+        body: JSON.stringify({
+          name,
+          mode,
+          formData: formData as unknown as Record<string, unknown>,
+        }),
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setActiveSessionId(data.job.id)
-        navigate(`/app-builder/${data.job.id}`)
-        await fetchSessions()
+        const data = (await response.json()) as { job?: BuildSession }
+        if (data.job?.id) {
+          setActiveSessionId(data.job.id)
+          setShowMobileSidebar(false)
+          navigate(`/app-builder/${data.job.id}`)
+          await fetchSessions()
+        } else {
+          console.error("Invalid response from server:", data)
+        }
+      } else {
+        const errorText = await response.text()
+        console.error("Failed to create session:", response.status, errorText)
       }
     } catch (error) {
       console.error("Failed to create session:", error)
@@ -95,6 +110,18 @@ export default function AppBuilder() {
   const handleUseSample = () => {
     const backendData = sampleTasksApp.backend()
     createSession("Sample Tasks App", "backend", backendData)
+  }
+
+  const handleSelectSession = (sessionId: string) => {
+    setActiveSessionId(sessionId)
+    setShowMobileSidebar(false)
+    navigate(`/app-builder/${sessionId}`)
+  }
+
+  const handleBackToList = () => {
+    setActiveSessionId(null)
+    setShowMobileSidebar(false)
+    navigate("/app-builder")
   }
 
   const activeSession = () => sessions().find((s) => s.id === activeSessionId())
@@ -120,14 +147,37 @@ export default function AppBuilder() {
 
   return (
     <div class="h-full flex flex-col md:flex-row">
-      {/* Sidebar - hidden on mobile when session is active, full width on mobile when no session */}
+      {/* Mobile Header - Only visible on mobile */}
+      <div class="md:hidden border-b p-3 flex items-center justify-between bg-surface">
+        <div class="flex items-center gap-2">
+          <Icon name="prompt" class="w-5 h-5" />
+          <span class="font-semibold">App Builder</span>
+        </div>
+        <Button variant="ghost" size="small" onClick={() => setShowMobileSidebar(!showMobileSidebar())}>
+          <Icon name={showMobileSidebar() ? "close" : "menu"} class="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Sidebar */}
       <div
         class={`
           border-r flex flex-col bg-surface
-          ${activeSessionId() ? "hidden md:flex md:w-72" : "w-full md:w-72"}
+          ${activeSessionId() && !showMobileSidebar() ? "hidden md:flex" : "flex"}
+          ${showMobileSidebar() ? "fixed inset-0 z-50 md:static md:inset-auto" : ""}
+          w-full md:w-72
         `}
       >
-        <div class="p-4 border-b">
+        {/* Mobile Close Button */}
+        <Show when={showMobileSidebar()}>
+          <div class="md:hidden p-3 border-b flex items-center justify-between">
+            <span class="font-semibold">Menu</span>
+            <Button variant="ghost" size="small" onClick={() => setShowMobileSidebar(false)}>
+              <Icon name="close" class="w-5 h-5" />
+            </Button>
+          </div>
+        </Show>
+
+        <div class="p-4 border-b hidden md:block">
           <h1 class="text-lg font-semibold flex items-center gap-2">
             <Icon name="prompt" class="w-5 h-5" />
             App Builder
@@ -144,8 +194,7 @@ export default function AppBuilder() {
                 variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
-                  setActiveSessionId(null)
-                  navigate("/app-builder")
+                  handleBackToList()
                   setActiveTab("backend")
                 }}
               >
@@ -156,8 +205,7 @@ export default function AppBuilder() {
                 variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
-                  setActiveSessionId(null)
-                  navigate("/app-builder")
+                  handleBackToList()
                   setActiveTab("ui")
                 }}
               >
@@ -168,8 +216,7 @@ export default function AppBuilder() {
                 variant="secondary"
                 class="w-full justify-start"
                 onClick={() => {
-                  setActiveSessionId(null)
-                  navigate("/app-builder")
+                  handleBackToList()
                   setActiveTab("repo")
                 }}
               >
@@ -182,7 +229,7 @@ export default function AppBuilder() {
             <Card class="bg-surface-2">
               <CardContent class="pt-4">
                 <div class="flex items-start gap-3">
-                  <Icon name="brain" class="w-5 h-5 text-yellow-500 mt-0.5" />
+                  <Icon name="brain" class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
                   <div class="flex-1">
                     <p class="text-sm font-medium">Try Sample App</p>
                     <p class="text-xs text-text-weak mt-1">Quick demo with a Tasks API</p>
@@ -210,14 +257,11 @@ export default function AppBuilder() {
                         w-full text-left p-3 rounded-lg border transition-colors
                         ${activeSessionId() === session.id ? "border-primary bg-primary/5" : "hover:bg-surface-2"}
                       `}
-                      onClick={() => {
-                        setActiveSessionId(session.id)
-                        navigate(`/app-builder/${session.id}`)
-                      }}
+                      onClick={() => handleSelectSession(session.id)}
                     >
                       <div class="flex items-center justify-between">
                         <span class="font-medium truncate">{session.name}</span>
-                        <Tag class="text-xs">{session.status}</Tag>
+                        <Tag class="text-xs flex-shrink-0">{session.status}</Tag>
                       </div>
                       <div class="flex items-center justify-between mt-1 text-xs text-text-weak">
                         <span class="capitalize">{session.mode}</span>
@@ -232,90 +276,81 @@ export default function AppBuilder() {
         </ScrollView>
       </div>
 
-      {/* Main Content - full width on mobile */}
-      <div
-        class={`
-          flex-1 overflow-hidden bg-surface
-          ${activeSessionId() ? "flex" : "hidden md:flex"}
-        `}
-      >
+      {/* Main Content */}
+      <div class="flex-1 overflow-hidden bg-surface">
         <Show when={activeSession()}>
-          {(session) => (
-            <BuildSessionDetail
-              session={session()}
-              onBack={() => {
-                setActiveSessionId(null)
-                navigate("/app-builder")
-              }}
-              onRefresh={fetchSessions}
-            />
-          )}
+          {(session) => <BuildSessionDetail session={session()} onBack={handleBackToList} onRefresh={fetchSessions} />}
         </Show>
 
         <Show when={!activeSession()}>
-          <div class="h-full overflow-auto p-8">
+          <div class="h-full overflow-auto p-4 sm:p-8">
             <div class="max-w-4xl mx-auto">
               {/* Header */}
-              <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold">App Builder</h1>
-                <p class="text-lg text-text-weak mt-2">
+              <div class="text-center mb-6 sm:mb-8">
+                <h1 class="text-2xl sm:text-3xl font-bold">App Builder</h1>
+                <p class="text-base sm:text-lg text-text-weak mt-2">
                   Describe what you want. We generate backend + UI and run it locally.
                 </p>
               </div>
 
               {/* Creation Options */}
               <Tabs value={activeTab()} onValueChange={(v: string) => setActiveTab(v as CreationMode)}>
-                <TabsList class="grid w-full grid-cols-3">
-                  <TabsTrigger value="backend">
-                    <Icon name="server" class="w-4 h-4 mr-2" />
-                    Backend Form
+                <TabsList class="grid w-full grid-cols-3 h-auto">
+                  <TabsTrigger value="backend" class="text-xs sm:text-sm py-2">
+                    <Icon name="server" class="w-4 h-4 mr-1 sm:mr-2" />
+                    <span class="hidden sm:inline">Backend</span>
+                    <span class="sm:hidden">API</span>
                   </TabsTrigger>
-                  <TabsTrigger value="ui">
-                    <Icon name="layout-right" class="w-4 h-4 mr-2" />
-                    UI Form
+                  <TabsTrigger value="ui" class="text-xs sm:text-sm py-2">
+                    <Icon name="layout-right" class="w-4 h-4 mr-1 sm:mr-2" />
+                    <span class="hidden sm:inline">Frontend</span>
+                    <span class="sm:hidden">UI</span>
                   </TabsTrigger>
-                  <TabsTrigger value="repo">
-                    <Icon name="github" class="w-4 h-4 mr-2" />
-                    Import Repo
+                  <TabsTrigger value="repo" class="text-xs sm:text-sm py-2">
+                    <Icon name="github" class="w-4 h-4 mr-1 sm:mr-2" />
+                    <span class="hidden sm:inline">Import</span>
+                    <span class="sm:hidden">Repo</span>
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="backend" class="mt-6">
+                <TabsContent value="backend" class="mt-4 sm:mt-6">
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Create Backend Service</CardTitle>
-                      <CardDescription>
+                    <CardHeader class="p-4 sm:p-6">
+                      <CardTitle class="text-lg sm:text-xl">Create Backend Service</CardTitle>
+                      <CardDescription class="text-sm">
                         Define your API endpoints, data models, and requirements. We'll generate a working backend
                         service.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent class="p-4 sm:p-6 pt-0">
                       <BackendForm onSubmit={handleCreateBackend} onCancel={() => {}} />
                     </CardContent>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="ui" class="mt-6">
+                <TabsContent value="ui" class="mt-4 sm:mt-6">
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Create Frontend UI</CardTitle>
-                      <CardDescription>Design your user interface with pages, components, and flows.</CardDescription>
+                    <CardHeader class="p-4 sm:p-6">
+                      <CardTitle class="text-lg sm:text-xl">Create Frontend UI</CardTitle>
+                      <CardDescription class="text-sm">
+                        Design your user interface with pages, components, and flows.
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent class="p-4 sm:p-6 pt-0">
                       <UIForm onSubmit={handleCreateUI} onCancel={() => {}} />
                     </CardContent>
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="repo" class="mt-6">
+                <TabsContent value="repo" class="mt-4 sm:mt-6">
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Import from GitHub (Run Only)</CardTitle>
-                      <CardDescription>
+                    <CardHeader class="p-4 sm:p-6">
+                      <CardTitle class="text-lg sm:text-xl">Import from GitHub (Run Only)</CardTitle>
+                      <CardDescription class="text-sm">
                         Clone and run an existing repository. No AI modifications will be made.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent class="p-4 sm:p-6 pt-0">
                       <RepoImportForm onSubmit={handleImportRepo} onCancel={() => {}} />
                     </CardContent>
                   </Card>
