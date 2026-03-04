@@ -177,7 +177,7 @@ export namespace Provider {
         options: {},
         async getModel(_sdk: any, modelID: string) {
           return chatbox(modelID)
-        }
+        },
       }
     },
     async anthropic() {
@@ -626,7 +626,7 @@ export namespace Provider {
       if (!apiToken) {
         throw new Error(
           "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. " +
-          "Set it via environment variable or run `openhei auth cloudflare-ai-gateway`.",
+            "Set it via environment variable or run `openhei auth cloudflare-ai-gateway`.",
         )
       }
 
@@ -778,13 +778,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-            cache: {
-              read: model.cost.context_over_200k.cache_read ?? 0,
-              write: model.cost.context_over_200k.cache_write ?? 0,
-            },
-            input: model.cost.context_over_200k.input,
-            output: model.cost.context_over_200k.output,
-          }
+              cache: {
+                read: model.cost.context_over_200k.cache_read ?? 0,
+                write: model.cost.context_over_200k.cache_write ?? 0,
+              },
+              input: model.cost.context_over_200k.input,
+              output: model.cost.context_over_200k.output,
+            }
           : undefined,
       },
       limit: {
@@ -1189,11 +1189,33 @@ export namespace Provider {
           }
         }
 
-        return fetchFn(input, {
+        const res = await fetchFn(input, {
           ...opts,
           // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
           timeout: false,
         })
+
+        // Basic detection: rate-limit and upstream 5xx
+        try {
+          // some fetch implementations return Response-like objects
+          const status = res && typeof res.status === "number" ? res.status : undefined
+          if (status !== undefined) {
+            if (status === 429) {
+              // best-effort: provider ID may be on model
+              import("@/monitor/failure-detector").then((m) =>
+                m.FailureDetector.rateLimit({ providerID: model.providerID, url: String(input), status }),
+              )
+            } else if (status >= 500) {
+              import("@/monitor/failure-detector").then((m) =>
+                m.FailureDetector.upstream5xx({ providerID: model.providerID, url: String(input), status }),
+              )
+            }
+          }
+        } catch (e) {
+          // ignore detection failures
+        }
+
+        return res
       }
 
       const bundledFn = BUNDLED_PROVIDERS[model.api.npm]

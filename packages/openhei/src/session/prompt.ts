@@ -47,6 +47,7 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { RunEventBus } from "@/stream/event-bus"
+import { FailureDetector } from "@/monitor/failure-detector"
 import { ActivityEvent } from "@/stream/activity-events"
 
 // @ts-ignore
@@ -857,6 +858,20 @@ export namespace SessionPrompt {
               duration_ms: Date.now() - runStartTime,
             },
           })
+          try {
+            const cfg = await Config.get()
+            const fd = cfg.failure_detection ?? { enabled: true, stall_timeout_ms: 30000 }
+            const duration = Date.now() - runStartTime
+            if (fd.enabled && duration >= (fd.stall_timeout_ms ?? 30000)) {
+              FailureDetector.stall({
+                run_id: runId,
+                message: `Run duration ${duration}ms exceeded stall threshold`,
+                providerID: lastUser?.model?.providerID,
+              })
+            }
+          } catch (e) {
+            log.debug("failure detection check failed", { error: e })
+          }
         }
 
         return item
@@ -877,6 +892,19 @@ export namespace SessionPrompt {
             code: error instanceof Error ? error.name : "UnknownError",
           },
         })
+
+        // Publish a generic failure detection event so UI/monitoring can react
+        try {
+          FailureDetector.publishFailure({
+            kind: "other",
+            run_id: runId,
+            message: errorMessage,
+            details: { code: error instanceof Error ? error.name : "UnknownError" },
+            severity: "error",
+          })
+        } catch (e) {
+          log.debug("failure detector publish failed", { error: e })
+        }
       }
       throw error
     } finally {

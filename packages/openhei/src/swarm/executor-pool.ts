@@ -2,6 +2,7 @@ import { Log } from "../util/log"
 import { EventEmitter } from "events"
 import type { SwarmEvent, SwarmSlot, SwarmRuntimeState, SwarmSlotState } from "./runtime"
 import { RunEventBus } from "../stream/event-bus"
+import { FailureDetector } from "@/monitor/failure-detector"
 import { Config } from "../config/config"
 import { Session } from "../session"
 import { Agent } from "../agent/agent"
@@ -333,6 +334,20 @@ export class SwarmExecutorPool extends EventEmitter {
         slot: params.slot,
         error,
       })
+
+      // Notify failure detector about this slot error so UI/monitoring can react
+      try {
+        FailureDetector.publishFailure({
+          kind: "stall",
+          run_id: this.state.run_id,
+          providerID: this.state?.subagent_models?.[0]?.split("/")?.[0],
+          message: String(error),
+          details: { slot: params.slot },
+          severity: "error",
+        })
+      } catch (e) {
+        log.debug("failure detector publish failed", { error: e })
+      }
 
       throw error
     }
