@@ -300,6 +300,13 @@ export namespace Config {
   }
 
   export async function installDependencies(dir: string) {
+    // Skip dependency installation if default plugins are disabled
+    // This is useful in e2e/test environments where npm registry doesn't have workspace packages
+    if (Flag.OPENHEI_DISABLE_DEFAULT_PLUGINS) {
+      log.debug("skipping dependency install because OPENHEI_DISABLE_DEFAULT_PLUGINS is set", { dir })
+      return
+    }
+
     const pkg = path.join(dir, "package.json")
     const targetVersion = Installation.isLocal() ? "*" : Installation.VERSION
 
