@@ -152,7 +152,7 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
       case "failed":
         return <Icon name="circle-x" class="w-5 h-5 text-red-500" />
       default:
-        return <Icon name="circle" class="w-5 h-5 text-gray-300" />
+        return <Icon name="circle-x" class="w-5 h-5 text-gray-300 opacity-50" />
     }
   }
 
@@ -293,7 +293,9 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                 <div class="space-y-2 text-sm">
                   <div class="flex flex-col sm:flex-row sm:justify-between gap-1">
                     <span class="text-text-weak">Path:</span>
-                    <code class="bg-surface-2 px-2 py-1 rounded text-xs sm:text-sm break-all">{props.session.workspacePath}</code>
+                    <code class="bg-surface-2 px-2 py-1 rounded text-xs sm:text-sm break-all">
+                      {props.session.workspacePath}
+                    </code>
                   </div>
                   <div class="flex flex-col sm:flex-row sm:justify-between gap-1">
                     <span class="text-text-weak">Created:</span>
@@ -405,7 +407,12 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                       </Show>
 
                       <div class="flex flex-col sm:flex-row gap-2">
-                        <Button variant="secondary" onClick={handleRestartBackend} disabled={isRestartingBackend()} class="w-full sm:w-auto">
+                        <Button
+                          variant="secondary"
+                          onClick={handleRestartBackend}
+                          disabled={isRestartingBackend()}
+                          class="w-full sm:w-auto"
+                        >
                           <Icon name="new-session" class="w-4 h-4 mr-2" />
                           Restart Backend
                         </Button>
@@ -480,7 +487,12 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                         </div>
                       </Show>
 
-                      <Button variant="secondary" onClick={handleRestartFrontend} disabled={isRestartingFrontend()} class="w-full sm:w-auto">
+                      <Button
+                        variant="secondary"
+                        onClick={handleRestartFrontend}
+                        disabled={isRestartingFrontend()}
+                        class="w-full sm:w-auto"
+                      >
                         <Icon name="new-session" class="w-4 h-4 mr-2" />
                         Restart Frontend
                       </Button>

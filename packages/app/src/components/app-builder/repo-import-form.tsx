@@ -53,7 +53,9 @@ export function RepoImportForm(props: RepoImportFormProps) {
       {/* Step 1: Repository URL */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            1
+          </span>
           <label class="text-sm font-medium">Repository URL *</label>
         </div>
         <p class="text-sm text-text-weak ml-8">Enter the full GitHub or GitLab repository URL</p>
@@ -68,13 +70,15 @@ export function RepoImportForm(props: RepoImportFormProps) {
       {/* Step 2: Generate Target */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            2
+          </span>
           <label class="text-sm font-medium">Generate Target</label>
         </div>
         <p class="text-sm text-text-weak ml-8">Choose what parts of the application to generate</p>
         <Select
           value={generateTarget()}
-          onChange={setGenerateTarget}
+          onChange={(v: "backend" | "both" | "ui" | undefined) => v && setGenerateTarget(v)}
           options={generateTargetOptions.map((o) => o.value)}
           placeholder="Select target"
         />
@@ -83,7 +87,9 @@ export function RepoImportForm(props: RepoImportFormProps) {
       {/* Step 3: Build Instructions */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            3
+          </span>
           <label class="text-sm font-medium">Build Instructions</label>
         </div>
         <p class="text-sm text-text-weak ml-8">Provide detailed instructions on how to build and run this project</p>
@@ -103,10 +109,14 @@ export function RepoImportForm(props: RepoImportFormProps) {
       {/* Step 4: Files to Preserve */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            4
+          </span>
           <label class="text-sm font-medium">Files to Preserve</label>
         </div>
-        <p class="text-sm text-text-weak ml-8">List any files or directories that should not be modified (one per line)</p>
+        <p class="text-sm text-text-weak ml-8">
+          List any files or directories that should not be modified (one per line)
+        </p>
         <TextField
           value={preserveFiles()}
           onChange={setPreserveFiles}
@@ -123,21 +133,21 @@ export function RepoImportForm(props: RepoImportFormProps) {
       {/* Step 5: Run Command */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            5
+          </span>
           <label class="text-sm font-medium">Run Command</label>
         </div>
         <p class="text-sm text-text-weak ml-8">Command to start the application after build</p>
-        <TextField
-          value={runCommand()}
-          onChange={setRunCommand}
-          placeholder="npm start"
-        />
+        <TextField value={runCommand()} onChange={setRunCommand} placeholder="npm start" />
       </div>
 
       {/* Step 6: Definition of Done */}
       <div class="space-y-2">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">6</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            6
+          </span>
           <label class="text-sm font-medium">Definition of Done</label>
         </div>
         <p class="text-sm text-text-weak ml-8">How will we know the import and build was successful?</p>
@@ -178,7 +188,12 @@ export function RepoImportForm(props: RepoImportFormProps) {
         <Button type="button" variant="ghost" onClick={props.onCancel} class="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={!repoUrl().trim() || !isValidUrl(repoUrl())} class="w-full sm:w-auto">
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={!repoUrl().trim() || !isValidUrl(repoUrl())}
+          class="w-full sm:w-auto"
+        >
           <Icon name="github" class="w-4 h-4 mr-2" />
           Import & Build
         </Button>
