@@ -224,7 +224,7 @@ export function applyDirectoryEvent(input: {
             ...existing,
             ...part,
             // Preserve text content if the update doesn't have it (prevents overwriting streamed content)
-            text: part.text ?? existing.text,
+            text: (part as any).text ?? (existing as any).text,
           }),
         )
         break
@@ -279,9 +279,6 @@ export function applyDirectoryEvent(input: {
 
       // Track applied deltas to prevent duplicates and ensure ordering
       const deltaKey = `${props.messageID}:${props.partID}:${props.field}`
-      if (!input.store.appliedDeltas) {
-        input.store.appliedDeltas = new Set()
-      }
 
       // Skip if this exact delta was already applied
       const deltaHash = `${deltaKey}:${props.delta}`
