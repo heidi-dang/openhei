@@ -214,16 +214,13 @@ export function applyDirectoryEvent(input: {
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
         const existing = parts[result.index]
-        input.setStore(
-          "part",
-          part.messageID,
-          result.index,
-          reconcile({
-            ...existing,
-            ...part,
-            text: part.text ?? existing.text,
-          }),
-        )
+        // Merge part updates defensively: not all Part variants include `text`.
+        // Build the merged object dynamically and only set `text` when present
+        const merged: Record<string, unknown> = { ...existing, ...part }
+        if (typeof (part as any).text !== "undefined" || typeof (existing as any).text !== "undefined") {
+          merged.text = (part as any).text ?? (existing as any).text
+        }
+        input.setStore("part", part.messageID, result.index, reconcile(merged as any))
         break
       }
       input.setStore(
