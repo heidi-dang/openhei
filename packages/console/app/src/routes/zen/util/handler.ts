@@ -217,11 +217,19 @@ export async function handler(
       })
     }
 
-    // Handle streaming response
+    // Handle streaming response with optimizations for low latency
     const streamConverter = createStreamPartConverter(providerInfo.format, opts.format)
     const usageParser = providerInfo.createUsageParser()
     const binaryDecoder = providerInfo.createBinaryStreamDecoder()
+    
+    // SSE Optimization: Buffer/batch small tokens to reduce HTTP frame overhead
+    // Flush when we hit 20 chars OR 5ms timeout (whichever comes first)
+    const BATCH_SIZE_CHARS = 20
+    const BATCH_TIMEOUT_MS = 5
+    
     const stream = new ReadableStream({
+      // CRITICAL: highWaterMark 0 forces immediate flushing - no internal buffering
+      highWaterMark: 0,
       start(c) {
         const reader = res.body?.getReader()
         const decoder = new TextDecoder()
@@ -229,11 +237,39 @@ export async function handler(
 
         let buffer = ""
         let responseLength = 0
+        let batchBuffer = ""
+        let lastFlushTime = Date.now()
+        let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+
+        // Heartbeat mechanism: Send ping every 15 seconds to prevent proxy timeouts
+        // This keeps the connection alive during long thinking periods
+        heartbeatInterval = setInterval(() => {
+          try {
+            c.enqueue(encoder.encode(":ping\n\n"))
+          } catch {
+            // Stream may be closed, ignore
+          }
+        }, 15000)
+
+        // Flush batched data to client immediately
+        const flushBatch = () => {
+          if (batchBuffer.length > 0) {
+            c.enqueue(encoder.encode(batchBuffer))
+            batchBuffer = ""
+            lastFlushTime = Date.now()
+          }
+        }
 
         function pump(): Promise<void> {
           return (
             reader?.read().then(async ({ done, value: rawValue }) => {
               if (done) {
+                // Clear heartbeat interval
+                if (heartbeatInterval) clearInterval(heartbeatInterval)
+                
+                // Flush any remaining batched data before closing
+                flushBatch()
+                
                 logger.metric({
                   response_length: responseLength,
                   "timestamp.last_byte": Date.now(),
@@ -279,19 +315,33 @@ export async function handler(
                 part = part.trim()
                 usageParser.parse(part)
 
+                let outputPart = part
                 if (providerInfo.responseModifier) {
                   for (const [k, v] of Object.entries(providerInfo.responseModifier)) {
-                    part = part.replace(k, v)
+                    outputPart = outputPart.replace(k, v)
                   }
-                  c.enqueue(encoder.encode(part + "\n\n"))
+                  batchBuffer += outputPart + "\n\n"
                 } else if (providerInfo.format !== opts.format) {
-                  part = streamConverter(part)
-                  c.enqueue(encoder.encode(part + "\n\n"))
+                  outputPart = streamConverter(part)
+                  batchBuffer += outputPart + "\n\n"
+                } else {
+                  // Pass-through: add to batch buffer
+                  batchBuffer += part + "\n\n"
+                }
+
+                // Flush batch if size threshold reached or timeout exceeded
+                const now = Date.now()
+                if (batchBuffer.length >= BATCH_SIZE_CHARS || (now - lastFlushTime) >= BATCH_TIMEOUT_MS) {
+                  flushBatch()
                 }
               }
 
+              // For pass-through mode, also check if we need to flush
               if (!providerInfo.responseModifier && providerInfo.format === opts.format) {
-                c.enqueue(value)
+                const now = Date.now()
+                if (batchBuffer.length >= BATCH_SIZE_CHARS || (now - lastFlushTime) >= BATCH_TIMEOUT_MS) {
+                  flushBatch()
+                }
               }
 
               return pump()
@@ -302,6 +352,13 @@ export async function handler(
         return pump()
       },
     })
+    
+    // SSE Optimization: Disable compression to prevent buffering delays
+    // Compression waits for "enough" data before flushing, causing stuttering
+    resHeaders.set("content-encoding", "identity")
+    resHeaders.set("x-accel-buffering", "no") // Disable nginx buffering
+    resHeaders.set("cache-control", "no-cache, no-transform")
+    
     return new Response(stream, {
       status: resStatus,
       statusText: res.statusText,

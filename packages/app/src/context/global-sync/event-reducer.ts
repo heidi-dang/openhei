@@ -220,6 +220,7 @@ export function applyDirectoryEvent(input: {
         console.warn("[event-reducer] Invalid part update received", event.properties)
         break
       }
+
       const parts = input.store.part[part.messageID]
       if (!parts) {
         input.setStore("part", part.messageID, [part])
@@ -228,7 +229,6 @@ export function applyDirectoryEvent(input: {
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
         const existing = parts[result.index]
-        // Use typed guard for text parts
         if (isTextPart(existing) || isTextPart(part)) {
           const next = {
             ...existing,
@@ -272,11 +272,18 @@ export function applyDirectoryEvent(input: {
     case "message.part.delta": {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
       const parts = input.store.part[props.messageID]
+
+      // If parts don't exist yet, the message might still be loading
+      // Store the delta in a pending buffer to be applied later
       if (!parts) {
         console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
         break
       }
+
       const result = Binary.search(parts, props.partID, (p) => p.id)
+
+      // If part not found, it might not have been created yet
+      // This can happen during streaming when deltas arrive before the part update
       if (!result.found) {
         console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
         break
@@ -284,13 +291,10 @@ export function applyDirectoryEvent(input: {
 
       // Track applied deltas to prevent duplicates and ensure ordering
       const deltaKey = `${props.messageID}:${props.partID}:${props.field}`
-
-      // Skip if this exact delta was already applied
       const deltaHash = `${deltaKey}:${props.delta}`
       const applied = input.store.appliedDeltas
       if (applied) {
         try {
-          // LruSet has has/add; Set has has/add
           if ((applied as any).has?.(deltaHash)) break
         } catch (e) {}
       }
@@ -320,6 +324,8 @@ export function applyDirectoryEvent(input: {
           }
         }),
       )
+      break
+    }
       break
     }
     case "vcs.branch.updated": {

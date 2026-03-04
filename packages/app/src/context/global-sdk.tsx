@@ -177,6 +177,7 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       while (!abort.signal.aborted) {
         attempt = new AbortController()
         lastEventAt = Date.now()
+        isReconnecting = false
         const onAbort = () => {
           attempt?.abort()
         }
@@ -204,12 +205,16 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
 
           // Flush any buffered deltas from previous reconnection
           flushDeltaBuffer()
+
           for await (const event of events.stream) {
             resetHeartbeat()
             streamErrorLogged = false
             const directory = event.directory ?? "global"
             const payload = event.payload
+
+            // Buffer deltas during potential reconnection scenarios
             bufferDelta(directory, payload)
+
             const k = key(directory, payload)
             if (k) {
               const i = coalesced.get(k)
@@ -272,16 +277,21 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
     const onVisibility = () => {
       if (typeof document === "undefined") return
       if (document.visibilityState !== "visible") return
+      // Force reconnect if we've been hidden for too long
       const timeSinceLastEvent = Date.now() - lastEventAt
       if (timeSinceLastEvent > HEARTBEAT_TIMEOUT_MS) {
-        console.info("[global-sdk] Tab became visible after long absence, forcing reconnect")
+        console.info("[global-sdk] Tab became visible after long absence, forcing reconnect", {
+          timeSinceLastEventMs: timeSinceLastEvent,
+        })
         attempt?.abort()
       } else if (timeSinceLastEvent > 5000) {
+        // Check connection health after shorter absence
         console.info("[global-sdk] Checking connection health after tab visibility change")
         forceReconnectIfStale(5000)
       }
     }
 
+    // Handle online/offline events
     const onOnline = () => {
       console.info("[global-sdk] Network came online, forcing reconnect")
       attempt?.abort()
