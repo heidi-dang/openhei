@@ -126,14 +126,16 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models") || "Loading models..."}
+                        {language.t("common.loading")}
                       </div>
                     }
                   >
                     <Select
-                      value={subagent1Model()}
-                      onChange={setSubagent1Model}
+                      value={modelOptions().find((o) => o.value === subagent1Model())}
+                      onChange={(v) => setSubagent1Model((v as any)?.value || "")}
                       options={modelOptions()}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
                       placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
@@ -149,14 +151,16 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models") || "Loading models..."}
+                        {language.t("common.loading")}
                       </div>
                     }
                   >
                     <Select
-                      value={subagent2Model()}
-                      onChange={setSubagent2Model}
+                      value={modelOptions().find((o) => o.value === subagent2Model())}
+                      onChange={(v) => setSubagent2Model((v as any)?.value || "")}
                       options={modelOptions()}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
                       placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />

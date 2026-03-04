@@ -4,15 +4,21 @@ import { pipe, groupBy, entries, map } from "remeda"
 import { Button, ButtonProps } from "./button"
 import { Icon } from "./icon"
 
-export type SelectProps<T> = Omit<ComponentProps<typeof Kobalte<T>>, "value" | "onSelect" | "children"> & {
+export type SelectProps<T> = Omit<ComponentProps<typeof Kobalte<T>>, "value" | "onSelect" | "children" | "onChange"> & {
   placeholder?: string
   options: T[]
   current?: T
-  value?: (x: T) => string
-  label?: (x: T) => string
+  /** The current selected value (alias for current) */
+  value?: T
+  /** Value extractor function */
+  itemValue?: (x: T) => string
+  /** Label extractor function */
+  itemLabel?: (x: T) => string
   groupBy?: (x: T) => string
   valueClass?: ComponentProps<"div">["class"]
   onSelect?: (value: T | undefined) => void
+  /** Change handler (alias for onSelect) */
+  onChange?: (value: T | undefined) => void
   onHighlight?: (value: T | undefined) => (() => void) | void
   class?: ComponentProps<"div">["class"]
   classList?: ComponentProps<"div">["classList"]
@@ -29,10 +35,12 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
     "options",
     "current",
     "value",
-    "label",
+    "itemValue",
+    "itemLabel",
     "groupBy",
     "valueClass",
     "onSelect",
+    "onChange",
     "onHighlight",
     "onOpenChange",
     "children",
@@ -51,7 +59,8 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
     state.key = undefined
   }
 
-  const keyFor = (item: T) => (local.value ? local.value(item) : (item as string))
+  const keyFor = (item: T) => (local.itemValue ? local.itemValue(item) : (item as string))
+  const displayFor = (item: T) => (local.itemLabel ? local.itemLabel(item) : (item as string))
 
   const move = (item: T | undefined) => {
     if (!local.onHighlight) return
@@ -69,11 +78,18 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
 
   onCleanup(stop)
 
+  const currentValue = () => {
+    const val = local.value ?? local.current
+    if (val !== undefined && typeof val !== "object" && local.itemValue) {
+      return local.options.find((o) => keyFor(o) === (val as any)) ?? val
+    }
+    return val
+  }
+
   const grouped = createMemo(() => {
     const result = pipe(
       local.options,
       groupBy((x) => (local.groupBy ? local.groupBy(x) : "")),
-      // mapValues((x) => x.sort((a, b) => a.title.localeCompare(b.title))),
       entries(),
       map(([k, v]) => ({ category: k, options: v })),
     )
@@ -88,10 +104,10 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
       data-trigger-style={local.triggerVariant}
       placement={local.triggerVariant === "settings" ? "bottom-end" : "bottom-start"}
       gutter={4}
-      value={local.current}
+      value={currentValue()}
       options={grouped()}
-      optionValue={(x) => (local.value ? local.value(x) : (x as string))}
-      optionTextValue={(x) => (local.label ? local.label(x) : (x as string))}
+      optionValue={(x) => keyFor(x)}
+      optionTextValue={(x) => displayFor(x)}
       optionGroupChildren="options"
       placeholder={local.placeholder}
       sectionComponent={(local) => (
@@ -112,9 +128,7 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
           <Kobalte.ItemLabel data-slot="select-select-item-label">
             {local.children
               ? local.children(itemProps.item.rawValue)
-              : local.label
-                ? local.label(itemProps.item.rawValue)
-                : (itemProps.item.rawValue as string)}
+              : displayFor(itemProps.item.rawValue)}
           </Kobalte.ItemLabel>
           <Kobalte.ItemIndicator data-slot="select-select-item-indicator">
             <Icon name="check-small" size="small" />
@@ -123,6 +137,7 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
       )}
       onChange={(v) => {
         local.onSelect?.(v ?? undefined)
+        local.onChange?.(v ?? undefined)
         stop()
       }}
       onOpenChange={(open) => {
@@ -134,8 +149,8 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
         disabled={props.disabled}
         data-slot="select-select-trigger"
         as={Button}
-        size={props.size}
-        variant={props.variant}
+        size={others.size}
+        variant={others.variant}
         style={local.triggerStyle}
         classList={{
           ...(local.classList ?? {}),
@@ -144,10 +159,9 @@ export function Select<T>(props: SelectProps<T> & Omit<ButtonProps, "children">)
       >
         <Kobalte.Value<T> data-slot="select-select-trigger-value" class={local.valueClass}>
           {(state) => {
-            const selected = state.selectedOption() ?? local.current
+            const selected = state.selectedOption() ?? currentValue()
             if (!selected) return local.placeholder || ""
-            if (local.label) return local.label(selected)
-            return selected as string
+            return displayFor(selected)
           }}
         </Kobalte.Value>
         <Kobalte.Icon data-slot="select-select-trigger-icon">
