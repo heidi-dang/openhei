@@ -1,0 +1,65 @@
+{
+  "provider": {
+    "status": {
+      "indicator": "Provider status",
+      "ready": "Ready",
+      "error": "Error",
+      "warning": "Warning",
+      "busy": "Processing",
+      "retrying": "Retrying",
+      "code": "Code",
+      "retryingIn": "Retrying in"
+    },
+    "error": {
+      "authFailed": "Authentication Failed",
+      "quotaExceeded": "Quota Exceeded",
+      "billingError": "Billing Error",
+      "rateLimited": "Rate Limited",
+      "contextOverflow": "Context Too Long",
+      "toolNotSupported": "Tools Not Supported",
+      "modelUnavailable": "Model Unavailable",
+      "networkError": "Network Error",
+      "timeout": "Request Timeout",
+      "serverError": "Server Error",
+      "providerOverloaded": "Provider Overloaded",
+      "generic": "Provider Error"
+    },
+    "warning": {
+      "generic": "Provider Warning"
+    },
+    "retry": {
+      "title": "Retrying",
+      "description": "Attempting to retry the request..."
+    }
+  },
+  "error": {
+    "apiError": "API Error",
+    "contextOverflow": "Context Overflow",
+    "authError": "Authentication Error",
+    "aborted": "Request Aborted",
+    "requestAborted": "The request was aborted",
+    "unknown": "Unknown Error",
+    "unknownError": "An unknown error occurred",
+    "retryable": "Can retry"
+  },
+  "common": {
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyDetails": "Copy details",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "requestFailed": "Request failed"
+  },
+  "streaming": {
+    "status": {
+      "streaming": "Streaming...",
+      "reconnecting": "Reconnecting...",
+      "resyncing": "Resyncing...",
+      "stopping": "Stopping...",
+      "stopTimeout": "Stop timed out"
+    },
+    "stop": "Stop"
+  }
+}

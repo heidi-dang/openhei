@@ -1,0 +1,202 @@
+# Provider Error Flow Diagram
+
+## Sequence Diagram
+
+```
+┌─────────┐     ┌──────────┐     ┌─────────────┐     ┌──────────────┐     ┌──────────┐
+│  User   │     │    UI    │     │   Session   │     │   Provider   │     │   Bus    │
+└────┬────┘     └────┬─────┘     └──────┬──────┘     └──────┬───────┘     └────┬─────┘
+     │               │                  │                   │                  │
+     │ Send Message  │                  │                   │                  │
+     │──────────────>│                  │                   │                  │
+     │               │  Stream Request  │                   │                  │
+     │               │─────────────────>│                   │                  │
+     │               │                  │  LLM Request      │                  │
+     │               │                  │──────────────────>│                  │
+     │               │                  │                   │                  │
+     │               │                  │  Error Response   │                  │
+     │               │                  │<──────────────────│                  │
+     │               │                  │                   │                  │
+     │               │                  │  Standardize Error│                  │
+     │               │                  │  (ProviderError)  │                  │
+     │               │                  │                   │                  │
+     │               │                  │  Set Status       │                  │
+     │               │                  │  (SessionStatus)  │                  │
+     │               │                  │                   │                  │
+     │               │                  │  Publish Event    │                  │
+     │               │                  │─────────────────────────────────────>│
+     │               │                  │                   │                  │
+     │               │  Status Update    │                   │                  │
+     │               │<─────────────────│                   │                  │
+     │               │                  │                   │                  │
+     │  Show Banner  │                  │                   │                  │
+     │<──────────────│                  │                   │                  │
+     │               │                  │                   │                  │
+     │  Update Header│                  │                   │                  │
+     │<──────────────│                  │                   │                  │
+     │               │                  │                   │                  │
+     │               │                  │                   │                  │
+     │ Click Retry   │                  │                   │                  │
+     │──────────────>│                  │                   │                  │
+     │               │  Retry Request   │                   │                  │
+     │               │─────────────────>│                   │                  │
+     │               │                  │                   │                  │
+```
+
+## Error Handling Flow
+
+```
+┌─────────────────┐
+│  Provider Error │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Detect Error   │
+│     Code        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Standardize    │
+│     Error       │
+│  (code, severity│
+│   message, etc) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│  Set Session    │────>│  Publish Bus    │
+│     Status      │     │     Event       │
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  UI Receives    │
+│    Update       │
+└────────┬────────┘
+         │
+         ├──────────────┬──────────────┐
+         │              │              │
+         ▼              ▼              ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│    Header   │  │    Banner   │  │  Error Card │
+│  Indicator  │  │             │  │             │
+│  (dot color)│  │  (message)  │  │  (details)  │
+└─────────────┘  └─────────────┘  └─────────────┘
+```
+
+## Status Types
+
+```
+SessionStatus
+│
+├── idle
+│   └── Green dot, "Ready"
+│
+├── busy
+│   └── Blue pulsing, "Processing"
+│
+├── retry
+│   └── Orange, "Retrying in Xs"
+│
+├── provider_error
+│   ├── severity: "error"
+│   │   └── Red, retryable errors
+│   └── severity: "critical"
+│       └── Red pulsing, non-retryable
+│
+├── provider_warning
+│   └── Yellow, warnings
+│
+└── provider_status
+    ├── severity: "info"
+    │   └── Blue, informational
+    └── severity: "warning"
+        └── Yellow, caution
+```
+
+## Error Codes and Severity
+
+| Code | Severity | Retryable | Description |
+|------|----------|-----------|-------------|
+| AUTH_FAILED | critical | No | Invalid API key or token |
+| QUOTA_EXCEEDED | critical | No | Usage limit reached |
+| BILLING_ERROR | critical | No | Payment issue |
+| CONTEXT_OVERFLOW | error | No | Input too long |
+| TOOL_NOT_SUPPORTED | error | No | Model doesn't support tools |
+| RATE_LIMITED | warning | Yes | Too many requests |
+| TIMEOUT | warning | Yes | Request timed out |
+| NETWORK_ERROR | warning | Yes | Connection issue |
+| SERVER_ERROR | warning | Yes | Provider server error |
+| MODEL_UNAVAILABLE | warning | Yes | Model temporarily down |
+| PROVIDER_OVERLOADED | warning | Yes | Provider busy |
+| UNKNOWN_ERROR | error | No | Unclassified error |
+
+## UI Component Mapping
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Header                                                      │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ Session Title    [ProviderStatusIndicator]   [Controls] ││
+│  │                          ● Provider Name                ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│  ProviderStatusBanner (when error/warning)                  │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ ⚠️  Rate Limited (openai)                               ││
+│  │ Rate limit reached for openai. Please wait...           ││
+│  │ Retrying in: 45s                              [Retry]   ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│  Messages                                                   │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ User: Hello                                             ││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ Assistant: ...                                          ││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ ProviderErrorCard (when message has error)              ││
+│  │ ┌─────────────────────────────────────────────────────┐ ││
+│  │ │ ✗ API Error                                [×]      │ ││
+│  │ │ Error from openai: Rate limit exceeded              │ ││
+│  │ │ HTTP 429  [Retryable]                               │ ││
+│  │ │ [Show Details]                            [Retry]   │ ││
+│  │ └─────────────────────────────────────────────────────┘ ││
+│  └─────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────┤
+│  Composer                                                   │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ [Input field]                              [Send]       ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
+
+## State Transitions
+
+```
+                    ┌──────────┐
+         ┌─────────>│   Idle   │<─────────┐
+         │          └────┬─────┘          │
+         │               │                │
+         │   Message     │   Complete     │
+         │   Started     │                │
+         │               │                │
+    Retry│          ┌────▼─────┐          │
+    Success          │   Busy   │          │
+         │          └────┬─────┘          │
+         │               │                │
+         │               │ Error          │
+         │               │                │
+         │          ┌────▼───────────┐    │
+         │          │ Provider Error │    │
+         │          └────┬───────────┘    │
+         │               │                │
+         │               │ Retryable      │
+         │               │                │
+         │          ┌────▼─────┐          │
+         └──────────│  Retry   │──────────┘
+                    └──────────┘
+```
