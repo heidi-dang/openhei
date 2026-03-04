@@ -1500,7 +1500,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     size="normal"
                     options={variants()}
                     current={local.model.variant.current() ?? "default"}
-                    label={(x) => (x === "default" ? language.t("common.default") : x)}
+                    label={(x: string) => (x === "default" ? language.t("common.default") : x)}
                     onSelect={(x) => local.model.variant.set(x === "default" ? undefined : x)}
                     class="capitalize max-w-[160px]"
                     valueClass="truncate text-13-regular"

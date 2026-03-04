@@ -78,7 +78,7 @@ export function RepoImportForm(props: RepoImportFormProps) {
         <p class="text-sm text-text-weak ml-8">Choose what parts of the application to generate</p>
         <Select
           value={generateTarget()}
-          onChange={(v: "backend" | "both" | "ui" | undefined) => v && setGenerateTarget(v)}
+          onChange={(v) => v && setGenerateTarget(v)}
           options={generateTargetOptions.map((o) => o.value)}
           placeholder="Select target"
         />

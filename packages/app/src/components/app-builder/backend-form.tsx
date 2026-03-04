@@ -284,7 +284,7 @@ export function BackendForm(props: BackendFormProps) {
             <label class="text-sm font-medium">Storage</label>
             <Select
               value={storage().value}
-              onChange={(v: string | undefined) => v && setStorage(getStorageOption(v))}
+              onChange={(v) => v && setStorage(getStorageOption(v))}
               options={storageOptions.map((o) => o.value)}
               placeholder="Select storage"
               variant="secondary"
@@ -296,7 +296,7 @@ export function BackendForm(props: BackendFormProps) {
           <label class="text-sm font-medium">Expected Scale</label>
           <Select
             value={expectedScale().value}
-            onChange={(v: string | undefined) => v && setExpectedScale(getScaleOption(v))}
+            onChange={(v) => v && setExpectedScale(getScaleOption(v))}
             options={scaleOptions.map((o) => o.value)}
             placeholder="Select scale"
             variant="secondary"

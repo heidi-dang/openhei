@@ -232,9 +232,7 @@ export function UIForm(props: UIFormProps) {
               <Select
                 class="sm:col-span-3"
                 value={newComponentType()}
-                onChange={(
-                  v: "card" | "chart" | "chat" | "form" | "modal" | "navigation" | "other" | "table" | undefined,
-                ) => v && setNewComponentType(v)}
+                onChange={(v) => v && setNewComponentType(v)}
                 options={componentTypeOptions.map((o) => o.value)}
                 placeholder="Type"
               />

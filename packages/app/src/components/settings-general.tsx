@@ -71,26 +71,26 @@ export const SettingsGeneral: Component = () => {
 
         const actions = platform.update
           ? [
-              {
-                label: language.t("toast.update.action.installRestart"),
-                onClick: async () => {
-                  const ret = `${location.pathname}${location.search}${location.hash}`
-                  navigate(
-                    `/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(result.version ?? "")}`,
-                  )
-                },
+            {
+              label: language.t("toast.update.action.installRestart"),
+              onClick: async () => {
+                const ret = `${location.pathname}${location.search}${location.hash}`
+                navigate(
+                  `/updating?return=${encodeURIComponent(ret)}&target=${encodeURIComponent(result.version ?? "")}`,
+                )
               },
-              {
-                label: language.t("toast.update.action.notYet"),
-                onClick: "dismiss" as const,
-              },
-            ]
+            },
+            {
+              label: language.t("toast.update.action.notYet"),
+              onClick: "dismiss" as const,
+            },
+          ]
           : [
-              {
-                label: language.t("toast.update.action.notYet"),
-                onClick: "dismiss" as const,
-              },
-            ]
+            {
+              label: language.t("toast.update.action.notYet"),
+              onClick: "dismiss" as const,
+            },
+          ]
 
         showToast({
           persistent: true,
@@ -152,8 +152,8 @@ export const SettingsGeneral: Component = () => {
   ) => ({
     options: soundOptions,
     current: enabled() ? (soundOptions.find((o) => o.id === current()) ?? noneSound) : noneSound,
-    value: (o: (typeof soundOptions)[number]) => o.id,
-    label: (o: (typeof soundOptions)[number]) => language.t(o.label),
+    itemValue: (o: (typeof soundOptions)[number]) => o.id,
+    itemLabel: (o: (typeof soundOptions)[number]) => language.t(o.label),
     onHighlight: (option: (typeof soundOptions)[number] | undefined) => {
       if (!option) return
       playDemoSound(option.src)
@@ -187,8 +187,8 @@ export const SettingsGeneral: Component = () => {
             data-action="settings-language"
             options={languageOptions()}
             current={languageOptions().find((o) => o.value === language.locale())}
-            value={(o) => o.value}
-            label={(o) => o.label}
+            itemValue={(o) => o.value}
+            itemLabel={(o) => o.label}
             onSelect={(option) => option && language.setLocale(option.value)}
             variant="secondary"
             size="small"
@@ -204,8 +204,8 @@ export const SettingsGeneral: Component = () => {
             data-action="settings-color-scheme"
             options={colorSchemeOptions()}
             current={colorSchemeOptions().find((o) => o.value === theme.colorScheme())}
-            value={(o) => o.value}
-            label={(o) => o.label}
+            itemValue={(o) => o.value}
+            itemLabel={(o) => o.label}
             onSelect={(option) => option && theme.setColorScheme(option.value)}
             onHighlight={(option) => {
               if (!option) return
@@ -231,8 +231,8 @@ export const SettingsGeneral: Component = () => {
             data-action="settings-theme"
             options={themeOptions()}
             current={themeOptions().find((o) => o.id === theme.themeId())}
-            value={(o) => o.id}
-            label={(o) => o.name}
+            itemValue={(o) => o.id}
+            itemLabel={(o) => o.name}
             onSelect={(option) => {
               if (!option) return
               theme.setTheme(option.id)
@@ -256,8 +256,8 @@ export const SettingsGeneral: Component = () => {
             data-action="settings-font"
             options={fontOptionsList}
             current={fontOptionsList.find((o) => o.value === settings.appearance.font())}
-            value={(o) => o.value}
-            label={(o) => language.t(o.label)}
+            itemValue={(o) => o.value}
+            itemLabel={(o) => language.t(o.label)}
             onSelect={(option) => option && settings.appearance.setFont(option.value)}
             variant="secondary"
             size="small"
@@ -302,8 +302,8 @@ export const SettingsGeneral: Component = () => {
                   "settings.general.row.thinkingDrawer.option." + settings.general.thinkingDrawerMode(),
                 ),
               }}
-              value={(o: any) => o.value}
-              label={(o: any) => o.label}
+              itemValue={(o: any) => o.value}
+              itemLabel={(o: any) => o.label}
               onSelect={(option: any) => option && settings.general.setThinkingDrawerMode(option.value)}
               variant="secondary"
               size="small"
@@ -416,8 +416,8 @@ export const SettingsGeneral: Component = () => {
                       "settings.general.row.densityModes.option." + settings.general.density(),
                     ),
                   }}
-                  value={(o: any) => o.value}
-                  label={(o: any) => o.label}
+                  itemValue={(o: any) => o.value}
+                  itemLabel={(o: any) => o.label}
                   onSelect={(option: any) => option && settings.general.setDensity(option.value)}
                   triggerVariant="settings"
                 />
@@ -631,8 +631,8 @@ export const SettingsGeneral: Component = () => {
                   { value: "chat_only", label: (language.t as any)("settings.general.row.mode.option.chatOnly") },
                 ]}
                 current={{ value: settings.general.chatMode(), label: settings.general.chatMode() }}
-                value={(o: any) => o.value}
-                label={(o: any) => o.label}
+                itemValue={(o: any) => o.value}
+                itemLabel={(o: any) => o.label}
                 onSelect={(option: any) => option && settings.general.setChatMode(option.value)}
                 variant="secondary"
                 size="small"

@@ -124,19 +124,15 @@ export const SettingsSwarm: Component = () => {
                   </span>
                   <Show
                     when={hasModels()}
-                    fallback={
-                      <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models" as any) || "Loading models..."}
-                      </div>
-                    }
+                    fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
                   >
                     <Select
-                      current={modelOptions().find((o) => o.value === subagent1Model())}
-                      onSelect={(v) => setSubagent1Model(v?.value ?? "")}
+                      value={modelOptions().find((o) => o.value === subagent1Model())}
+                      onChange={(v) => setSubagent1Model((v as any)?.value || "")}
                       options={modelOptions()}
-                      value={(x) => x.value}
-                      label={(x) => x.label}
-                      placeholder={language.t("settings.swarm.select.model" as any)}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
+                      placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
                   </Show>
@@ -149,19 +145,15 @@ export const SettingsSwarm: Component = () => {
                   </span>
                   <Show
                     when={hasModels()}
-                    fallback={
-                      <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models" as any) || "Loading models..."}
-                      </div>
-                    }
+                    fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
                   >
                     <Select
-                      current={modelOptions().find((o) => o.value === subagent2Model())}
-                      onSelect={(v) => setSubagent2Model(v?.value ?? "")}
+                      value={modelOptions().find((o) => o.value === subagent2Model())}
+                      onChange={(v) => setSubagent2Model((v as any)?.value || "")}
                       options={modelOptions()}
-                      value={(x) => x.value}
-                      label={(x) => x.label}
-                      placeholder={language.t("settings.swarm.select.model" as any)}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
+                      placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
                   </Show>
