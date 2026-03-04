@@ -66,8 +66,8 @@ export const SettingsSwarm: Component = () => {
         if (config.subagent_models && config.subagent_models.length > 1) {
           setSubagent2Model(config.subagent_models[1] || "")
         }
+        setConfigLoaded(true)
       }
-      setConfigLoaded(true)
       setLoading(false)
     }
     void loadConfig()
@@ -85,17 +85,9 @@ export const SettingsSwarm: Component = () => {
     setSaving(false)
 
     if (success) {
-      showToast({
-        variant: "success",
-        icon: "circle-check",
-        title: language.t("settings.swarm.toast.saved"),
-      })
+      showToast({ variant: "success", icon: "circle-check", title: language.t("settings.swarm.toast.saved") })
     } else {
-      showToast({
-        variant: "error",
-        icon: "circle-x",
-        title: language.t("settings.swarm.toast.error"),
-      })
+      showToast({ variant: "error", icon: "circle-x", title: language.t("settings.swarm.toast.error") })
     }
   }
 
@@ -126,20 +118,15 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
                   >
-                    <Show
-                      when={hasModels()}
-                      fallback={<div class="text-14-regular text-text-weak py-2">{language.t("common.loading")}</div>}
-                    >
-                      <Select
-                        current={modelOptions().find((o) => o.value === subagent1Model())}
-                        onSelect={(v) => setSubagent1Model(v ? v.value : "")}
-                        options={modelOptions()}
-                        value={(x) => x.value}
-                        label={(x) => x.label}
-                        placeholder={language.t("settings.swarm.select.model")}
-                        disabled={!hasModels()}
-                      />
-                    </Show>
+                    <Select
+                      current={modelOptions().find((o) => o.value === subagent1Model())}
+                      onSelect={(v) => setSubagent1Model(v ? v.value : "")}
+                      options={modelOptions()}
+                      value={(x) => x.value}
+                      label={(x) => x.label}
+                      placeholder={language.t("settings.swarm.select.model")}
+                      disabled={!hasModels()}
+                    />
                   </Show>
                 </div>
 
@@ -169,10 +156,7 @@ export const SettingsSwarm: Component = () => {
                   <div class="flex flex-col gap-0.5">
                     <span class="text-12-medium text-text-strong">{language.t("settings.swarm.limits")}</span>
                     <span class="text-11-regular text-text-weak">
-                      {language.t("settings.swarm.limits.description", {
-                        maxSubagents: 2,
-                        maxExecutors: 3,
-                      })}
+                      {language.t("settings.swarm.limits.description", { maxSubagents: 2, maxExecutors: 3 })}
                     </span>
                   </div>
                 </div>
@@ -190,3 +174,5 @@ export const SettingsSwarm: Component = () => {
     </div>
   )
 }
+
+export default SettingsSwarm

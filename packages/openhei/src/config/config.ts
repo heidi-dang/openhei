@@ -1224,6 +1224,20 @@ export namespace Config {
           subagent_models: [],
         }))
         .describe("Swarm Mode configuration"),
+      failure_detection: z
+        .object({
+          enabled: z.boolean().optional().default(true).describe("Enable failure detection and event publishing"),
+          stall_timeout_ms: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .default(30000)
+            .describe("Threshold in ms to consider executions stalled"),
+          rate_limit_window: z.number().int().optional().default(3).describe("Window count for rate limit heuristics"),
+        })
+        .optional()
+        .describe("Runtime failure detection configuration"),
     })
     .meta({
       ref: "Config",

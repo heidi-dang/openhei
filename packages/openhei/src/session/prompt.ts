@@ -47,6 +47,7 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { RunEventBus } from "@/stream/event-bus"
+import { FailureDetector } from "@/monitor/failure-detector"
 import { ActivityEvent } from "@/stream/activity-events"
 
 // @ts-ignore
@@ -324,6 +325,8 @@ export namespace SessionPrompt {
 
     let runId: string | undefined
     let runStartTime: number | undefined
+    // Capture last user model provider to allow failure detection after loop
+    let lastUserProviderID: string | undefined
 
     try {
       // Structured output state
@@ -356,6 +359,7 @@ export namespace SessionPrompt {
         }
 
         if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+        lastUserProviderID = lastUser.model?.providerID
 
         // Create placeholder assistant message and set busy status with runId
         let placeholderAssistant: MessageV2.Assistant | undefined
@@ -857,6 +861,20 @@ export namespace SessionPrompt {
               duration_ms: Date.now() - runStartTime,
             },
           })
+          try {
+            const cfg = await Config.get()
+            const fd = cfg.failure_detection ?? { enabled: true, stall_timeout_ms: 30000 }
+            const duration = Date.now() - runStartTime
+            if (fd.enabled && duration >= (fd.stall_timeout_ms ?? 30000)) {
+              FailureDetector.stall({
+                run_id: runId,
+                message: `Run duration ${duration}ms exceeded stall threshold`,
+                providerID: lastUserProviderID,
+              })
+            }
+          } catch (e) {
+            log.debug("failure detection check failed", { error: e })
+          }
         }
 
         return item
@@ -877,6 +895,19 @@ export namespace SessionPrompt {
             code: error instanceof Error ? error.name : "UnknownError",
           },
         })
+
+        // Publish a generic failure detection event so UI/monitoring can react
+        try {
+          FailureDetector.publishFailure({
+            kind: "other",
+            run_id: runId,
+            message: errorMessage,
+            details: { code: error instanceof Error ? error.name : "UnknownError" },
+            severity: "critical",
+          })
+        } catch (e) {
+          log.debug("failure detector publish failed", { error: e })
+        }
       }
       throw error
     } finally {

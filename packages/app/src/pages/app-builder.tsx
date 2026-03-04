@@ -119,9 +119,14 @@ export default function AppBuilder() {
   }
 
   return (
-    <div class="h-full flex">
-      {/* Sidebar */}
-      <div class="w-72 border-r flex flex-col bg-surface">
+    <div class="h-full flex flex-col md:flex-row">
+      {/* Sidebar - hidden on mobile when session is active, full width on mobile when no session */}
+      <div
+        class={`
+          border-r flex flex-col bg-surface
+          ${activeSessionId() ? "hidden md:flex md:w-72" : "w-full md:w-72"}
+        `}
+      >
         <div class="p-4 border-b">
           <h1 class="text-lg font-semibold flex items-center gap-2">
             <Icon name="prompt" class="w-5 h-5" />
@@ -227,8 +232,13 @@ export default function AppBuilder() {
         </ScrollView>
       </div>
 
-      {/* Main Content */}
-      <div class="flex-1 overflow-hidden bg-surface">
+      {/* Main Content - full width on mobile */}
+      <div
+        class={`
+          flex-1 overflow-hidden bg-surface
+          ${activeSessionId() ? "flex" : "hidden md:flex"}
+        `}
+      >
         <Show when={activeSession()}>
           {(session) => (
             <BuildSessionDetail

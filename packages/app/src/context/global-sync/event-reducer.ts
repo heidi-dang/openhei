@@ -202,6 +202,10 @@ export function applyDirectoryEvent(input: {
     }
     case "message.part.updated": {
       const part = (event.properties as { part: Part }).part
+      if (!part?.id || !part?.messageID) {
+        console.warn("[event-reducer] Invalid part update received", event.properties)
+        break
+      }
       const parts = input.store.part[part.messageID]
       if (!parts) {
         input.setStore("part", part.messageID, [part])
@@ -209,7 +213,17 @@ export function applyDirectoryEvent(input: {
       }
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
-        input.setStore("part", part.messageID, result.index, reconcile(part))
+        const existing = parts[result.index]
+        input.setStore(
+          "part",
+          part.messageID,
+          result.index,
+          reconcile({
+            ...existing,
+            ...part,
+            text: part.text ?? existing.text,
+          }),
+        )
         break
       }
       input.setStore(
@@ -244,17 +258,25 @@ export function applyDirectoryEvent(input: {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
       performance.mark(`stream-part-delta-${props.messageID}-${props.partID}`)
       const parts = input.store.part[props.messageID]
-      if (!parts) break
+      if (!parts) {
+        console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
+        break
+      }
       const result = Binary.search(parts, props.partID, (p) => p.id)
-      if (!result.found) break
+      if (!result.found) {
+        console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
+        break
+      }
       input.setStore(
         "part",
         props.messageID,
         produce((draft) => {
           const part = draft[result.index]
+          if (!part) return
           const field = props.field as keyof typeof part
           const existing = part[field] as string | undefined
-            ; (part[field] as string) = (existing ?? "") + props.delta
+          const newValue = (existing ?? "") + (props.delta ?? "")
+          ;(part[field] as string) = newValue
         }),
       )
       break

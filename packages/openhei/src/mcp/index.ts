@@ -23,6 +23,7 @@ import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
+import { FailureDetector } from "@/monitor/failure-detector"
 
 export namespace MCP {
   const log = Log.create({ service: "mcp" })
@@ -397,6 +398,16 @@ export namespace MCP {
             url: mcp.url,
             error: lastError.message,
           })
+          try {
+            FailureDetector.publishFailure({
+              kind: "disconnect",
+              message: lastError.message,
+              details: { key, transport: name, url: mcp.url },
+              severity: "critical",
+            })
+          } catch (e) {
+            log.debug("failure detector publish failed", { error: e })
+          }
           status = {
             status: "failed" as const,
             error: lastError.message,
@@ -465,6 +476,16 @@ export namespace MCP {
 
     const result = await withTimeout(mcpClient.listTools(), mcp.timeout ?? DEFAULT_TIMEOUT).catch((err) => {
       log.error("failed to get tools from client", { key, error: err })
+      try {
+        FailureDetector.publishFailure({
+          kind: "upstream_5xx",
+          message: err instanceof Error ? err.message : String(err),
+          details: { key, url: (mcp && (mcp as any).url) ?? undefined },
+          severity: "critical",
+        })
+      } catch (e) {
+        log.debug("failure detector publish failed", { error: e })
+      }
       return undefined
     })
     if (!result) {
@@ -579,6 +600,16 @@ export namespace MCP {
       connectedClients.map(async ([clientName, client]) => {
         const toolsResult = await client.listTools().catch((e) => {
           log.error("failed to get tools", { clientName, error: e.message })
+          try {
+            FailureDetector.publishFailure({
+              kind: "disconnect",
+              message: e instanceof Error ? e.message : String(e),
+              details: { clientName },
+              severity: "critical",
+            })
+          } catch (err) {
+            log.debug("failure detector publish failed", { error: err })
+          }
           const failedStatus = {
             status: "failed" as const,
             error: e instanceof Error ? e.message : String(e),
