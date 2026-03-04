@@ -237,7 +237,7 @@ export function applyDirectoryEvent(input: {
           } as Part
           input.setStore("part", part.messageID, result.index, reconcile(next))
         } else {
-          input.setStore("part", part.messageID, result.index, reconcile({ ...existing, ...part }))
+          input.setStore("part", part.messageID, result.index, reconcile({ ...existing, ...part } as Part))
         }
         break
       }
@@ -299,7 +299,7 @@ export function applyDirectoryEvent(input: {
         produce((draft) => {
           const part = draft.part[props.messageID]?.[result.index]
           if (!part) return
-          const field = props.field as keyof typeof part
+          const field = props.field
           // Only attempt to append to string fields on text parts
           if (isTextPart(part) && (field === "text" || typeof (part as any)[field] === "string")) {
             const existing = (part as any)[field] as string | undefined
