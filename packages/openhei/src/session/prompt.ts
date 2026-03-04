@@ -325,6 +325,8 @@ export namespace SessionPrompt {
 
     let runId: string | undefined
     let runStartTime: number | undefined
+    // Capture last user model provider to allow failure detection after loop
+    let lastUserProviderID: string | undefined
 
     try {
       // Structured output state
@@ -357,6 +359,7 @@ export namespace SessionPrompt {
         }
 
         if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+        lastUserProviderID = lastUser.model?.providerID
 
         // Create placeholder assistant message and set busy status with runId
         let placeholderAssistant: MessageV2.Assistant | undefined
@@ -866,7 +869,7 @@ export namespace SessionPrompt {
               FailureDetector.stall({
                 run_id: runId,
                 message: `Run duration ${duration}ms exceeded stall threshold`,
-                providerID: lastUser?.model?.providerID,
+                providerID: lastUserProviderID,
               })
             }
           } catch (e) {
@@ -900,7 +903,7 @@ export namespace SessionPrompt {
             run_id: runId,
             message: errorMessage,
             details: { code: error instanceof Error ? error.name : "UnknownError" },
-            severity: "error",
+            severity: "critical",
           })
         } catch (e) {
           log.debug("failure detector publish failed", { error: e })

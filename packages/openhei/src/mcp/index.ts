@@ -403,7 +403,7 @@ export namespace MCP {
               kind: "disconnect",
               message: lastError.message,
               details: { key, transport: name, url: mcp.url },
-              severity: "error",
+              severity: "critical",
             })
           } catch (e) {
             log.debug("failure detector publish failed", { error: e })
@@ -481,7 +481,7 @@ export namespace MCP {
           kind: "upstream_5xx",
           message: err instanceof Error ? err.message : String(err),
           details: { key, url: (mcp && (mcp as any).url) ?? undefined },
-          severity: "warning",
+          severity: "critical",
         })
       } catch (e) {
         log.debug("failure detector publish failed", { error: e })
@@ -605,7 +605,7 @@ export namespace MCP {
               kind: "disconnect",
               message: e instanceof Error ? e.message : String(e),
               details: { clientName },
-              severity: "warning",
+              severity: "critical",
             })
           } catch (err) {
             log.debug("failure detector publish failed", { error: err })

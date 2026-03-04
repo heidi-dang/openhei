@@ -343,7 +343,7 @@ export class SwarmExecutorPool extends EventEmitter {
           providerID: this.state?.subagent_models?.[0]?.split("/")?.[0],
           message: String(error),
           details: { slot: params.slot },
-          severity: "error",
+          severity: "critical",
         })
       } catch (e) {
         log.debug("failure detector publish failed", { error: e })
