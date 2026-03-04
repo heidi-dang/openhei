@@ -52,6 +52,7 @@ export const RunsEventsRoutes = lazy(() =>
       c.header("Cache-Control", "no-cache")
       c.header("Connection", "keep-alive")
       c.header("X-Accel-Buffering", "no")
+      c.header("Content-Encoding", "identity")
 
       return streamSSE(c, async (stream) => {
         const connectedEvent = {
