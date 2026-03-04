@@ -115,21 +115,20 @@ export function BackendForm(props: BackendFormProps) {
     { value: "high", label: "High (enterprise scale)" },
   ]
 
-  const getAuthOption = (value: string): Option =>
-    authOptions.find((o) => o.value === value) || authOptions[0]
+  const getAuthOption = (value: string): Option => authOptions.find((o) => o.value === value) || authOptions[0]
 
-  const getStorageOption = (value: string): Option =>
-    storageOptions.find((o) => o.value === value) || storageOptions[0]
+  const getStorageOption = (value: string): Option => storageOptions.find((o) => o.value === value) || storageOptions[0]
 
-  const getScaleOption = (value: string): Option =>
-    scaleOptions.find((o) => o.value === value) || scaleOptions[0]
+  const getScaleOption = (value: string): Option => scaleOptions.find((o) => o.value === value) || scaleOptions[0]
 
   return (
     <form onSubmit={handleSubmit} class="space-y-6">
       {/* Step 1: Basic Info */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            1
+          </span>
           <h3 class="font-medium">Basic Information</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Give your backend a name and description</p>
@@ -149,7 +148,9 @@ export function BackendForm(props: BackendFormProps) {
       {/* Step 2: Data Model */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            2
+          </span>
           <h3 class="font-medium">Data Model</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Define the entities your backend will manage</p>
@@ -194,7 +195,9 @@ export function BackendForm(props: BackendFormProps) {
       {/* Step 3: API Endpoints */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            3
+          </span>
           <h3 class="font-medium">API Endpoints</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Define the endpoints your API will expose</p>
@@ -258,7 +261,9 @@ export function BackendForm(props: BackendFormProps) {
       {/* Step 4: Configuration */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            4
+          </span>
           <h3 class="font-medium">Configuration</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Choose authentication, storage, and scale</p>
@@ -268,7 +273,7 @@ export function BackendForm(props: BackendFormProps) {
             <label class="text-sm font-medium">Authentication</label>
             <Select
               value={auth().value}
-              onChange={(v) => setAuth(getAuthOption(v))}
+              onChange={(v) => v && setAuth(getAuthOption(v))}
               options={authOptions.map((o) => o.value)}
               placeholder="Select auth"
               variant="secondary"
@@ -279,7 +284,7 @@ export function BackendForm(props: BackendFormProps) {
             <label class="text-sm font-medium">Storage</label>
             <Select
               value={storage().value}
-              onChange={(v) => setStorage(getStorageOption(v))}
+              onChange={(v) => v && setStorage(getStorageOption(v))}
               options={storageOptions.map((o) => o.value)}
               placeholder="Select storage"
               variant="secondary"
@@ -291,7 +296,7 @@ export function BackendForm(props: BackendFormProps) {
           <label class="text-sm font-medium">Expected Scale</label>
           <Select
             value={expectedScale().value}
-            onChange={(v) => setExpectedScale(getScaleOption(v))}
+            onChange={(v) => v && setExpectedScale(getScaleOption(v))}
             options={scaleOptions.map((o) => o.value)}
             placeholder="Select scale"
             variant="secondary"
@@ -301,11 +306,15 @@ export function BackendForm(props: BackendFormProps) {
         <div class="flex flex-wrap gap-4">
           <div class="flex items-center space-x-2">
             <Checkbox id="rateLimiting" checked={rateLimiting()} onChange={setRateLimiting} />
-            <label for="rateLimiting" class="cursor-pointer text-sm">Rate Limiting</label>
+            <label for="rateLimiting" class="cursor-pointer text-sm">
+              Rate Limiting
+            </label>
           </div>
           <div class="flex items-center space-x-2">
             <Checkbox id="logging" checked={logging()} onChange={setLogging} />
-            <label for="logging" class="cursor-pointer text-sm">Request Logging</label>
+            <label for="logging" class="cursor-pointer text-sm">
+              Request Logging
+            </label>
           </div>
         </div>
       </div>
@@ -313,7 +322,9 @@ export function BackendForm(props: BackendFormProps) {
       {/* Step 5: Success Criteria */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            5
+          </span>
           <h3 class="font-medium">Success Criteria</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">How will we know this backend is working?</p>

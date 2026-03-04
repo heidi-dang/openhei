@@ -199,6 +199,28 @@ export const dict = {
   "provider.disconnect.toast.disconnected.title": "{{provider}} disconnected",
   "provider.disconnect.toast.disconnected.description": "{{provider}} models are no longer available.",
 
+  "provider.error.authFailed": "Authentication failed",
+  "provider.error.quotaExceeded": "Quota exceeded",
+  "provider.error.billingError": "Billing error",
+  "provider.error.rateLimited": "Rate limited",
+  "provider.error.contextOverflow": "Context overflow",
+  "provider.error.toolNotSupported": "Tool not supported",
+  "provider.error.modelUnavailable": "Model unavailable",
+  "provider.error.networkError": "Network error",
+  "provider.error.timeout": "Request timed out",
+  "provider.error.serverError": "Server error",
+  "provider.error.providerOverloaded": "Provider overloaded",
+  "provider.error.generic": "Provider error",
+
+  "provider.warning.generic": "Provider warning",
+
+  "provider.status.ready": "Provider ready",
+  "provider.status.retryingIn": "Retrying in",
+  "provider.status.indicator": "Provider status",
+  "provider.status.code": "Status code: {{code}}",
+  "provider.retry.title": "Provider error",
+  "provider.retry.description": "There was an error with your AI provider. Click retry to try again.",
+
   "model.tag.free": "Free",
   "model.tag.latest": "Latest",
   "model.provider.anthropic": "Anthropic",
@@ -229,6 +251,9 @@ export const dict = {
   "common.saving": "Saving...",
   "common.default": "Default",
   "common.attachment": "attachment",
+  "common.hideDetails": "Hide details",
+  "common.showDetails": "Show details",
+  "common.retry": "Retry",
 
   "prompt.placeholder.shell": "Enter shell command...",
   "prompt.placeholder.normal": 'Ask anything... "{{example}}"',
