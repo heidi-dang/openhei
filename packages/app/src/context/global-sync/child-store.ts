@@ -177,7 +177,7 @@ export function createChildStoreManager(input: {
             limit: 5,
             message: {},
             part: {},
-            appliedDeltas: new Set(),
+            appliedDeltas: new (await import("../lib/lru")).LruSet(),
           })
           children[directory] = child
           disposers.set(directory, dispose)
