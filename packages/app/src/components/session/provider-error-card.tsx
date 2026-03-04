@@ -36,7 +36,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       }
       return {
         type: "api_error" as const,
-        title: language.t("error.apiError"),
+        title: language.t("error.apiError" as any),
         message: data.message,
         statusCode: data.statusCode,
         retryable: data.isRetryable ?? false,
@@ -49,7 +49,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       const data = error.data as { message: string; responseBody?: string }
       return {
         type: "context_overflow" as const,
-        title: language.t("error.contextOverflow"),
+        title: language.t("error.contextOverflow" as any),
         message: data.message,
         retryable: false,
         details: data.responseBody,
@@ -60,7 +60,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
       const data = error.data as { providerID: string; message: string }
       return {
         type: "auth_error" as const,
-        title: language.t("error.authError"),
+        title: language.t("error.authError" as any),
         message: data.message,
         providerID: data.providerID,
         retryable: false,
@@ -70,8 +70,8 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
     if (error.name === "MessageAbortedError" || error.name === "AbortedError") {
       return {
         type: "aborted" as const,
-        title: language.t("error.aborted"),
-        message: error.data?.message || language.t("error.requestAborted"),
+        title: language.t("error.aborted" as any),
+        message: error.data?.message || language.t("error.requestAborted" as any),
         retryable: true,
       }
     }
@@ -176,7 +176,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-start gap-3 flex-1 min-w-0">
             <div class="mt-0.5 flex-shrink-0 text-error-base">
-              <Icon name={errorIcon()} size="small" />
+              <Icon name={errorIcon() as any} size="small" />
             </div>
             <div class="flex-1 min-w-0">
               <h4 class="font-medium text-sm text-text-base">{errorData()?.title}</h4>
@@ -189,7 +189,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
             <button
               class="p-1.5 rounded-md hover:bg-surface-base-active transition-colors"
               onClick={copyErrorMessage}
-              title={copied() ? language.t("common.copied") : language.t("common.copy")}
+              title={copied() ? language.t("common.copied" as any) : language.t("common.copy" as any)}
             >
               <Icon name={copied() ? "circle-check" : "copy"} size="small" />
             </button>
@@ -197,7 +197,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
               <button
                 class="p-1.5 rounded-md hover:bg-surface-base-active transition-colors"
                 onClick={props.onDismiss}
-                title={language.t("common.dismiss")}
+                title={language.t("common.dismiss" as any)}
               >
                 <Icon name="x" size="small" />
               </button>
@@ -213,7 +213,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
             </span>
             <Show when={errorData()?.retryable}>
               <span class="text-xs px-2 py-0.5 rounded-full bg-warning-base/20 text-warning-base">
-                {language.t("error.retryable")}
+                {language.t("error.retryable" as any)}
               </span>
             </Show>
           </div>
@@ -227,7 +227,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
               onClick={() => setExpanded(!expanded())}
             >
               <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
-              {expanded() ? language.t("common.hideDetails") : language.t("common.showDetails")}
+              {expanded() ? language.t("common.hideDetails" as any) : language.t("common.showDetails" as any)}
             </button>
             <Show when={expanded()}>
               <div class="mt-2 relative">
@@ -239,7 +239,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
                 <button
                   class="absolute top-2 right-2 p-1.5 rounded-md bg-surface-raised-base hover:bg-surface-base-active transition-colors"
                   onClick={copyDetails}
-                  title={language.t("common.copyDetails")}
+                  title={language.t("common.copyDetails" as any)}
                 >
                   <Icon name={copied() ? "circle-check" : "copy"} size="small" />
                 </button>
@@ -252,8 +252,8 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
         <Show when={errorData()?.retryable && props.onRetry}>
           <div class="mt-4 flex justify-end">
             <Button variant="secondary" size="small" onClick={props.onRetry}>
-              <Icon name="refresh-cw" size="small" class="mr-1.5" />
-              {language.t("common.retry")}
+              <Icon name={"refresh-cw" as any} size="small" class="mr-1.5" />
+              {language.t("common.retry" as any)}
             </Button>
           </div>
         </Show>
