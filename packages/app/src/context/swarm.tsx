@@ -41,7 +41,7 @@ export const { use: useSwarm, provider: SwarmProvider } = createSimpleContext({
 
     const [selectedSlot, setSelectedSlot] = createSignal<"main" | 1 | 2>("main")
 
-    const unsub = globalSDK.event.listen((e) => {
+    const unsub = globalSDK.event.listen((e: any) => {
       const event = e.details
       if (!event) return
 

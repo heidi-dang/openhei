@@ -194,8 +194,8 @@ export const SettingsPermissions: Component = () => {
                   <Select
                     options={actions()}
                     current={actions().find((o) => o.value === actionFor(item.id))}
-                    value={(o) => o.value}
-                    label={(o) => o.label}
+                    itemValue={(o) => o?.value}
+                    itemLabel={(o) => o?.label}
                     onSelect={(option) => option && setPermission(item.id, option.value)}
                     variant="secondary"
                     size="small"

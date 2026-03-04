@@ -126,14 +126,16 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models") || "Loading models..."}
+                        {language.t("settings.swarm.loading.models" as any) || "Loading models..."}
                       </div>
                     }
                   >
                     <Select
-                      value={subagent1Model()}
-                      onChange={setSubagent1Model}
+                      current={modelOptions().find((o) => o.value === subagent1Model())}
+                      onSelect={(v) => setSubagent1Model(v?.value || "")}
                       options={modelOptions()}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
                       placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
@@ -149,14 +151,16 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("settings.swarm.loading.models") || "Loading models..."}
+                        {language.t("settings.swarm.loading.models" as any) || "Loading models..."}
                       </div>
                     }
                   >
                     <Select
-                      value={subagent2Model()}
-                      onChange={setSubagent2Model}
+                      current={modelOptions().find((o) => o.value === subagent2Model())}
+                      onSelect={(v) => setSubagent2Model(v?.value || "")}
                       options={modelOptions()}
+                      itemValue={(o) => o.value}
+                      itemLabel={(o) => o.label}
                       placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
@@ -176,16 +180,16 @@ export const SettingsSwarm: Component = () => {
                   </div>
                 </div>
               </div>
-            </Show>
+            </Show >
 
             <Button onClick={handleSave} disabled={saving()} class="w-fit">
               <Show when={saving()} fallback={language.t("common.save")}>
                 {language.t("common.saving")}
               </Show>
             </Button>
-          </div>
-        </Show>
-      </div>
-    </div>
+          </div >
+        </Show >
+      </div >
+    </div >
   )
 }

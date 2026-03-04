@@ -137,7 +137,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 1: Basic Info */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            1
+          </span>
           <h3 class="font-medium">Basic Information</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Name your app and describe your target users</p>
@@ -161,7 +163,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 2: Pages */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            2
+          </span>
           <h3 class="font-medium">Pages</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Define the pages in your application</p>
@@ -175,12 +179,7 @@ export function UIForm(props: UIFormProps) {
                 onChange={setNewPageName}
                 placeholder="Page name"
               />
-              <TextField
-                class="sm:col-span-3"
-                value={newPageRoute()}
-                onChange={setNewPageRoute}
-                placeholder="/route"
-              />
+              <TextField class="sm:col-span-3" value={newPageRoute()} onChange={setNewPageRoute} placeholder="/route" />
               <TextField
                 class="sm:col-span-4"
                 value={newPageDescription()}
@@ -199,7 +198,9 @@ export function UIForm(props: UIFormProps) {
                     <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       <span class="font-medium truncate">{page.name}</span>
                       <code class="text-sm text-text-weak truncate hidden sm:inline">{page.route}</code>
-                      {page.description && <span class="text-sm text-text-weak hidden md:inline truncate">- {page.description}</span>}
+                      {page.description && (
+                        <span class="text-sm text-text-weak hidden md:inline truncate">- {page.description}</span>
+                      )}
                     </div>
                     <Button type="button" variant="ghost" size="small" onClick={() => handleRemovePage(page.id)}>
                       <Icon name="close" class="w-4 h-4" />
@@ -207,7 +208,9 @@ export function UIForm(props: UIFormProps) {
                   </div>
                 )}
               </For>
-              {pages().length === 0 && <p class="text-sm text-text-weak text-center py-4">No pages defined yet. Add one above.</p>}
+              {pages().length === 0 && (
+                <p class="text-sm text-text-weak text-center py-4">No pages defined yet. Add one above.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -216,7 +219,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 3: Components */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            3
+          </span>
           <h3 class="font-medium">Components</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Add reusable UI components</p>
@@ -227,7 +232,7 @@ export function UIForm(props: UIFormProps) {
               <Select
                 class="sm:col-span-3"
                 value={newComponentType()}
-                onChange={setNewComponentType}
+                onChange={(v) => v && setNewComponentType(v)}
                 options={componentTypeOptions.map((o) => o.value)}
                 placeholder="Type"
               />
@@ -272,7 +277,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 4: User Flows */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            4
+          </span>
           <h3 class="font-medium">User Flows</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Describe how users interact with your app</p>
@@ -290,11 +297,7 @@ export function UIForm(props: UIFormProps) {
                 onChange={setNewFlowResponse}
                 placeholder="System response (e.g., Show login form)"
               />
-              <TextField
-                value={newFlowResult()}
-                onChange={setNewFlowResult}
-                placeholder="Result (optional)"
-              />
+              <TextField value={newFlowResult()} onChange={setNewFlowResult} placeholder="Result (optional)" />
               <Button type="button" onClick={handleAddFlow} variant="secondary" class="w-full">
                 <Icon name="plus" class="w-4 h-4 mr-2" />
                 Add Flow Step
@@ -338,7 +341,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 5: Brand & Accessibility */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            5
+          </span>
           <h3 class="font-medium">Brand & Accessibility</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">Customize the look and accessibility features</p>
@@ -386,7 +391,9 @@ export function UIForm(props: UIFormProps) {
       {/* Step 6: Success Criteria */}
       <div class="space-y-4">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">6</span>
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+            6
+          </span>
           <h3 class="font-medium">Success Criteria</h3>
         </div>
         <p class="text-sm text-text-weak -mt-2 ml-8">How will we know this UI is working correctly?</p>

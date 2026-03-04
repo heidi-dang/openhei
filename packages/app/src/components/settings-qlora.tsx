@@ -655,10 +655,10 @@ export const SettingsQLoRA: Component = () => {
               >
                 <Select
                   options={options()}
-                  current={options().find((x) => x.id === store.preset)}
-                  value={(x) => x.id}
-                  label={(x) => (x as any).name ?? (x as any).id}
-                  onSelect={(x) => x && setStore("preset", x.id as keyof typeof preset)}
+                  value={options().find((x) => x.id === store.preset)}
+                  itemValue={(x) => x.id}
+                  itemLabel={(x) => x.name ?? x.id}
+                  onChange={(v) => v && setStore("preset", v.id as keyof typeof preset)}
                   variant="secondary"
                   size="small"
                   triggerVariant="settings"
@@ -759,9 +759,17 @@ export const SettingsQLoRA: Component = () => {
                       available: true,
                     }
                   }
-                  value={(x) => x.id}
-                  label={(x) => x.label ?? String(x.id)}
-                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
+                  value={
+                    stacks()?.find((s) => s.id === store.stack) ?? {
+                      id: store.stack,
+                      label: store.stack,
+                      description: "",
+                      available: true,
+                    }
+                  }
+                  itemValue={(x) => x.id}
+                  itemLabel={(x) => x.label ?? String(x.id)}
+                  onChange={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
                 />
@@ -778,10 +786,10 @@ export const SettingsQLoRA: Component = () => {
               >
                 <Select
                   options={teacherOptions()}
-                  current={teacherOptions().find((x) => x.id === store.teacher_model)}
-                  value={(x) => x.id}
-                  label={(x) => x.id}
-                  onSelect={(x) => x && setStore("teacher_model", x.id)}
+                  value={teacherOptions().find((x) => x.id === store.teacher_model)}
+                  itemValue={(x) => x.id}
+                  itemLabel={(x) => x.id}
+                  onChange={(x) => x && setStore("teacher_model", x.id)}
                   class="w-full sm:w-[320px] max-w-full"
                   variant="secondary"
                   size="small"
@@ -792,7 +800,7 @@ export const SettingsQLoRA: Component = () => {
               <Row title="Stack" desc="Execution stack" help="Execution backend used to run heidi-engine pump.">
                 <Select
                   options={stacks() ?? []}
-                  current={
+                  value={
                     stacks()?.find((s) => s.id === store.stack) ?? {
                       id: store.stack,
                       label: store.stack,
@@ -800,12 +808,9 @@ export const SettingsQLoRA: Component = () => {
                       available: true,
                     }
                   }
-                  value={(x) => x.id}
-                  label={(x) => {
-                    const s = x as Stack
-                    return s.available ? s.label : `${s.label} (${s.reason ?? "unavailable"})`
-                  }}
-                  onSelect={(x) => x && x.available && setStore("stack", x.id)}
+                  itemValue={(x: Stack) => x.id}
+                  itemLabel={(x: Stack) => (x.available ? x.label : `${x.label} (${x.reason ?? "unavailable"})`)}
+                  onChange={(x) => x && x.available && setStore("stack", x.id)}
                   variant="secondary"
                   size="small"
                 />

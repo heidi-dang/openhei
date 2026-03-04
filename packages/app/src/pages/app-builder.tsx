@@ -71,7 +71,7 @@ export default function AppBuilder() {
         body: JSON.stringify({
           name,
           mode,
-          formData: formData as Record<string, unknown>,
+          formData: formData as unknown as Record<string, unknown>,
         }),
       })
 
@@ -153,11 +153,7 @@ export default function AppBuilder() {
           <Icon name="prompt" class="w-5 h-5" />
           <span class="font-semibold">App Builder</span>
         </div>
-        <Button
-          variant="ghost"
-          size="small"
-          onClick={() => setShowMobileSidebar(!showMobileSidebar())}
-        >
+        <Button variant="ghost" size="small" onClick={() => setShowMobileSidebar(!showMobileSidebar())}>
           <Icon name={showMobileSidebar() ? "close" : "menu"} class="w-5 h-5" />
         </Button>
       </div>
@@ -283,13 +279,7 @@ export default function AppBuilder() {
       {/* Main Content */}
       <div class="flex-1 overflow-hidden bg-surface">
         <Show when={activeSession()}>
-          {(session) => (
-            <BuildSessionDetail
-              session={session()}
-              onBack={handleBackToList}
-              onRefresh={fetchSessions}
-            />
-          )}
+          {(session) => <BuildSessionDetail session={session()} onBack={handleBackToList} onRefresh={fetchSessions} />}
         </Show>
 
         <Show when={!activeSession()}>
@@ -328,11 +318,12 @@ export default function AppBuilder() {
                     <CardHeader class="p-4 sm:p-6">
                       <CardTitle class="text-lg sm:text-xl">Create Backend Service</CardTitle>
                       <CardDescription class="text-sm">
-                        Define your API endpoints, data models, and requirements. We'll generate a working backend service.
+                        Define your API endpoints, data models, and requirements. We'll generate a working backend
+                        service.
                       </CardDescription>
                     </CardHeader>
                     <CardContent class="p-4 sm:p-6 pt-0">
-                      <BackendForm onSubmit={handleCreateBackend} onCancel={() => {}} />
+                      <BackendForm onSubmit={handleCreateBackend} onCancel={() => { }} />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -346,7 +337,7 @@ export default function AppBuilder() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent class="p-4 sm:p-6 pt-0">
-                      <UIForm onSubmit={handleCreateUI} onCancel={() => {}} />
+                      <UIForm onSubmit={handleCreateUI} onCancel={() => { }} />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -360,7 +351,7 @@ export default function AppBuilder() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent class="p-4 sm:p-6 pt-0">
-                      <RepoImportForm onSubmit={handleImportRepo} onCancel={() => {}} />
+                      <RepoImportForm onSubmit={handleImportRepo} onCancel={() => { }} />
                     </CardContent>
                   </Card>
                 </TabsContent>

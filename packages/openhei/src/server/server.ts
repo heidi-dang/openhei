@@ -547,7 +547,11 @@ export namespace Server {
           }),
           async (c) => {
             log.info("event connected")
+            c.header("Content-Type", "text/event-stream")
+            c.header("Cache-Control", "no-cache")
+            c.header("Connection", "keep-alive")
             c.header("X-Accel-Buffering", "no")
+            c.header("Content-Encoding", "identity")
             c.header("X-Content-Type-Options", "nosniff")
             return streamSSE(c, async (stream) => {
               stream.writeSSE({

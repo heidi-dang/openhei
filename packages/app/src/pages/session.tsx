@@ -508,11 +508,11 @@ export default function Page() {
   const changesTitle = () => (
     <Select
       options={changesOptionsList}
-      current={store.changes}
-      label={(option) =>
+      value={store.changes}
+      itemLabel={(option: string) =>
         option === "session" ? language.t("ui.sessionReview.title") : language.t("ui.sessionReview.title.lastTurn")
       }
-      onSelect={(option) => option && setStore("changes", option)}
+      onChange={(option) => option && setStore("changes", option)}
       variant="ghost"
       size="large"
     />

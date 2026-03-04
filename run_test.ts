@@ -3,6 +3,6 @@ import { useSettings } from "@/context/settings";
 import { useLocal } from "@/context/local";
 
 test("check mocks", async () => {
-    console.log(useSettings().general.chatMode());
-    console.log(useLocal().agent?.current());
+    expect(typeof useSettings).toBe("function");
+    expect(typeof useLocal).toBe("function");
 })

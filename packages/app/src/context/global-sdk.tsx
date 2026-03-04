@@ -79,8 +79,16 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
       coalesced.clear()
 
       last = Date.now()
+      console.debug("[flush] emitting", events.length, "events")
       batch(() => {
         for (const event of events) {
+          if (event.payload.type === "message.part.delta") {
+            console.debug(
+              "[flush] emitting delta",
+              key(event.directory, event.payload),
+              `"${event.payload.properties.delta}"`,
+            )
+          }
           emitter.emit(event.directory, event.payload)
         }
       })
@@ -215,20 +223,15 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
                 if (prev?.payload.type === "message.part.delta" && payload.type === "message.part.delta") {
                   const a = prev.payload.properties
                   const b = payload.properties
-                  prev.payload = {
-                    ...prev.payload,
-                    properties: {
-                      ...a,
-                      delta: `${a.delta}${b.delta}`,
-                    },
+                  if (a.delta === b.delta) {
+                    continue
                   }
                   continue
                 }
-
-                queue[i] = { directory, payload }
-                continue
+                coalesced.set(k, queue.length)
+              } else {
+                coalesced.set(k, queue.length)
               }
-              coalesced.set(k, queue.length)
             }
             queue.push({ directory, payload })
             schedule()

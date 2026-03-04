@@ -1,3 +1,4 @@
+import { Log } from "../util/log"
 import { Tool } from "./tool"
 import DESCRIPTION from "./task.txt"
 import z from "zod"
@@ -12,6 +13,8 @@ import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import { createSwarmPool, getSwarmPoolByRunId } from "../swarm"
 import { RunEventBus } from "../stream/event-bus"
+
+const log = Log.create({ service: "task" })
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -142,7 +145,7 @@ export const TaskTool = Tool.define("task", async () => {
         if (!consentGranted) {
           return {
             title: params.description,
-            metadata: { sessionId: undefined },
+            metadata: { sessionId: undefined } as Record<string, any>,
             output: "Sub-agent spawn was denied by user. Continuing with main agent only.",
           }
         }
@@ -171,7 +174,7 @@ export const TaskTool = Tool.define("task", async () => {
 
             return {
               title: params.description,
-              metadata: { sessionId: execResult.sessionID, slot },
+              metadata: { sessionId: execResult.sessionID, slot } as Record<string, any>,
               output: [
                 `task_id: ${execResult.sessionID} (swarm slot ${slot})`,
                 "",
@@ -288,7 +291,7 @@ export const TaskTool = Tool.define("task", async () => {
         metadata: {
           sessionId: session.id,
           model,
-        },
+        } as Record<string, any>,
         output,
       }
     },
