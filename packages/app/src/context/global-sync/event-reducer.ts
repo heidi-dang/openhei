@@ -272,8 +272,12 @@ export function applyDirectoryEvent(input: {
 
       // Skip if this exact delta was already applied
       const deltaHash = `${deltaKey}:${props.delta}`
-      if (input.store.appliedDeltas?.has(deltaHash)) {
-        break
+      const applied = input.store.appliedDeltas
+      if (applied) {
+        try {
+          // LruSet has has/add; Set has has/add
+          if ((applied as any).has?.(deltaHash)) break
+        } catch (e) {}
       }
 
       input.setStore(
@@ -287,7 +291,13 @@ export function applyDirectoryEvent(input: {
 
           // Ensure appliedDeltas exists and mark this delta as applied on the draft
           if (!draft.appliedDeltas) draft.appliedDeltas = new Set()
-          draft.appliedDeltas.add(deltaHash)
+          try {
+            const ad = draft.appliedDeltas as any
+            if (ad.add) ad.add(deltaHash)
+            else draft.appliedDeltas.add(deltaHash)
+          } catch (e) {
+            // ignore
+          }
         }),
       )
       break
