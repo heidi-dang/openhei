@@ -225,7 +225,7 @@ export function applyDirectoryEvent(input: {
             ...part,
             // Preserve text content if the update doesn't have it (prevents overwriting streamed content)
             text: (part as any).text ?? (existing as any).text,
-          }),
+          } as any),
         )
         break
       }
@@ -282,7 +282,7 @@ export function applyDirectoryEvent(input: {
 
       // Skip if this exact delta was already applied
       const deltaHash = `${deltaKey}:${props.delta}`
-      if (input.store.appliedDeltas.has(deltaHash)) {
+      if (input.store.appliedDeltas?.has(deltaHash)) {
         break
       }
 
