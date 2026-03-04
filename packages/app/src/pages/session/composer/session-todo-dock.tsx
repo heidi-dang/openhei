@@ -66,6 +66,7 @@ export function SessionTodoDock(props: { todos: Todo[]; title: string; collapseL
         class="pl-3 pr-2 py-2 flex items-center gap-2"
         role="button"
         tabIndex={0}
+        aria-label={store.collapsed ? props.expandLabel : props.collapseLabel}
         onClick={toggle}
         onKeyDown={(event) => {
           if (event.key !== "Enter" && event.key !== " ") return
