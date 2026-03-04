@@ -126,7 +126,7 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("common.loading")}
+                        {language.t("settings.swarm.loading.models" as any) || language.t("common.loading")}
                       </div>
                     }
                   >
@@ -151,7 +151,7 @@ export const SettingsSwarm: Component = () => {
                     when={hasModels()}
                     fallback={
                       <div class="text-14-regular text-text-weak py-2">
-                        {language.t("common.loading")}
+                        {language.t("settings.swarm.loading.models" as any) || language.t("common.loading")}
                       </div>
                     }
                   >
@@ -180,16 +180,16 @@ export const SettingsSwarm: Component = () => {
                   </div>
                 </div>
               </div>
-            </Show>
+            </Show >
 
             <Button onClick={handleSave} disabled={saving()} class="w-fit">
               <Show when={saving()} fallback={language.t("common.save")}>
                 {language.t("common.saving")}
               </Show>
             </Button>
-          </div>
-        </Show>
-      </div>
-    </div>
+          </div >
+        </Show >
+      </div >
+    </div >
   )
 }
