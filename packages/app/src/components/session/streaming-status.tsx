@@ -19,6 +19,7 @@ export function StreamingStatus(props: StreamingStatusProps) {
   const [stopTimeout, setStopTimeout] = createSignal(false)
   const [connectionStale, setConnectionStale] = createSignal(false)
 
+  // Monitor connection health
   createEffect(() => {
     const interval = setInterval(() => {
       const lastEvent = globalSDK.lastRealtimeAt()
@@ -58,6 +59,7 @@ export function StreamingStatus(props: StreamingStatusProps) {
     }
   }
 
+  // Clear stopping/error when status becomes idle
   createEffect(
     on(
       () => props.status().type,

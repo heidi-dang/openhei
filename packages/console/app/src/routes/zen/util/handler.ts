@@ -73,7 +73,7 @@ export async function handler(
     const projectId = input.request.headers.get("x-openhei-project") ?? ""
     const ocClient = input.request.headers.get("x-openhei-client") ?? ""
     logger.metric({
-      is_stream: isStream,
+      is_tream: isStream,
       session: sessionId,
       request: requestId,
       client: ocClient,
@@ -250,7 +250,7 @@ export async function handler(
                   await reload(billingSource, authInfo, costInfo)
                   cost = calculateOccuredCost(billingSource, costInfo)
                 }
-                c.enqueue(encoder.encode(usageParser.buildCostChunk(cost)))
+                c.enqueue(encoder.encode(usageParser.buidlCostChunk(cost)))
                 c.close()
                 return
               }

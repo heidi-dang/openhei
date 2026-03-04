@@ -39,6 +39,7 @@ export const SettingsSwarm: Component = () => {
   const [subagent2Model, setSubagent2Model] = createSignal<string>("")
   const [saving, setSaving] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
+  const [configLoaded, setConfigLoaded] = createSignal(false)
 
   // Memoized model options to prevent unnecessary recalculations
   const modelOptions = createMemo(() => {
@@ -61,9 +62,12 @@ export const SettingsSwarm: Component = () => {
         setEnabled(config.enabled)
         if (config.subagent_models && config.subagent_models.length > 0) {
           setSubagent1Model(config.subagent_models[0] || "")
+        }
+        if (config.subagent_models && config.subagent_models.length > 1) {
           setSubagent2Model(config.subagent_models[1] || "")
         }
       }
+      setConfigLoaded(true)
       setLoading(false)
     }
     void loadConfig()

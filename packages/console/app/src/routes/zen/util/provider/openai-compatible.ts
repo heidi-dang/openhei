@@ -54,7 +54,7 @@ export const oaCompatHelper: ProviderHelper = () => ({
         usage = json.usage
       },
       retrieve: () => usage,
-      buildCostChunk: (cost: string) => `data: ${JSON.stringify({ choices: [], cost })}\n\n`,
+      buidlCostChunk: (cost: string) => `data: ${JSON.stringify({ choices: [], cost })}\n\n`,
     }
   },
   normalizeUsage: (usage: Usage) => {

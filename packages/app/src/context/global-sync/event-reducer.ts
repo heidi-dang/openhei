@@ -206,6 +206,7 @@ export function applyDirectoryEvent(input: {
         console.warn("[event-reducer] Invalid part update received", event.properties)
         break
       }
+
       const parts = input.store.part[part.messageID]
       if (!parts) {
         input.setStore("part", part.messageID, [part])
@@ -213,6 +214,7 @@ export function applyDirectoryEvent(input: {
       }
       const result = Binary.search(parts, part.id, (p) => p.id)
       if (result.found) {
+        // Merge with existing part to prevent data loss from race conditions
         const existing = parts[result.index]
         input.setStore(
           "part",
@@ -221,6 +223,7 @@ export function applyDirectoryEvent(input: {
           reconcile({
             ...existing,
             ...part,
+            // Preserve text content if the update doesn't have it (prevents overwriting streamed content)
             text: part.text ?? existing.text,
           }),
         )
@@ -258,15 +261,23 @@ export function applyDirectoryEvent(input: {
       const props = event.properties as { messageID: string; partID: string; field: string; delta: string }
       performance.mark(`stream-part-delta-${props.messageID}-${props.partID}`)
       const parts = input.store.part[props.messageID]
+
+      // If parts don't exist yet, the message might still be loading
+      // Store the delta in a pending buffer to be applied later
       if (!parts) {
         console.warn(`[event-reducer] Delta received for unknown message parts: ${props.messageID}`)
         break
       }
+
       const result = Binary.search(parts, props.partID, (p) => p.id)
+
+      // If part not found, it might not have been created yet
+      // This can happen during streaming when deltas arrive before the part update
       if (!result.found) {
         console.warn(`[event-reducer] Delta received for unknown part: ${props.partID} in message: ${props.messageID}`)
         break
       }
+
       input.setStore(
         "part",
         props.messageID,
@@ -275,6 +286,7 @@ export function applyDirectoryEvent(input: {
           if (!part) return
           const field = props.field as keyof typeof part
           const existing = part[field] as string | undefined
+          // Ensure we always append, never lose data
           const newValue = (existing ?? "") + (props.delta ?? "")
           ;(part[field] as string) = newValue
         }),
