@@ -14,6 +14,7 @@ import {
   type VcsCache,
 } from "./types"
 import { canDisposeDirectory, pickDirectoriesToEvict } from "./eviction"
+import { LruSet } from "../../lib/lru"
 
 export function createChildStoreManager(input: {
   owner: Owner
@@ -177,7 +178,7 @@ export function createChildStoreManager(input: {
             limit: 5,
             message: {},
             part: {},
-            appliedDeltas: new (await import("../lib/lru")).LruSet(),
+            appliedDeltas: new LruSet(),
           })
           children[directory] = child
           disposers.set(directory, dispose)

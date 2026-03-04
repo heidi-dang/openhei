@@ -82,7 +82,7 @@ export namespace LSP {
       const servers: Record<string, LSPServer.Info> = {}
       const cfg = await Config.get()
 
-      if (cfg.lsp === false) {
+      if ((cfg.lsp as any) === false) {
         log.info("all LSPs are disabled")
         return {
           broken: new Set<string>(),
