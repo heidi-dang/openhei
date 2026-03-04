@@ -1,6 +1,7 @@
 import { Binary } from "@openhei-ai/util/binary"
 import { produce, reconcile, type SetStoreFunction, type Store } from "solid-js/store"
 import LruSet from "../../lib/lru"
+import { dedupeOptions } from "../../config/dedupe-config"
 import type {
   FileDiff,
   Message,
@@ -302,7 +303,7 @@ export function applyDirectoryEvent(input: {
             ; (part as any)[field] = newValue
 
           // Ensure appliedDeltas exists and mark this delta as applied on the draft
-          if (!draft.appliedDeltas) draft.appliedDeltas = new LruSet()
+          if (!draft.appliedDeltas) draft.appliedDeltas = new LruSet(dedupeOptions())
           try {
             const ad = draft.appliedDeltas as any
             if (ad.add) ad.add(deltaHash)
