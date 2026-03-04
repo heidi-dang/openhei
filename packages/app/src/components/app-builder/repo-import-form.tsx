@@ -50,91 +50,114 @@ export function RepoImportForm(props: RepoImportFormProps) {
 
   return (
     <form onSubmit={handleSubmit} class="space-y-6">
-      {/* Repository URL */}
+      {/* Step 1: Repository URL */}
       <div class="space-y-2">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <label class="text-sm font-medium">Repository URL *</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">Enter the full GitHub or GitLab repository URL</p>
         <TextField
-          label="Repository URL *"
           value={repoUrl()}
-          onInput={(e) => setRepoUrl(e.currentTarget.value)}
+          onChange={setRepoUrl}
           placeholder="https://github.com/username/repo.git"
           required
         />
-        <p class="text-sm text-text-weak">Enter the full GitHub or GitLab repository URL</p>
       </div>
 
-      {/* Generate Target */}
+      {/* Step 2: Generate Target */}
       <div class="space-y-2">
-        <TextField label="Generate Target" />
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <label class="text-sm font-medium">Generate Target</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">Choose what parts of the application to generate</p>
         <Select
-          options={generateTargetOptions}
-          current={generateTargetOptions.find((o) => o.value === generateTarget())}
-          value={(o) => o.value}
-          label={(o) => o.label}
-          onSelect={(o) => o && setGenerateTarget(o.value)}
+          value={generateTarget()}
+          onChange={setGenerateTarget}
+          options={generateTargetOptions.map((o) => o.value)}
+          placeholder="Select target"
         />
-        <p class="text-sm text-text-weak">Choose what parts of the application to generate</p>
       </div>
 
-      {/* Build Instructions */}
+      {/* Step 3: Build Instructions */}
       <div class="space-y-2">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <label class="text-sm font-medium">Build Instructions</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">Provide detailed instructions on how to build and run this project</p>
         <TextField
-          label="Build Instructions"
           value={buildInstructions()}
-          onInput={(e) => setBuildInstructions(e.currentTarget.value)}
+          onChange={setBuildInstructions}
           placeholder={`Example:
 - Install dependencies with npm install
 - Build the project with npm run build
 - The backend should expose port 3000
 - The frontend should be served from the dist folder`}
+          multiline
+          rows={5}
         />
-        <p class="text-sm text-text-weak">Provide detailed instructions on how to build and run this project</p>
       </div>
 
-      {/* Preserve Files */}
+      {/* Step 4: Files to Preserve */}
       <div class="space-y-2">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <label class="text-sm font-medium">Files to Preserve</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">List any files or directories that should not be modified (one per line)</p>
         <TextField
-          label="Files to Preserve"
           value={preserveFiles()}
-          onInput={(e) => setPreserveFiles(e.currentTarget.value)}
+          onChange={setPreserveFiles}
           placeholder={`Example:
 - README.md
 - LICENSE
 - .env.example
 - docs/`}
+          multiline
+          rows={4}
         />
-        <p class="text-sm text-text-weak">List any files or directories that should not be modified (one per line)</p>
       </div>
 
-      {/* Run Command */}
+      {/* Step 5: Run Command */}
       <div class="space-y-2">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <label class="text-sm font-medium">Run Command</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">Command to start the application after build</p>
         <TextField
-          label="Run Command"
           value={runCommand()}
-          onInput={(e) => setRunCommand(e.currentTarget.value)}
+          onChange={setRunCommand}
           placeholder="npm start"
         />
-        <p class="text-sm text-text-weak">Command to start the application after build</p>
       </div>
 
-      {/* Definition of Done */}
+      {/* Step 6: Definition of Done */}
       <div class="space-y-2">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">6</span>
+          <label class="text-sm font-medium">Definition of Done</label>
+        </div>
+        <p class="text-sm text-text-weak ml-8">How will we know the import and build was successful?</p>
         <TextField
-          label="Definition of Done"
           value={definitionOfDone()}
-          onInput={(e) => setDefinitionOfDone(e.currentTarget.value)}
+          onChange={setDefinitionOfDone}
           placeholder={`Example:
 - All tests pass
 - Application starts without errors
 - API endpoints respond correctly
 - UI renders without console errors`}
+          multiline
+          rows={4}
         />
-        <p class="text-sm text-text-weak">How will we know the import and build was successful?</p>
       </div>
 
       {/* Run Only Notice */}
       <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
         <div class="flex items-start gap-3">
-          <Icon name="alert-circle" class="w-5 h-5 text-amber-500 mt-0.5" />
+          <Icon name="alert-circle" class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
           <div class="text-sm text-amber-800">
             <p class="font-medium">Repo Import (Run Only)</p>
             <p class="mt-1">
@@ -151,11 +174,11 @@ export function RepoImportForm(props: RepoImportFormProps) {
       </div>
 
       {/* Actions */}
-      <div class="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="ghost" onClick={props.onCancel}>
+      <div class="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={props.onCancel} class="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={!repoUrl().trim() || !isValidUrl(repoUrl())}>
+        <Button type="submit" variant="primary" disabled={!repoUrl().trim() || !isValidUrl(repoUrl())} class="w-full sm:w-auto">
           <Icon name="github" class="w-4 h-4 mr-2" />
           Import & Build
         </Button>

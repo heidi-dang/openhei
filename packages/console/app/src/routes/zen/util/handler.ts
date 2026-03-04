@@ -81,14 +81,15 @@ export async function handler(
     const zenData = ZenData.list(opts.modelList)
     const modelInfo = validateModel(zenData, model)
     const dataDumper = createDataDumper(sessionId, requestId, projectId)
-    const trialLimiter = createTrialLimiter(modelInfo.trial, ip, ocClient)
-    const isTrial = await trialLimiter?.isTrial()
-    const rateLimiter = createRateLimiter(modelInfo.rateLimit, ip, input.request.headers)
+    const isOpencodeFree = model === "opencode" || model.endsWith("-free")
+    const trialLimiter = isOpencodeFree ? undefined : createTrialLimiter(modelInfo.trial, ip, ocClient)
+    const isTrial = isOpencodeFree ? (modelInfo.trial ? true : undefined) : await trialLimiter?.isTrial()
+    const rateLimiter = isOpencodeFree ? undefined : createRateLimiter(modelInfo.rateLimit, ip, input.request.headers)
     await rateLimiter?.check()
     const stickyTracker = createStickyTracker(modelInfo.stickyProvider, sessionId)
     const stickyProvider = await stickyTracker?.get()
     const authInfo = await authenticate(modelInfo)
-    const billingSource = validateBilling(authInfo, modelInfo)
+    const billingSource = isOpencodeFree ? "free" : validateBilling(authInfo, modelInfo)
 
     const retriableRequest = async (retry: RetryOptions = { excludeProviders: [], retryCount: 0 }) => {
       const providerInfo = selectProvider(
@@ -481,9 +482,9 @@ export async function handler(
           ProviderTable,
           modelInfo.byokProvider
             ? and(
-                eq(ProviderTable.workspaceID, KeyTable.workspaceID),
-                eq(ProviderTable.provider, modelInfo.byokProvider),
-              )
+              eq(ProviderTable.workspaceID, KeyTable.workspaceID),
+              eq(ProviderTable.provider, modelInfo.byokProvider),
+            )
             : sql`false`,
         )
         .leftJoin(
@@ -639,7 +640,7 @@ export async function handler(
 
     const modelCost =
       modelInfo.cost200K &&
-      inputTokens + (cacheReadTokens ?? 0) + (cacheWrite5mTokens ?? 0) + (cacheWrite1hTokens ?? 0) > 200_000
+        inputTokens + (cacheReadTokens ?? 0) + (cacheWrite5mTokens ?? 0) + (cacheWrite1hTokens ?? 0) > 200_000
         ? modelInfo.cost200K
         : modelInfo.cost
 
@@ -742,71 +743,71 @@ export async function handler(
           .where(and(eq(KeyTable.workspaceID, authInfo.workspaceID), eq(KeyTable.id, authInfo.apiKeyId))),
         ...(billingSource === "subscription"
           ? (() => {
-              const plan = authInfo.billing.subscription!.plan
-              const black = BlackData.getLimits({ plan })
-              const week = getWeekBounds(new Date())
-              const rollingWindowSeconds = black.rollingWindow * 3600
-              return [
-                db
-                  .update(SubscriptionTable)
-                  .set({
-                    fixedUsage: sql`
+            const plan = authInfo.billing.subscription!.plan
+            const black = BlackData.getLimits({ plan })
+            const week = getWeekBounds(new Date())
+            const rollingWindowSeconds = black.rollingWindow * 3600
+            return [
+              db
+                .update(SubscriptionTable)
+                .set({
+                  fixedUsage: sql`
               CASE
                 WHEN ${SubscriptionTable.timeFixedUpdated} >= ${week.start} THEN ${SubscriptionTable.fixedUsage} + ${cost}
                 ELSE ${cost}
               END
             `,
-                    timeFixedUpdated: sql`now()`,
-                    rollingUsage: sql`
+                  timeFixedUpdated: sql`now()`,
+                  rollingUsage: sql`
               CASE
                 WHEN UNIX_TIMESTAMP(${SubscriptionTable.timeRollingUpdated}) >= UNIX_TIMESTAMP(now()) - ${rollingWindowSeconds} THEN ${SubscriptionTable.rollingUsage} + ${cost}
                 ELSE ${cost}
               END
             `,
-                    timeRollingUpdated: sql`
+                  timeRollingUpdated: sql`
               CASE
                 WHEN UNIX_TIMESTAMP(${SubscriptionTable.timeRollingUpdated}) >= UNIX_TIMESTAMP(now()) - ${rollingWindowSeconds} THEN ${SubscriptionTable.timeRollingUpdated}
                 ELSE now()
               END
             `,
-                  })
-                  .where(
-                    and(
-                      eq(SubscriptionTable.workspaceID, authInfo.workspaceID),
-                      eq(SubscriptionTable.userID, authInfo.user.id),
-                    ),
+                })
+                .where(
+                  and(
+                    eq(SubscriptionTable.workspaceID, authInfo.workspaceID),
+                    eq(SubscriptionTable.userID, authInfo.user.id),
                   ),
-              ]
-            })()
+                ),
+            ]
+          })()
           : [
-              db
-                .update(BillingTable)
-                .set({
-                  balance: authInfo.isFree
-                    ? sql`${BillingTable.balance} - ${0}`
-                    : sql`${BillingTable.balance} - ${cost}`,
-                  monthlyUsage: sql`
+            db
+              .update(BillingTable)
+              .set({
+                balance: authInfo.isFree
+                  ? sql`${BillingTable.balance} - ${0}`
+                  : sql`${BillingTable.balance} - ${cost}`,
+                monthlyUsage: sql`
               CASE
                 WHEN MONTH(${BillingTable.timeMonthlyUsageUpdated}) = MONTH(now()) AND YEAR(${BillingTable.timeMonthlyUsageUpdated}) = YEAR(now()) THEN ${BillingTable.monthlyUsage} + ${cost}
                 ELSE ${cost}
               END
             `,
-                  timeMonthlyUsageUpdated: sql`now()`,
-                })
-                .where(eq(BillingTable.workspaceID, authInfo.workspaceID)),
-              db
-                .update(UserTable)
-                .set({
-                  monthlyUsage: sql`
+                timeMonthlyUsageUpdated: sql`now()`,
+              })
+              .where(eq(BillingTable.workspaceID, authInfo.workspaceID)),
+            db
+              .update(UserTable)
+              .set({
+                monthlyUsage: sql`
               CASE
                 WHEN MONTH(${UserTable.timeMonthlyUsageUpdated}) = MONTH(now()) AND YEAR(${UserTable.timeMonthlyUsageUpdated}) = YEAR(now()) THEN ${UserTable.monthlyUsage} + ${cost}
                 ELSE ${cost}
               END
             `,
-                  timeMonthlyUsageUpdated: sql`now()`,
-                })
-                .where(and(eq(UserTable.workspaceID, authInfo.workspaceID), eq(UserTable.id, authInfo.user.id))),
-            ]),
+                timeMonthlyUsageUpdated: sql`now()`,
+              })
+              .where(and(eq(UserTable.workspaceID, authInfo.workspaceID), eq(UserTable.id, authInfo.user.id))),
+          ]),
       ]),
     )
 

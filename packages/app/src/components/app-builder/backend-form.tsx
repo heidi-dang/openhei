@@ -3,7 +3,7 @@
  * Form for creating a new backend service
  */
 
-import { createSignal, For } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import { Button } from "@openhei-ai/ui/button"
 import { TextField } from "@openhei-ai/ui/text-field"
 import { Select } from "@openhei-ai/ui/select"
@@ -115,10 +115,24 @@ export function BackendForm(props: BackendFormProps) {
     { value: "high", label: "High (enterprise scale)" },
   ]
 
+  const getAuthOption = (value: string): Option =>
+    authOptions.find((o) => o.value === value) || authOptions[0]
+
+  const getStorageOption = (value: string): Option =>
+    storageOptions.find((o) => o.value === value) || storageOptions[0]
+
+  const getScaleOption = (value: string): Option =>
+    scaleOptions.find((o) => o.value === value) || scaleOptions[0]
+
   return (
     <form onSubmit={handleSubmit} class="space-y-6">
+      {/* Step 1: Basic Info */}
       <div class="space-y-4">
-        <h3 class="font-medium">Basic Information</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">1</span>
+          <h3 class="font-medium">Basic Information</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Give your backend a name and description</p>
 
         <TextField value={appName()} onChange={setAppName} label="Application Name *" placeholder="e.g., Tasks API" />
 
@@ -132,20 +146,26 @@ export function BackendForm(props: BackendFormProps) {
         />
       </div>
 
+      {/* Step 2: Data Model */}
       <div class="space-y-4">
-        <h3 class="font-medium">Data Model</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">2</span>
+          <h3 class="font-medium">Data Model</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Define the entities your backend will manage</p>
 
         <Card>
           <CardContent class="pt-4 space-y-4">
-            <div class="flex gap-2">
+            <div class="flex flex-col sm:flex-row gap-2">
               <TextField
                 value={newEntityName()}
                 onChange={setNewEntityName}
                 placeholder="Entity name (e.g., Task, User)"
                 class="flex-1"
               />
-              <Button type="button" onClick={handleAddEntity} variant="secondary">
-                <Icon name="plus" />
+              <Button type="button" onClick={handleAddEntity} variant="secondary" class="w-full sm:w-auto">
+                <Icon name="plus" class="w-4 h-4 mr-2 sm:mr-0" />
+                <span class="sm:hidden">Add Entity</span>
               </Button>
             </div>
 
@@ -153,52 +173,56 @@ export function BackendForm(props: BackendFormProps) {
               <For each={entities()}>
                 {(entity) => (
                   <div class="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <div>
-                      <span class="font-medium">{entity.name}</span>
-                      <span class="text-sm text-text-weak ml-2">({entity.fields.length} fields)</span>
+                    <div class="min-w-0 flex-1">
+                      <span class="font-medium truncate block">{entity.name}</span>
+                      <span class="text-sm text-text-weak">({entity.fields.length} fields)</span>
                     </div>
                     <Button type="button" variant="ghost" size="small" onClick={() => handleRemoveEntity(entity.id)}>
-                      <Icon name="close" />
+                      <Icon name="close" class="w-4 h-4" />
                     </Button>
                   </div>
                 )}
               </For>
               {entities().length === 0 && (
-                <p class="text-sm text-text-weak text-center py-4">No entities defined yet</p>
+                <p class="text-sm text-text-weak text-center py-4">No entities defined yet. Add one above.</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Step 3: API Endpoints */}
       <div class="space-y-4">
-        <h3 class="font-medium">API Endpoints</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">3</span>
+          <h3 class="font-medium">API Endpoints</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Define the endpoints your API will expose</p>
 
         <Card>
           <CardContent class="pt-4 space-y-4">
-            <div class="grid grid-cols-12 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
               <Select
-                current={newEndpointMethod()}
-                onSelect={(v) => v && setNewEndpointMethod(v)}
+                value={newEndpointMethod()}
+                onChange={setNewEndpointMethod}
                 options={methodOptions}
-                class="col-span-3"
+                class="sm:col-span-3"
                 variant="secondary"
-                size="small"
               />
               <TextField
                 value={newEndpointPath()}
                 onChange={setNewEndpointPath}
                 placeholder="/api/..."
-                class="col-span-4"
+                class="sm:col-span-4"
               />
               <TextField
                 value={newEndpointPurpose()}
                 onChange={setNewEndpointPurpose}
                 placeholder="Purpose"
-                class="col-span-4"
+                class="sm:col-span-4"
               />
-              <Button type="button" onClick={handleAddEndpoint} variant="secondary" class="col-span-1">
-                <Icon name="plus" />
+              <Button type="button" onClick={handleAddEndpoint} variant="secondary" class="sm:col-span-1 w-full">
+                <Icon name="plus" class="w-4 h-4" />
               </Button>
             </div>
 
@@ -206,92 +230,109 @@ export function BackendForm(props: BackendFormProps) {
               <For each={endpoints()}>
                 {(endpoint) => (
                   <div class="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
-                    <div class="flex items-center gap-3">
-                      <Tag>{endpoint.method}</Tag>
-                      <code class="text-sm">{endpoint.path}</code>
-                      <span class="text-sm text-text-weak">{endpoint.purpose}</span>
+                    <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <Tag class="flex-shrink-0 text-xs">{endpoint.method}</Tag>
+                      <code class="text-sm truncate">{endpoint.path}</code>
+                      <span class="text-sm text-text-weak hidden sm:inline truncate">{endpoint.purpose}</span>
                     </div>
                     <Button
                       type="button"
                       variant="ghost"
                       size="small"
                       onClick={() => handleRemoveEndpoint(endpoint.id)}
+                      class="flex-shrink-0"
                     >
-                      <Icon name="close" />
+                      <Icon name="close" class="w-4 h-4" />
                     </Button>
                   </div>
                 )}
               </For>
               {endpoints().length === 0 && (
-                <p class="text-sm text-text-weak text-center py-4">No endpoints defined yet</p>
+                <p class="text-sm text-text-weak text-center py-4">No endpoints defined yet. Add one above.</p>
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Step 4: Configuration */}
       <div class="space-y-4">
-        <h3 class="font-medium">Configuration</h3>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">4</span>
+          <h3 class="font-medium">Configuration</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">Choose authentication, storage, and scale</p>
 
-        <div class="grid grid-cols-2 gap-4">
-          <Select
-            current={auth()}
-            onSelect={(v) => v && setAuth(v)}
-            options={authOptions}
-            value={(o: Option) => o.value}
-            label={(o: Option) => o.label}
-            variant="secondary"
-            size="small"
-          />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Authentication</label>
+            <Select
+              value={auth().value}
+              onChange={(v) => setAuth(getAuthOption(v))}
+              options={authOptions.map((o) => o.value)}
+              placeholder="Select auth"
+              variant="secondary"
+            />
+          </div>
 
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Storage</label>
+            <Select
+              value={storage().value}
+              onChange={(v) => setStorage(getStorageOption(v))}
+              options={storageOptions.map((o) => o.value)}
+              placeholder="Select storage"
+              variant="secondary"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Expected Scale</label>
           <Select
-            current={storage()}
-            onSelect={(v) => v && setStorage(v)}
-            options={storageOptions}
-            value={(o: Option) => o.value}
-            label={(o: Option) => o.label}
+            value={expectedScale().value}
+            onChange={(v) => setExpectedScale(getScaleOption(v))}
+            options={scaleOptions.map((o) => o.value)}
+            placeholder="Select scale"
             variant="secondary"
-            size="small"
           />
         </div>
 
-        <Select
-          current={expectedScale()}
-          onSelect={(v) => v && setExpectedScale(v)}
-          options={scaleOptions}
-          value={(o: Option) => o.value}
-          label={(o: Option) => o.label}
-          variant="secondary"
-          size="small"
-        />
-
-        <div class="flex gap-4">
+        <div class="flex flex-wrap gap-4">
           <div class="flex items-center space-x-2">
             <Checkbox id="rateLimiting" checked={rateLimiting()} onChange={setRateLimiting} />
-            <span class="cursor-pointer">Rate Limiting</span>
+            <label for="rateLimiting" class="cursor-pointer text-sm">Rate Limiting</label>
           </div>
           <div class="flex items-center space-x-2">
             <Checkbox id="logging" checked={logging()} onChange={setLogging} />
-            <span class="cursor-pointer">Request Logging</span>
+            <label for="logging" class="cursor-pointer text-sm">Request Logging</label>
           </div>
         </div>
       </div>
 
-      <TextField
-        value={successCriteria()}
-        onChange={setSuccessCriteria}
-        label="Success Criteria"
-        placeholder="How will we know this backend is working correctly?"
-        multiline
-        rows={3}
-      />
+      {/* Step 5: Success Criteria */}
+      <div class="space-y-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">5</span>
+          <h3 class="font-medium">Success Criteria</h3>
+        </div>
+        <p class="text-sm text-text-weak -mt-2 ml-8">How will we know this backend is working?</p>
 
-      <div class="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="ghost" onClick={props.onCancel}>
+        <TextField
+          value={successCriteria()}
+          onChange={setSuccessCriteria}
+          placeholder="e.g., All CRUD operations work correctly, API responds within 200ms"
+          multiline
+          rows={3}
+        />
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t">
+        <Button type="button" variant="ghost" onClick={props.onCancel} class="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" disabled={!appName().trim()}>
-          <Icon name="prompt" />
+        <Button type="submit" disabled={!appName().trim()} class="w-full sm:w-auto">
+          <Icon name="prompt" class="w-4 h-4 mr-2" />
           Create & Build
         </Button>
       </div>

@@ -611,13 +611,13 @@ export function toOpenaiChunk(chunk: CommonChunk): string {
     const u = chunk.usage
     const usage = u
       ? {
-          input_tokens: u.prompt_tokens,
-          output_tokens: u.completion_tokens,
-          total_tokens: u.total_tokens,
-          ...(u.prompt_tokens_details?.cached_tokens
-            ? { input_tokens_details: { cached_tokens: u.prompt_tokens_details.cached_tokens } }
-            : {}),
-        }
+        input_tokens: u.prompt_tokens,
+        output_tokens: u.completion_tokens,
+        total_tokens: u.total_tokens,
+        ...(u.prompt_tokens_details?.cached_tokens
+          ? { input_tokens_details: { cached_tokens: u.prompt_tokens_details.cached_tokens } }
+          : {}),
+      }
       : undefined
 
     const data: any = {

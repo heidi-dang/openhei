@@ -291,7 +291,7 @@ export function StatusPopover() {
               <div
                 role="dialog"
                 aria-hidden={!tooltipOpen()}
-                class="health-tooltip"
+                class="health-tooltip z-50 text-12-regular text-text-base bg-surface-raised-base px-2 py-1 rounded-md shadow-md max-w-[200px] text-center"
                 onClick={(e) => e.stopPropagation()}
               >
                 {overallIssueReason() ?? language.t("status.popover.trigger")}
