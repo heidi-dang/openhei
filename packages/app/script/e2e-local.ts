@@ -25,7 +25,8 @@ async function freePort() {
 }
 
 async function waitForHealth(url: string) {
-  const timeout = Date.now() + 120_000
+  // Respect CI environment which may need a longer wait
+  const timeout = Date.now() + (process.env.CI ? 240_000 : 120_000)
   const errors: string[] = []
   while (Date.now() < timeout) {
     const result = await fetch(url)
@@ -60,8 +61,8 @@ const keepSandbox = process.env.OPENHEI_E2E_KEEP_SANDBOX === "1"
 const serverEnv = {
   ...process.env,
   OPENHEI_DISABLE_SHARE: process.env.OPENHEI_DISABLE_SHARE ?? "true",
-  OPENHEI_DISABLE_LSP_DOWNLOAD: "true",
-  OPENHEI_DISABLE_DEFAULT_PLUGINS: "true",
+  OPENHEI_DISABLE_LSP_DOWNLOAD: process.env.OPENHEI_DISABLE_LSP_DOWNLOAD ?? "true",
+  OPENHEI_DISABLE_DEFAULT_PLUGINS: process.env.OPENHEI_DISABLE_DEFAULT_PLUGINS ?? "true",
   OPENHEI_EXPERIMENTAL_DISABLE_FILEWATCHER: "true",
   OPENHEI_TEST_HOME: path.join(sandbox, "home"),
   XDG_DATA_HOME: path.join(sandbox, "share"),

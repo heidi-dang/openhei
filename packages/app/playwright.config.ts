@@ -22,10 +22,14 @@ export default defineConfig({
     command,
     url: baseURL,
     reuseExistingServer: reuse,
-    timeout: 120_000,
+    // increase timeout in CI to reduce flakiness when bootstrapping dependencies
+    timeout: process.env.CI ? 240_000 : 120_000,
     env: {
       VITE_OPENHEI_SERVER_HOST: serverHost,
       VITE_OPENHEI_SERVER_PORT: serverPort,
+      // disable plugin/bootstrap steps that attempt to run `bun install` inside temp config
+      OPENHEI_DISABLE_DEFAULT_PLUGINS: process.env.OPENHEI_DISABLE_DEFAULT_PLUGINS ?? "true",
+      OPENHEI_DISABLE_LSP_DOWNLOAD: process.env.OPENHEI_DISABLE_LSP_DOWNLOAD ?? "true",
     },
   },
   use: {

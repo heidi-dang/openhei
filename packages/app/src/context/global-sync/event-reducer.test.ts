@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { Message, Part, PermissionRequest, Project, QuestionRequest, Session } from "@openhei-ai/sdk/v2/client"
 import { createStore } from "solid-js/store"
+import LruSet from "../../lib/lru"
 import type { State } from "./types"
 import { applyDirectoryEvent, applyGlobalEvent } from "./event-reducer"
 
@@ -493,4 +494,116 @@ describe("applyDirectoryEvent", () => {
     expect(pushes).toEqual(["/tmp"])
     expect(lspLoads).toBe(1)
   })
+})
+
+test("message.part.delta dedupe: idempotent duplicate deltas are ignored", () => {
+  const sessionID = "ses_dedupe"
+  const messageID = "msg_dedupe"
+  const partID = "prt_dedupe"
+
+  const [store, setStore] = createStore(
+    baseState({
+      message: { [sessionID]: [userMessage(messageID, sessionID)] },
+      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      appliedDeltas: new LruSet({ capacity: 100, ttlMs: 1000 }),
+    }),
+  )
+
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "A" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+
+  expect(store.part[messageID]?.[0].type).toBe("text")
+  expect(store.part[messageID]?.[0].text).toBe("A")
+
+  // Reapply identical delta; should be ignored due to dedupe
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "A" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+
+  expect(store.part[messageID]?.[0].text).toBe("A")
+})
+
+test("message.part.delta ordering: sequential different deltas apply in order", () => {
+  const sessionID = "ses_order"
+  const messageID = "msg_order"
+  const partID = "prt_order"
+
+  const [store, setStore] = createStore(
+    baseState({
+      message: { [sessionID]: [userMessage(messageID, sessionID)] },
+      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      appliedDeltas: new Set(),
+    }),
+  )
+
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "A" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "B" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+
+  expect(store.part[messageID]?.[0].text).toBe("AB")
+})
+
+test("message.part.delta eviction/TTL: delta can be applied again after expiry", async () => {
+  const sessionID = "ses_ev"
+  const messageID = "msg_ev"
+  const partID = "prt_ev"
+
+  const [store, setStore] = createStore(
+    baseState({
+      message: { [sessionID]: [userMessage(messageID, sessionID)] },
+      part: { [messageID]: [{ ...textPart(partID, sessionID, messageID), text: "" }] },
+      // small capacity and TTL so entries expire quickly
+      appliedDeltas: new LruSet({ capacity: 1, ttlMs: 10 }),
+    }),
+  )
+
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "X" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+
+  expect(store.part[messageID]?.[0].text).toBe("X")
+
+  // wait for TTL to expire
+  await new Promise((r) => setTimeout(r, 30))
+
+  // reapply same delta after expiry; should be accepted again
+  applyDirectoryEvent({
+    event: { type: "message.part.delta", properties: { messageID, partID, field: "text", delta: "X" } },
+    store,
+    setStore,
+    push() {},
+    directory: "/tmp",
+    loadLsp() {},
+  })
+
+  expect(store.part[messageID]?.[0].text).toBe("XX")
 })
