@@ -28,4 +28,5 @@ target
 opencode-dev
 logs/
 *.bun-build
+_doctor/
 tsconfig.tsbuildinfo
