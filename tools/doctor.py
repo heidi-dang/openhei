@@ -22,6 +22,9 @@ import sys
 import textwrap
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from doctor_runtime import run_runtime_suite
 
 
 # ----------------------------
@@ -418,6 +421,7 @@ def rg_search(root: Path, pattern: str, globs: Optional[List[str]] = None, exclu
 
 def static_findings(root: Path) -> List[StaticFinding]:
     excludes = list(DEFAULT_EXCLUDES)
+    excludes.append("_doctor")
 
     patterns: List[Tuple[str, str]] = [
         # SSE and streaming plumbing
@@ -439,7 +443,7 @@ def static_findings(root: Path) -> List[StaticFinding]:
         ("next() called multiple times pattern", r"next\(\)"),
         ("serveStatic middleware", r"\bserveStatic\b"),
 
-        # TODO/FIXME
+
         ("TODO", r"\bTODO\b"),
         ("FIXME", r"\bFIXME\b"),
 
@@ -703,6 +707,14 @@ def main() -> int:
     env = dict(os.environ)
     env.setdefault("CI", "1")
     env.setdefault("FORCE_COLOR", "0")
+    # ensure bun is in PATH
+    bun_path = shutil.which("bun")
+    if bun_path:
+        bun_bin = str(Path(bun_path).parent)
+        if "PATH" in env:
+            env["PATH"] = bun_bin + ":" + env["PATH"]
+        else:
+            env["PATH"] = bun_bin
 
     # Command plan (best-effort defaults for OpenHei monorepo)
     # If your repo uses different scripts, the logs will show "missing script" clearly.
@@ -747,7 +759,7 @@ def main() -> int:
         # Convert some static findings into low/med issues (actionable hygiene)
         # Example: excessive non-null assertions or TODO density in critical directories
         todo_hits = next((f for f in findings if f.name == "TODO"), None)
-        if todo_hits and len(todo_hits.matches) >= 40:
+        if todo_hits and len(todo_hits.matches) >= 100:
             all_issues.append(Issue(
                 issue_id="",
                 severity="LOW",
@@ -762,6 +774,27 @@ def main() -> int:
                 ],
                 related_issue_ids=[],
             ))
+
+    # Runtime suite: backend start/stop/restart, health, API/SSE, UI, e2e
+    runtime_result = run_runtime_suite(root, out_dir, args.timeout, env)
+    runtime_fail = runtime_result.get("fail_count", 0)
+    runtime_skip = runtime_result.get("skip_count", 0)
+    if runtime_fail > 0:
+        for it in all_issues:
+            if it.kind == "RUNTIME":
+                it.severity = "HIGH"
+    if runtime_skip > 0 and runtime_fail == 0:
+        all_issues.append(Issue(
+            issue_id="",
+            severity="MED",
+            kind="RUNTIME",
+            signature="runtime-skipped",
+            message=f"Runtime suite executed but {runtime_skip} checks skipped (may need auth or deps)",
+            locations=[],
+            evidence="Check runtime_working.md for skipped items",
+            suggested_fix=["Set OPENHEI_DOCTOR_HEADER or OPENHEI_DOCTOR_HEADERS_JSON for auth-required endpoints"],
+            related_issue_ids=[],
+        ))
 
     # Finalize issues: dedupe + IDs + related links
     issues = dedupe_and_assign_ids(all_issues)

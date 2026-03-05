@@ -3,18 +3,16 @@
   "globalEnv": ["CI", "OPENHEI_DISABLE_SHARE"],
   "globalPassThroughEnv": ["CI", "OPENHEI_DISABLE_SHARE"],
   "tasks": {
+    "lint": {
+      "outputs": []
+    },
     "typecheck": {},
+    "test": {
+      "dependsOn": ["^build"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
-    },
-    "openhei#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@openhei-ai/app#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
     }
   }
 }

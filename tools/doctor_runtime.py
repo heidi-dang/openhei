@@ -83,8 +83,16 @@ BIDI_CHARS = [
     "\u200E", "\u200F",                                # LRM/RLM
 ]
 
-def _which(cmd: str) -> Optional[str]:
+def _which(cmd: str, env: Dict[str, str] = None) -> Optional[str]:
     from shutil import which
+    if env and "PATH" in env:
+        import os
+        old_path = os.environ.get("PATH")
+        os.environ["PATH"] = env["PATH"]
+        result = which(cmd)
+        if old_path:
+            os.environ["PATH"] = old_path
+        return result
     return which(cmd)
 
 def _run(cmd: List[str], cwd: Path, env: Dict[str, str], timeout_s: int) -> Tuple[int, str]:
@@ -384,7 +392,7 @@ def run_runtime_suite(root: Path, out_dir: Path, timeout_sec: int, base_env: Dic
             [], [f"Set OPENHEI_BACKEND_DIR to correct path (expected packages/openhei)."])
         return _write_reports(root, out_dir, checks)
 
-    if not _which("bun"):
+    if not _which("bun", env):
         add("BACKEND", "start_backend", "FAIL", "HIGH",
             "bun not found in PATH", "", [], ["Install bun and retry."])
         return _write_reports(root, out_dir, checks)
@@ -524,7 +532,7 @@ def run_runtime_suite(root: Path, out_dir: Path, timeout_sec: int, base_env: Dic
     # Start UI dev server + basic reachability
     # -------------------------
     ui_started = False
-    if (ui_dir / "package.json").exists() and _which("bun"):
+    if (ui_dir / "package.json").exists() and _which("bun", env):
         ui_script = env.get("OPENHEI_UI_SCRIPT", "").strip()
         if not ui_script:
             try:
@@ -615,7 +623,7 @@ def run_runtime_suite(root: Path, out_dir: Path, timeout_sec: int, base_env: Dic
         if cand.exists():
             pw_cfg = cand
             break
-    if pw_cfg and _which("bun"):
+    if pw_cfg and _which("bun", env):
         # run existing tests; no brittle custom selectors
         code, out = _run(["bunx", "playwright", "test", "--reporter=line"], cwd=root, env=env, timeout_s=min(900, timeout_sec))
         if code == 0:
