@@ -253,6 +253,7 @@ export default function Page() {
     register: () => {},
     unregister: () => {},
     reset: () => {},
+    handleScroll: () => {},
   } as any
 
   createEffect(
