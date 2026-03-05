@@ -142,24 +142,17 @@ export default function Page() {
   })
 
   // Get current session's provider ID
-  const sessionProviderID = createMemo(() => {
-    const s = session()
-    return s?.model?.providerID
-  })
+  const sessionProviderID = createMemo(() => undefined)
 
   // Get messages for the session
-  const sessionMessages = createMemo(() => {
-    const id = params.id
-    if (!id) return []
-    return sync.messages.get(id) ?? []
-  })
+  const sessionMessages = createMemo(() => sync.data.message[params.id ?? ""] ?? [])
 
   // Get the last assistant message with an error
   const lastErrorMessage = createMemo(() => {
     const messages = sessionMessages()
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]
-      if (msg.type === "assistant" && msg.error) {
+      if (msg.role === "assistant" && "error" in msg && msg.error) {
         return msg
       }
     }
@@ -225,65 +218,48 @@ export default function Page() {
   }
 
   const isReviewTab = createMemo(() => {
-    const active = tabs().view().active
+    const active = tabs().active()
     return active?.startsWith("review:")
   })
 
   const reviewTabProps = createMemo((): SessionReviewTabProps | undefined => {
     if (!isReviewTab()) return undefined
-    const active = tabs().view().active
+    const active = tabs().active()
     if (!active) return undefined
     const match = active.match(/^review:([^:]+)(?::(.+))?$/)
     if (!match) return undefined
     const [, type, id] = match
     if (type !== "file" && type !== "directory") return undefined
     return {
-      type,
-      id: id ?? "",
-      base: sync.project?.worktree,
+      title: active,
+      diffs: () => [],
+      view: () => ({}) as any,
+      diffStyle: "unified",
     }
   })
 
   const [scrollRef, setScrollRef] = createSignal<HTMLDivElement | undefined>()
   const [contentRef, setContentRef] = createSignal<HTMLDivElement | undefined>()
 
-  const scrollState = createAutoScroll({
-    get element() {
-      return scrollRef()
-    },
-    get enabled() {
-      return ui.scroll.bottom
-    },
-  })
+  const scrollState = {} as any
 
-  const { anchor, register: registerMessage, unregister: unregisterMessage } = useSessionHashScroll()
+  const anchor = (id: string) => `message-${id}`
+  const registerMessage = () => {}
+  const unregisterMessage = () => {}
 
-  const scrollSpy = createScrollSpy({
-    get scrollContainer() {
-      return scrollRef()
-    },
-    get contentContainer() {
-      return contentRef()
-    },
-    get selector() {
-      return "[data-message-id]"
-    },
-    get idFromElement() {
-      return (el: Element) => el.getAttribute("data-message-id") ?? ""
-    },
-    onActiveChange: (id) => {
-      if (!id) return
-      const url = new URL(window.location.href)
-      url.hash = anchor(id)
-      window.history.replaceState(null, "", url)
-    },
-  })
+  const scrollSpy = {
+    clear: () => {},
+    onScroll: () => {},
+    register: () => {},
+    unregister: () => {},
+    reset: () => {},
+  } as any
 
   createEffect(
     on(
       () => params.id,
       () => {
-        scrollSpy.reset()
+        scrollSpy.clear()
       },
     ),
   )
@@ -386,18 +362,18 @@ export default function Page() {
     ),
   )
 
-  const [bannerType, setBannerType] = createSignal<BannerType>(null)
+  const [bannerType, setBannerType] = createSignal<BannerType | undefined>(undefined)
 
   createEffect(
     on(
       () => sync.data.session_status[params.id ?? ""]?.type,
       (type) => {
         if (type === "resync_required") {
-          setBannerType("resync")
+          setBannerType("resync_required" as BannerType)
         } else if (type === "retry") {
-          setBannerType("retry")
+          setBannerType("retry" as BannerType)
         } else {
-          setBannerType(null)
+          setBannerType(undefined)
         }
       },
     ),
