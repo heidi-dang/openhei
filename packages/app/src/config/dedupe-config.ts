@@ -10,25 +10,7 @@ export type DedupeConfig = {
   persistKey?: string
 }
 
-function readOverrides(): Partial<DedupeConfig> | undefined {
-  try {
-    if (typeof window === "undefined") return undefined
-    // Optional global override for local development or e2e tests.
-    const w = window as any
-    const raw = w.__OPENHEI_DEDUPE
-    if (!raw) return undefined
-    return {
-      capacity: typeof raw.capacity === "number" ? raw.capacity : undefined,
-      ttlMs: typeof raw.ttlMs === "number" ? raw.ttlMs : undefined,
-      persist: typeof raw.persist === "boolean" ? raw.persist : undefined,
-      persistKey: typeof raw.persistKey === "string" ? raw.persistKey : undefined,
-    }
-  } catch (e) {
-    return undefined
-  }
-}
-
-const overrides = readOverrides()
+const overrides: Partial<DedupeConfig> = {}
 
 export const DEDUPE_CAPACITY = overrides?.capacity ?? DEFAULT_CAPACITY
 export const DEDUPE_TTL_MS = overrides?.ttlMs ?? DEFAULT_TTL_MS

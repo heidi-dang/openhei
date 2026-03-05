@@ -220,12 +220,20 @@ export const { use: useGlobalSDK, provider: GlobalSDKProvider } = createSimpleCo
               const i = coalesced.get(k)
               if (i !== undefined) {
                 const prev = queue[i]
-                if (prev?.payload.type === "message.part.delta" && payload.type === "message.part.delta") {
-                  const a = prev.payload.properties
-                  const b = payload.properties
-                  if (a.delta === b.delta) {
-                    continue
-                  }
+  if (prev?.payload.type === "message.part.delta" && payload.type === "message.part.delta") {
+    const a = prev.payload.properties
+    const b = payload.properties
+    if (a.delta === b.delta) {
+      continue
+    }
+    prev.payload = {
+      ...prev.payload,
+      properties: {
+        ...a,
+        delta: `${a.delta}${b.delta}`,
+      },
+    }
+  }
                   continue
                 }
                 coalesced.set(k, queue.length)

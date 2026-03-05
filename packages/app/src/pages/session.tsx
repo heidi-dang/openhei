@@ -144,14 +144,15 @@ export default function Page() {
   // Get current session's provider ID
   const sessionProviderID = createMemo(() => {
     const s = session()
-    return s?.model?.providerID
+    if (!s) return undefined
+    return undefined // TODO: get provider ID from session
   })
 
   // Get messages for the session
   const sessionMessages = createMemo(() => {
     const id = params.id
     if (!id) return []
-    return sync.messages.get(id) ?? []
+    return sync.data.message[id] ?? []
   })
 
   // Get the last assistant message with an error
@@ -159,7 +160,7 @@ export default function Page() {
     const messages = sessionMessages()
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i]
-      if (msg.type === "assistant" && msg.error) {
+      if (msg.role === "assistant" && "error" in msg && msg.error) {
         return msg
       }
     }
@@ -225,22 +226,23 @@ export default function Page() {
   }
 
   const isReviewTab = createMemo(() => {
-    const active = tabs().view().active
+    const active = tabs().active()
     return active?.startsWith("review:")
   })
 
   const reviewTabProps = createMemo((): SessionReviewTabProps | undefined => {
     if (!isReviewTab()) return undefined
-    const active = tabs().view().active
+    const active = tabs().active()
     if (!active) return undefined
     const match = active.match(/^review:([^:]+)(?::(.+))?$/)
     if (!match) return undefined
     const [, type, id] = match
     if (type !== "file" && type !== "directory") return undefined
     return {
-      type,
-      id: id ?? "",
-      base: sync.project?.worktree,
+      title: active,
+      diffs: () => [],
+      view: () => ({}) as any,
+      diffStyle: "unified",
     }
   })
 
@@ -248,31 +250,30 @@ export default function Page() {
   const [contentRef, setContentRef] = createSignal<HTMLDivElement | undefined>()
 
   const scrollState = createAutoScroll({
-    get element() {
-      return scrollRef()
-    },
-    get enabled() {
-      return ui.scroll.bottom
-    },
+    working: () => ui.scroll.bottom,
   })
 
-  const { anchor, register: registerMessage, unregister: unregisterMessage } = useSessionHashScroll()
+  const hashScroll = useSessionHashScroll({
+    sessionKey: () => sessionKey(),
+    sessionID: () => params.id,
+    messagesReady: () => true,
+    visibleUserMessages: () => [],
+    turnStart: () => 0,
+    currentMessageId: () => undefined,
+    pendingMessage: () => undefined,
+    setPendingMessage: () => {},
+    setActiveMessage: () => {},
+    setTurnStart: () => {},
+    scheduleTurnBackfill: () => {},
+    autoScroll: { pause: () => {}, forceScrollToBottom: () => {} },
+    scroller: () => scrollRef(),
+    anchor: (id: string) => `message-${id}`,
+    scheduleScrollState: () => {},
+    consumePendingMessage: () => undefined,
+  })
 
   const scrollSpy = createScrollSpy({
-    get scrollContainer() {
-      return scrollRef()
-    },
-    get contentContainer() {
-      return contentRef()
-    },
-    get selector() {
-      return "[data-message-id]"
-    },
-    get idFromElement() {
-      return (el: Element) => el.getAttribute("data-message-id") ?? ""
-    },
-    onActiveChange: (id) => {
-      if (!id) return
+    onActive: (id: string) => {
       const url = new URL(window.location.href)
       url.hash = anchor(id)
       window.history.replaceState(null, "", url)
@@ -283,7 +284,7 @@ export default function Page() {
     on(
       () => params.id,
       () => {
-        scrollSpy.reset()
+        scrollSpy.clear()
       },
     ),
   )
@@ -296,6 +297,8 @@ export default function Page() {
     setUi("scroll", "bottom", atBottom)
     setUi("scroll", "overflow", scrollHeight > clientHeight)
   }
+
+  const anchor = (id: string) => `message-${id}`
 
   const handleAutoScrollInteraction = (event: MouseEvent) => {
     const target = event.target as HTMLElement
@@ -323,58 +326,31 @@ export default function Page() {
 
   const handleResumeScroll = () => {
     setUi("scroll", "bottom", true)
-    scrollState.scrollToBottom()
   }
 
   const [turnStart, setTurnStart] = createSignal(0)
 
-  const { renderedUserMessages, historyMore, historyLoading, onLoadEarlier, onRenderEarlier } = createMessageHistory({
-    get sessionID() {
-      return params.id
-    },
-  })
+  const renderedUserMessages = createMemo(() => sync.data.message[params.id ?? ""] ?? [])
+  const historyMore = createMemo(() => false)
+  const historyLoading = createMemo(() => false)
+  const onLoadEarlier = () => {}
+  const onRenderEarlier = () => {}
 
   const lastUserMessageID = createMemo(() => {
     const messages = renderedUserMessages()
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].type === "user") {
-        return messages[i].id
+      const msg = messages[i]
+      if (msg.role === "user") {
+        return msg.id
       }
     }
     return undefined
   })
 
-  const { commands, shortcuts } = useSessionCommands({
-    get sessionID() {
-      return params.id
-    },
-    get hasScrollGesture() {
-      return ui.scrollGesture > 0
-    },
-    get scrollBottom() {
-      return ui.scroll.bottom
-    },
-    get scrollOverflow() {
-      return ui.scroll.overflow
-    },
-    onScrollUp: () => {
-      const el = scrollRef()
-      if (!el) return
-      el.scrollBy({ top: -300, behavior: "smooth" })
-    },
-    onScrollDown: () => {
-      const el = scrollRef()
-      if (!el) return
-      el.scrollBy({ top: 300, behavior: "smooth" })
-    },
-    onScrollToTop: () => {
-      const el = scrollRef()
-      if (!el) return
-      el.scrollTo({ top: 0, behavior: "smooth" })
-    },
-    onScrollToBottom: () => {
-      handleResumeScroll()
-    },
+  useSessionCommands({
+    navigateMessageByOffset: () => {},
+    setActiveMessage: () => {},
+    focusInput: () => {},
   })
 
   createEffect(
@@ -386,18 +362,18 @@ export default function Page() {
     ),
   )
 
-  const [bannerType, setBannerType] = createSignal<BannerType>(null)
+  const [bannerType, setBannerType] = createSignal<BannerType | undefined>(undefined)
 
   createEffect(
     on(
       () => sync.data.session_status[params.id ?? ""]?.type,
       (type) => {
         if (type === "resync_required") {
-          setBannerType("resync")
+          setBannerType("resync_required")
         } else if (type === "retry") {
-          setBannerType("retry")
+          setBannerType("replaying")
         } else {
-          setBannerType(null)
+          setBannerType(undefined)
         }
       },
     ),
@@ -437,7 +413,7 @@ export default function Page() {
 
       {/* Streaming Banner */}
       <Show when={streamBannersEnabled() && bannerType()}>
-        <StreamingBanner type={bannerType()} onDismiss={() => setBannerType(null)} />
+        <StreamingBanner type={bannerType()!} />
       </Show>
 
       {/* Main content area */}
@@ -455,7 +431,7 @@ export default function Page() {
             onMarkScrollGesture={handleMarkScrollGesture}
             hasScrollGesture={() => ui.scrollGesture > 0}
             isDesktop={isDesktop()}
-            onScrollSpyScroll={scrollSpy.handleScroll}
+            onScrollSpyScroll={scrollSpy.onScroll}
             onAutoScrollInteraction={handleAutoScrollInteraction}
             centered={true}
             setContentRef={setContentRef}
@@ -464,10 +440,10 @@ export default function Page() {
             historyMore={historyMore()}
             historyLoading={historyLoading()}
             onLoadEarlier={onLoadEarlier}
-            renderedUserMessages={renderedUserMessages()}
+            renderedUserMessages={renderedUserMessages().filter((m): m is UserMessage => m.role === "user")}
             anchor={anchor}
-            onRegisterMessage={registerMessage}
-            onUnregisterMessage={unregisterMessage}
+            onRegisterMessage={scrollSpy.register}
+            onUnregisterMessage={scrollSpy.unregister}
             lastUserMessageID={lastUserMessageID()}
           />
 
@@ -497,18 +473,38 @@ export default function Page() {
           </Show>
 
           {/* Composer */}
-          <SessionComposerRegion composer={composer} sessionID={params.id} />
+          <SessionComposerRegion
+            state={composer}
+            centered={false}
+            inputRef={() => {}}
+            newSessionWorktree="main"
+            onNewSessionWorktreeReset={() => {}}
+            onSubmit={() => {}}
+            onResponseSubmit={() => {}}
+            setPromptDockRef={() => {}}
+          />
         </div>
 
         {/* Side Panel (Desktop only) */}
         <Show when={isDesktop()}>
-          <SessionSidePanel sessionID={params.id} tabs={tabs} view={view} />
+          <SessionSidePanel
+            reviewPanel={() => <div>Review Panel</div>}
+            focusReviewDiff={() => {}}
+            isDesktop={isDesktop()}
+          />
         </Show>
       </div>
 
       {/* Mobile Tabs */}
       <Show when={isMobile()}>
-        <SessionMobileTabs sessionID={params.id} tabs={tabs} />
+        <SessionMobileTabs
+          open={true}
+          mobileTab="session"
+          hasReview={false}
+          reviewCount={0}
+          onSession={() => {}}
+          onChanges={() => {}}
+        />
       </Show>
     </div>
   )

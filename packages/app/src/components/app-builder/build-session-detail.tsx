@@ -530,7 +530,11 @@ export function BuildSessionDetail(props: BuildSessionDetailProps) {
                     <span class="text-sm text-text-weak truncate">{url()}</span>
                   </div>
                   <Button variant="ghost" size="small" asChild class="w-full sm:w-auto">
-                    <a href={url()} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={url().startsWith("http") ? url() : "about:blank"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Icon name="square-arrow-top-right" class="w-4 h-4 mr-2" />
                       Open in New Tab
                     </a>
