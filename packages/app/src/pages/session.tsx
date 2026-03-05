@@ -444,18 +444,34 @@ export default function Page() {
           </Show>
 
           {/* Composer */}
-          <SessionComposerRegion {...({} as any)} />
+          <SessionComposerRegion
+            state={composer}
+            centered={true}
+            inputRef={() => {}}
+            newSessionWorktree="main"
+            onNewSessionWorktreeReset={() => {}}
+            onSubmit={() => {}}
+            onResponseSubmit={() => {}}
+            setPromptDockRef={() => {}}
+          />
         </div>
 
         {/* Side Panel (Desktop only) */}
         <Show when={isDesktop()}>
-          <SessionSidePanel {...({} as any)} />
+          <SessionSidePanel reviewPanel={() => <div />} focusReviewDiff={() => {}} isDesktop={isDesktop()} />
         </Show>
       </div>
 
       {/* Mobile Tabs */}
       <Show when={isMobile()}>
-        <SessionMobileTabs {...({} as any)} />
+        <SessionMobileTabs
+          open={true}
+          mobileTab="session"
+          hasReview={false}
+          reviewCount={0}
+          onSession={() => {}}
+          onChanges={() => {}}
+        />
       </Show>
     </div>
   )
