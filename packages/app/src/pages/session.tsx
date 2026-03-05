@@ -109,15 +109,13 @@ export default function Page() {
         layout.handoff.clearTabs()
         if (pending.dir !== (params.dir ?? "")) return
 
-        const from = workspaceTabs().tabs()
-        if (from.all.length === 0 && !from.active) return
+        const from = workspaceTabs()
+        if (from.all().length === 0 && !from.active()) return
 
-        const current = tabs().tabs()
-        if (current.all.length > 0 || current.active) return
+        const current = tabs()
+        if (current.all().length > 0 || current.active()) return
 
-        const all = normalizeTabs(from.all)
-
-        layout.setTabs(sessionKey(), all, from.active ?? all[0]?.id)
+        tabs().setAll(from.all())
       },
     ),
   )
@@ -182,7 +180,7 @@ export default function Page() {
     // Clear the provider status and retry the last message
     // This will be handled by the session processor
     showToast({
-      variant: "info",
+      variant: "default",
       title: language.t("provider.retry.title"),
       description: language.t("provider.retry.description"),
     })

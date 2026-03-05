@@ -2,11 +2,11 @@ import { createSignal, Show, createMemo } from "solid-js"
 import { Icon } from "@openhei-ai/ui/icon"
 import { Button } from "@openhei-ai/ui/button"
 import { useLanguage } from "@/context/language"
-import type { MessageV2 } from "@openhei-ai/sdk/v2"
+import type { AssistantMessage } from "@openhei-ai/sdk/v2"
 
 export interface ProviderErrorCardProps {
   id: string
-  error: MessageV2.Error
+  error: AssistantMessage["error"]
   onRetry?: () => void
   onDismiss?: () => void
 }
@@ -77,7 +77,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
     return {
       type: "unknown" as const,
       title: language.t("error.unknown"),
-      message: error.message || language.t("error.unknownError"),
+      message: (error.data as { message?: string })?.message || language.t("error.unknownError"),
       retryable: false,
       details: JSON.stringify(error, null, 2),
     }
@@ -224,9 +224,7 @@ export function ProviderErrorCard(props: ProviderErrorCardProps) {
               onClick={() => setExpanded(!expanded())}
             >
               <Icon name={expanded() ? "chevron-down" : "chevron-right"} size="small" />
-              {expanded()
-                ? language.t("common.hideDetails")
-                : language.t("common.showDetails")}
+              {expanded() ? language.t("common.hideDetails") : language.t("common.showDetails")}
             </button>
             <Show when={expanded()}>
               <div class="mt-2 relative">
