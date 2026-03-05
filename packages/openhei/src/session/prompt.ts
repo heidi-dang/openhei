@@ -793,7 +793,7 @@ export namespace SessionPrompt {
           }
         }
 
-        if (result === "stop") {
+        if (result === "blocked") {
           // Detect agent mentions in assistant response to allow agent-to-agent talk
           const assistantParts = await MessageV2.parts(processor.message.id)
           const mentionPart = assistantParts.find((p) => p.type === "text" && !p.synthetic && /@(\w+)/.test(p.text))
@@ -827,7 +827,7 @@ export namespace SessionPrompt {
           }
           break
         }
-        if (result === "compact") {
+        if (result !== "blocked") {
           await SessionCompaction.create({
             sessionID,
             agent: lastUser.agent,

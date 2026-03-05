@@ -349,10 +349,10 @@ export namespace SessionProcessor {
               error: e,
               stack: JSON.stringify(e.stack),
             })
-            
+
             // Convert error to standardized format and set provider status
             const standardizedError = ProviderError.standardize(input.model.providerID, e)
-            
+
             // Set provider status based on error severity
             if (standardizedError.severity === "critical" || standardizedError.severity === "error") {
               SessionStatus.setProviderError(input.sessionID, {
@@ -365,13 +365,16 @@ export namespace SessionProcessor {
               })
             } else if (standardizedError.severity === "warning") {
               SessionStatus.setProviderWarning(input.sessionID, {
-                code: standardizedError.code as Exclude<SessionStatus.ProviderErrorCode, "AUTH_FAILED" | "QUOTA_EXCEEDED" | "CONTEXT_OVERFLOW">,
+                code: standardizedError.code as Exclude<
+                  SessionStatus.ProviderErrorCode,
+                  "AUTH_FAILED" | "QUOTA_EXCEEDED" | "CONTEXT_OVERFLOW"
+                >,
                 message: standardizedError.message,
                 details: standardizedError.details,
                 providerID: input.model.providerID,
               })
             }
-            
+
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             if (MessageV2.ContextOverflowError.isInstance(error)) {
               needsCompaction = true
@@ -381,18 +384,15 @@ export namespace SessionProcessor {
               if (retry !== undefined) {
                 attempt++
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-                
+
                 // Update provider status with retry information
                 const currentStatus = SessionStatus.get(input.sessionID)
                 if (currentStatus.type === "provider_error" || currentStatus.type === "provider_warning") {
-                  SessionStatus.setProviderError(input.sessionID, {
-                    severity: "warning",
+                  SessionStatus.setProviderWarning(input.sessionID, {
                     code: "RATE_LIMITED",
                     message: retry,
+                    details: `Attempt ${attempt}, next in ${Math.round(delay / 1000)}s`,
                     providerID: input.model.providerID,
-                    retryable: true,
-                    retryAttempt: attempt,
-                    nextRetryAt: Date.now() + delay,
                   })
                 } else {
                   SessionStatus.set(input.sessionID, {
@@ -402,7 +402,7 @@ export namespace SessionProcessor {
                     next: Date.now() + delay,
                   })
                 }
-                
+
                 await SessionRetry.sleep(delay, input.abort).catch(() => {})
                 continue
               }
@@ -429,10 +429,12 @@ export namespace SessionProcessor {
             snapshot = undefined
           }
           if (needsCompaction) {
-            await SessionCompaction.compact({
+            await SessionCompaction.process({
               sessionID: input.sessionID,
-              messageID: input.assistantMessage.parentID,
-              model: input.model,
+              messages: [], // TODO: pass actual messages
+              parentID: input.assistantMessage.parentID,
+              abort: new AbortController().signal,
+              auto: true,
             })
           }
           break

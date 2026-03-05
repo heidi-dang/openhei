@@ -199,7 +199,7 @@ When constructing the summary, try to stick to this template:
       model,
     })
 
-    if (result === "continue" && input.auto) {
+    if (result !== "blocked" && input.auto) {
       const continueMsg = await Session.updateMessage({
         id: Identifier.ascending("message"),
         role: "user",
