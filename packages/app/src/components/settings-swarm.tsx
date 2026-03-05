@@ -42,14 +42,7 @@ export const SettingsSwarm: Component = () => {
   const [configLoaded, setConfigLoaded] = createSignal(false)
 
   // Memoized model options to prevent unnecessary recalculations
-  const modelOptions = createMemo(() => {
-    const list = models.list()
-    if (!list || list.length === 0) return []
-    return list.map((m) => ({
-      value: `${m.provider.id}/${m.id}`,
-      label: `${m.provider.name}/${m.name}`,
-    }))
-  })
+  const modelOptions = createMemo(() => models.list().map((m) => `${m.provider.id}/${m.id}`))
 
   // Check if models are available
   const hasModels = createMemo(() => modelOptions().length > 0)
@@ -131,12 +124,10 @@ export const SettingsSwarm: Component = () => {
                     }
                   >
                     <Select
-                      current={modelOptions().find((o) => o.value === subagent1Model())}
-                      onSelect={(v) => setSubagent1Model(v?.value ?? "")}
+                      value={subagent1Model()}
+                      onChange={setSubagent1Model}
                       options={modelOptions()}
-                      value={(x) => x.value}
-                      label={(x) => x.label}
-                      placeholder={language.t("settings.swarm.select.model" as any)}
+                      placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
                   </Show>
@@ -156,12 +147,10 @@ export const SettingsSwarm: Component = () => {
                     }
                   >
                     <Select
-                      current={modelOptions().find((o) => o.value === subagent2Model())}
-                      onSelect={(v) => setSubagent2Model(v?.value ?? "")}
+                      value={subagent2Model()}
+                      onChange={setSubagent2Model}
                       options={modelOptions()}
-                      value={(x) => x.value}
-                      label={(x) => x.label}
-                      placeholder={language.t("settings.swarm.select.model" as any)}
+                      placeholder={language.t("settings.swarm.select.model")}
                       disabled={!hasModels()}
                     />
                   </Show>

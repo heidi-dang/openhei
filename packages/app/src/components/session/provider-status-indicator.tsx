@@ -99,12 +99,12 @@ export function ProviderStatusIndicator(props: ProviderStatusIndicatorProps) {
       case "retrying":
         return "refresh-cw"
       case "busy":
-        return "loader-2"
+        return "server"
       case "status":
         return "info"
       case "idle":
       default:
-        return "check-circle-2"
+        return "circle-check"
     }
   })
 

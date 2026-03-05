@@ -70,6 +70,7 @@ export interface Settings {
     "ui.draft_persist": boolean
     "ui.composer_palette": boolean
     "ui.density_modes": boolean
+    "ui.provider_status": boolean
   }
   notifications: NotificationSettings
   sounds: SoundSettings
@@ -114,6 +115,7 @@ const defaultSettings: Settings = {
     "ui.draft_persist": false,
     "ui.composer_palette": false,
     "ui.density_modes": false,
+    "ui.provider_status": true,
   },
   notifications: {
     agent: true,
