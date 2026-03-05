@@ -827,7 +827,7 @@ export namespace SessionPrompt {
           }
           break
         }
-        if (result !== "blocked") {
+        if ((result as string) !== "blocked") {
           await SessionCompaction.create({
             sessionID,
             agent: lastUser.agent,

@@ -123,13 +123,7 @@ export namespace SessionStatus {
       }),
       z.object({
         type: z.literal("provider_warning"),
-        code: z.enum([
-          "RATE_LIMITED",
-          "NETWORK_ERROR",
-          "TIMEOUT",
-          "PROVIDER_OVERLOADED",
-          "MODEL_UNAVAILABLE",
-        ]),
+        code: z.enum(["RATE_LIMITED", "NETWORK_ERROR", "TIMEOUT", "PROVIDER_OVERLOADED", "MODEL_UNAVAILABLE"]),
         message: z.string(),
         details: z.string().optional(),
         providerID: z.string(),
@@ -138,13 +132,7 @@ export namespace SessionStatus {
       z.object({
         type: z.literal("provider_status"),
         severity: z.enum(["info", "warning"]),
-        code: z.enum([
-          "RATE_LIMITED",
-          "NETWORK_ERROR",
-          "TIMEOUT",
-          "PROVIDER_OVERLOADED",
-          "MODEL_UNAVAILABLE",
-        ]),
+        code: z.enum(["RATE_LIMITED", "NETWORK_ERROR", "TIMEOUT", "PROVIDER_OVERLOADED", "MODEL_UNAVAILABLE"]),
         message: z.string(),
         details: z.string().optional(),
         providerID: z.string(),
@@ -277,7 +265,17 @@ export namespace SessionStatus {
   export function setProviderWarning(
     sessionID: string,
     params: {
-      code: Exclude<ProviderErrorCode, "AUTH_FAILED" | "QUOTA_EXCEEDED" | "CONTEXT_OVERFLOW">
+      code: Exclude<
+        ProviderErrorCode,
+        | "AUTH_FAILED"
+        | "QUOTA_EXCEEDED"
+        | "CONTEXT_OVERFLOW"
+        | "BILLING_ERROR"
+        | "INVALID_REQUEST"
+        | "SERVER_ERROR"
+        | "UNKNOWN_ERROR"
+        | "TOOL_NOT_SUPPORTED"
+      >
       message: string
       details?: string
       providerID: string
@@ -305,7 +303,10 @@ export namespace SessionStatus {
   /**
    * Clear provider status (set back to idle or retry)
    */
-  export function clearProviderStatus(sessionID: string, newStatus?: Exclude<Info, { type: "provider_error" | "provider_warning" | "provider_status" }>) {
+  export function clearProviderStatus(
+    sessionID: string,
+    newStatus?: Exclude<Info, { type: "provider_error" | "provider_warning" | "provider_status" }>,
+  ) {
     if (newStatus) {
       set(sessionID, newStatus)
     } else {

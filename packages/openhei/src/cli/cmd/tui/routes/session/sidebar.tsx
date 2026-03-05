@@ -183,7 +183,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               <Show when={sync.data.lsp.length <= 2 || expanded.lsp}>
                 <Show when={sync.data.lsp.length === 0}>
                   <text fg={theme.textMuted}>
-                    {sync.data.config.lsp === false
+                    {(sync.data.config.lsp as any) === false
                       ? "LSPs have been disabled in settings"
                       : "LSPs will activate as files are read"}
                   </text>

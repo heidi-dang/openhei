@@ -367,7 +367,14 @@ export namespace SessionProcessor {
               SessionStatus.setProviderWarning(input.sessionID, {
                 code: standardizedError.code as Exclude<
                   SessionStatus.ProviderErrorCode,
-                  "AUTH_FAILED" | "QUOTA_EXCEEDED" | "CONTEXT_OVERFLOW"
+                  | "AUTH_FAILED"
+                  | "QUOTA_EXCEEDED"
+                  | "CONTEXT_OVERFLOW"
+                  | "BILLING_ERROR"
+                  | "INVALID_REQUEST"
+                  | "SERVER_ERROR"
+                  | "UNKNOWN_ERROR"
+                  | "TOOL_NOT_SUPPORTED"
                 >,
                 message: standardizedError.message,
                 details: standardizedError.details,
